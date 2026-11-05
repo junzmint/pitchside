@@ -228,7 +228,7 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
 - **Loans in and out**, and AI clubs bidding for your players (now and then, more often for a player you list for sale, and one or two late offers on Deadline Day).
 - **Extra time and penalty shoot-outs** in knockout ties, simulated kick by kick (shoot-out scores are shown with the result).
 - **Explore**:
-  - scouting missions to 14 regions that uncover hidden gems (revealing their development class);
+  - scouting missions to 14 regions that uncover hidden gems (revealing their development class). A trip watches a few of the region's clubs (more for a better scout), and every report draws its grade first: Diamond about 2–6%, Epic about 11–20%, Rare 45%, the rest Common, a little higher for a better scout or one with a scout's eye. Scouting a region again and again does not make the top grades common;
   - 49 achievements with rewards and wearable titles;
   - a trophy room with the story of every final, records and a hall of fame;
   - your manager reputation ladder;

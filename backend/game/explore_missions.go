@@ -337,6 +337,151 @@ func shownFeed(c *Career, yours map[int]bool) []FeedItem {
 }
 
 // resolveMission: the scout's reports.
+// A trip watches a handful of the region's clubs, not all of them (a better scout gets round more):
+// MissionClubs, plus one per MissionClubsPer points of skill and one for a scout's eye.
+const (
+	MissionClubs    = 3
+	MissionClubsPer = 5
+)
+
+func missionClubs(skill int, eye bool) int {
+	k := MissionClubs + skill/MissionClubsPer
+	if eye {
+		k++
+	}
+	return k
+}
+
+// Every report's grade is drawn first, then he names the player he rates highest of that grade (by the
+// trip's focus): Diamond and Epic stay special however often a region is scouted (taking the region's best
+// every time made nearly every report Rare or better). A better scout, and a scout's eye, draw a little higher.
+const GradeRare = 0.45 // share of Rare reports; Common takes what is left
+
+func gradeOdds(skill int, eye bool) (diamond, epic float64) {
+	diamond = 0.02 + 0.0015*float64(skill)
+	epic = 0.08 + 0.005*float64(skill)
+	if eye {
+		diamond, epic = diamond+0.01, epic+0.02
+	}
+	return diamond, epic
+}
+
+// gradeOrder: the grades tried for a drawn grade: that one, then lower ones, then higher (the clubs he
+// watched may have nobody of the grade drawn).
+var gradeOrder = map[string][]string{
+	"legendary": {"legendary", "epic", "rare", "common"},
+	"epic":      {"epic", "rare", "common", "legendary"},
+	"rare":      {"rare", "common", "epic", "legendary"},
+	"common":    {"common", "rare", "epic", "legendary"},
+}
+
+type findCand struct {
+	p      *Player
+	ask    int64
+	seen   float64
+	real   float64
+	rarity string
+}
+
+// selectFinds: what a trip brings back from a region's players. He watches `clubs` of the region's clubs (0 =
+// every one); each report draws its grade (gradeOdds) and names the player of that grade he rates highest
+// (his judgement is as good as his skill); now and then he also stumbles on the region's real hidden gem,
+// wherever he plays. picked[n:] is that gem.
+func selectFinds(r *rand.Rand, ps []*Player, known map[int]bool, season, skill int, eye bool, focus string, clubs int) (picked []findCand, n int) {
+	var ids []int
+	have := map[int]bool{}
+	for _, p := range ps {
+		if p.ClubID != nil && !have[*p.ClubID] {
+			have[*p.ClubID] = true
+			ids = append(ids, *p.ClubID)
+		}
+	}
+	sort.Ints(ids) // (the order of the rows must not decide which clubs he visits)
+	r.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] })
+	watch := map[int]bool{}
+	for i, id := range ids {
+		if clubs <= 0 || i < clubs {
+			watch[id] = true
+		}
+	}
+	sd := math.Max(2.5, 16-float64(skill)*0.65)
+	if eye {
+		sd *= 0.6
+	}
+	var cs, rest []findCand
+	for _, p := range ps {
+		if known[p.ID] {
+			continue
+		}
+		ask := askingPrice(p, season)
+		real := gemScore(p, ask, focus)
+		rar, _ := findRarity(p, ask)
+		c := findCand{p, ask, real + r.NormFloat64()*sd, real, rar}
+		if p.ClubID != nil && watch[*p.ClubID] {
+			cs = append(cs, c)
+		} else {
+			rest = append(rest, c)
+		}
+	}
+	sort.Slice(cs, func(i, j int) bool { return cs[i].seen > cs[j].seen })
+	n = 2 + skill/7
+	if eye {
+		n++
+	}
+	n = min(n, 5, len(cs))
+	diamond, epic := gradeOdds(skill, eye)
+	taken := make([]bool, len(cs))
+	for len(picked) < n {
+		grade := "common"
+		switch x := r.Float64(); {
+		case x < diamond:
+			grade = "legendary"
+		case x < diamond+epic:
+			grade = "epic"
+		case x < diamond+epic+GradeRare:
+			grade = "rare"
+		}
+		found := -1
+		for _, g := range gradeOrder[grade] {
+			for i := range cs { // cs is sorted: the first free one of a grade is the one he rates highest
+				if !taken[i] && cs[i].rarity == g {
+					found = i
+					break
+				}
+			}
+			if found >= 0 {
+				break
+			}
+		}
+		if found < 0 {
+			break
+		}
+		taken[found] = true
+		picked = append(picked, cs[found])
+	}
+	n = len(picked)
+	// now and then he stumbles on the region's real hidden gem
+	if r.Float64() < 0.05+float64(skill)*0.004+map[bool]float64{true: 0.05}[eye] {
+		var pool []findCand
+		for i := range cs {
+			if !taken[i] {
+				pool = append(pool, cs[i])
+			}
+		}
+		pool = append(pool, rest...)
+		best := -1
+		for i := range pool {
+			if devClass(pool[i].p) == "wonder" && (best < 0 || pool[i].real > pool[best].real) {
+				best = i
+			}
+		}
+		if best >= 0 {
+			picked = append(picked, pool[best])
+		}
+	}
+	return picked, n
+}
+
 func (w *world) resolveMission(ctx context.Context, q DBTX, r *rand.Rand, m *Mission) error {
 	x := &w.career.Explore
 	ps, err := w.regionPlayers(ctx, q, m.Region, m.Pos)
@@ -347,44 +492,7 @@ func (w *world) resolveMission(ctx context.Context, q DBTX, r *rand.Rand, m *Mis
 	for _, f := range x.Finds {
 		known[f.PlayerID] = true
 	}
-	sd := math.Max(2.5, 16-float64(m.Skill)*0.65)
-	if m.Eye {
-		sd *= 0.6
-	}
-	type cand struct {
-		p    *Player
-		ask  int64
-		seen float64
-		real float64
-	}
-	var cs []cand
-	for _, p := range ps {
-		if known[p.ID] {
-			continue
-		}
-		ask := askingPrice(p, w.career.Season)
-		real := gemScore(p, ask, m.Focus)
-		cs = append(cs, cand{p, ask, real + r.NormFloat64()*sd, real})
-	}
-	sort.Slice(cs, func(i, j int) bool { return cs[i].seen > cs[j].seen })
-	n := 2 + m.Skill/7
-	if m.Eye {
-		n++
-	}
-	n = min(n, 5, len(cs))
-	picked := cs[:n]
-	// now and then he stumbles on the region's real hidden gem
-	if len(cs) > n && r.Float64() < 0.05+float64(m.Skill)*0.004+map[bool]float64{true: 0.05}[m.Eye] {
-		best := -1
-		for i := n; i < len(cs); i++ {
-			if devClass(cs[i].p) == "wonder" && (best < 0 || cs[i].real > cs[best].real) {
-				best = i
-			}
-		}
-		if best >= 0 {
-			picked = append(picked, cs[best])
-		}
-	}
+	picked, n := selectFinds(r, ps, known, w.career.Season, m.Skill, m.Eye, m.Focus, missionClubs(m.Skill, m.Eye))
 	var fs []Find
 	for i, c := range picked {
 		f := w.makeFind(c.p, c.ask, m.Region, m.ID)
