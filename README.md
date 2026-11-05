@@ -122,6 +122,7 @@ tied to one club for good — to manage another club, start a new career.
 - **`error getting credentials` during `make up`**: the Docker credential helper can't be reached (often a locked keychain). Open Docker Desktop and sign in (or sign out and back in), then try again.
 - **Another device can't connect for LAN play**: start the game with `make up-lan` (plain `make up` keeps it on this computer only); both devices must be on the same network; check the address shown in the lobby (run `make up-lan` again if your Wi-Fi address changed) and allow incoming connections in the macOS firewall.
 - **The game gets slower after many seasons, or after deleting many careers**: run `make vacuum` while nobody is playing. It compacts the database tables (a few seconds).
+- **An older save holds a legend version and his modern self** (from before legend versions merged): `docker compose exec api /api merge-versions <career id>` merges them the way a signing would; the legend takes the shirt number the fans know.
 - **Career creation is slow**: the first career on a fresh database takes a few seconds while the planner statistics warm up; later ones take about 2 s.
 
 ## Gameplay

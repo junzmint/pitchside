@@ -61,6 +61,22 @@ func main() {
 		log.Printf("seed: done")
 		return
 	}
+	// `pitchside merge-versions <career id>`: a club holding a legend version and his modern self merges them
+	if len(os.Args) > 2 && os.Args[1] == "merge-versions" {
+		id, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Fatalf("merge-versions: career id: %v", err)
+		}
+		ms, err := store.MergeHeldVersions(ctx, id)
+		if err != nil {
+			log.Fatalf("merge-versions: %v", err)
+		}
+		for _, m := range ms {
+			log.Printf("merged %s into %s (#%d): overall %d → %d, potential %d → %d", m.Absorbed, m.Name, m.Legend.Shirt, m.OvrBefore, m.OvrAfter, m.PotBefore, m.PotAfter)
+		}
+		log.Printf("merge-versions: %d merged", len(ms))
+		return
+	}
 	if os.Getenv("AUTO_SEED") == "1" {
 		seedIfEmpty(ctx, store)
 	}

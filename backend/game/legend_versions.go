@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ---------------------------------------------------------------- legend versions
@@ -506,6 +508,68 @@ func (w *world) arrivalMerge(ctx context.Context, q DBTX, rep *DayReport, p *Pla
 	handOver(w.clubLife(ctx, q), modern, legend)
 	w.happen(rep, "legend_merged", m.Name, 0)
 	return &m, nil
+}
+
+// MergeHeldVersions: rule 1 for a club that already holds a legend version and his modern self (a save from
+// before the rule): each such modern player merges into the version of him that plays, as if he had just
+// arrived, and the legend takes the shirt number the fans know. `pitchside merge-versions <career id>`.
+func (s *Store) MergeHeldVersions(ctx context.Context, careerID int) ([]LegendMerge, error) {
+	var out []LegendMerge
+	err := s.tx(ctx, func(q pgx.Tx) error {
+		c, err := getCareer(ctx, q, careerID)
+		if err != nil {
+			return err
+		}
+		club, err := getClub(ctx, q, c.UserClubID)
+		if err != nil {
+			return err
+		}
+		squad, err := queryPlayers(ctx, q, `career_id=$1 AND club_id=$2 AND NOT retired`, c.ID, club.ID)
+		if err != nil {
+			return err
+		}
+		applyCare(c, squad) // who is cleared to play (rule 3's choice of version)
+		borrowed := borrowedSet(c)
+		life, err := loadClubLife(ctx, q, c.ID)
+		if err != nil {
+			return err
+		}
+		w := &world{career: c}
+		for _, p := range squad {
+			if p.Tag != "" || p.Retired || p.ClubID == nil {
+				continue // modern players only: each one meets the version that plays
+			}
+			legend, modern := mergePartner(p, squad, borrowed)
+			if legend == nil {
+				continue
+			}
+			shirt := modern.Shirt
+			m := mergeVersions(legend, modern, false)
+			if shirt > 0 {
+				legend.Shirt = shirt
+			}
+			if err := savePlayers(ctx, q, []*Player{legend, modern}); err != nil {
+				return err
+			}
+			tidyAfterMerge(c, club, legend, modern)
+			handOver(life, modern, legend)
+			w.logHappening(ComEvent{Key: "legend_merged", Name: m.Name})
+			out = append(out, m)
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		if err := saveClub(ctx, q, club); err != nil {
+			return err
+		}
+		if life.Init {
+			if err := saveClubLife(ctx, q, c.ID, life); err != nil {
+				return err
+			}
+		}
+		return saveCareer(ctx, q, c)
+	})
+	return out, err
 }
 
 // SignResult: the answer to a purchase on the free-agent market.
