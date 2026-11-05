@@ -126,16 +126,35 @@ func compGrowth(comp string) float64 {
 // perfGrowth: a good game (7+) lifts a player more than a poor one.
 func perfGrowth(rating float64) float64 { return clamp(1+(rating-6.5)*0.2, 0.7, 1.4) }
 
+// Potential is where a player is heading, not a wall: growth slows as he nears it and goes on past it,
+// more slowly the further past (PastPotential, fading by e every PastPotentialFade points), up to the 99 cap.
+// Icons (110 cap) keep more pace past theirs. A high potential makes growth easy; it never guarantees it.
+var (
+	PastPotential     = 0.3
+	PastPotentialFade = 5.0
+	IconPastPotential = 0.3
+	IconPastFade      = 6.0
+)
+
+// gapFactor: how much room to grow a player has, from how far he is below (or past) his potential.
+func gapFactor(p *Player, ovr float64) float64 {
+	gap := float64(p.Potential) - ovr
+	if isLegend(p) {
+		return math.Max(clamp(gap/8, 0, 1.4), IconPastPotential*math.Exp(math.Min(0, gap)/IconPastFade))
+	}
+	return math.Max(clamp(gap/12, 0, 1.2), PastPotential*math.Exp(math.Min(0, gap)/PastPotentialFade))
+}
+
 // growthUnit: how far one unit moves this player — most for a gifted teenager far from his
-// ceiling, less near it and with age.
+// potential, less near it and past it, and with age.
 func growthUnit(p *Player) float64 {
 	ovr := OverallAs(p, p.Position)
-	gapF := clamp((float64(p.Potential)-ovr)/12, 0, 1.2)
+	gapF := gapFactor(p, ovr)
 	af := ageFactor(p.Age)
 	base := TrainBase
 	if isLegend(p) {
 		// ageless, but slow to improve: legends keep their own creep towards the modern ceiling
-		af, base, gapF = LegendGrowth, 0.9, clamp((float64(p.Potential)-ovr)/8, 0, 1.4)
+		af, base = LegendGrowth, 0.9
 	}
 	return base * af * gapF * devFactor(p) * growthScale(p.Position) * (1 + p.GrowBoost)
 }

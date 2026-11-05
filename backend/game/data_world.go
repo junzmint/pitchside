@@ -55,9 +55,11 @@ type LegendVersion struct {
 	Name   string
 	Nation string
 	Pos    string
+	Role   string // where he played at his peak (RB, DM, LW…, legendRole), "" = his attributes decide
 	Club   string // era club (must match a club name in the career), "" = none
 	Label  string // e.g. "'08"
 	Age    int
 	Ovr    float64
+	Pot    int // his ceiling: his peak for a version younger than his peak age (he can grow into it), else his own level
 	Style  string
 }

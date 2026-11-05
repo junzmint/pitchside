@@ -7,7 +7,7 @@ import type { Ctx } from '../../App'
 import { useClubLife } from '../../api_club'
 import { useI18n } from '../../i18n'
 import { Icon, Title } from '../../ui'
-import { HonourModal, LegendCard } from './Legends'
+import { HonourChoices, HonourModal, LegendCard } from './Legends'
 
 export function ClubInbox({ ctx }: { ctx: Ctx }) {
   const { t } = useI18n()
@@ -30,9 +30,8 @@ export function ClubInbox({ ctx }: { ctx: Ctx }) {
       {le && (
         <div className="stack" style={{ gap: 8 }}>
           <LegendCard le={le} compact />
-          <div className="row">
-            <button className="primary small" onClick={() => setOpen(true)}><Icon name="crown" size={14} /> {t('cl.lg.decide')}</button>
-          </div>
+          <span className="muted" style={{ fontSize: 13 }}>{t('cl.lg.decideHint', { n: le.shirt })}</span>
+          <HonourChoices ctx={ctx} le={le} onMore={() => setOpen(true)} />
         </div>
       )}
       {le && open && <HonourModal ctx={ctx} le={le} onClose={() => setOpen(false)} />}

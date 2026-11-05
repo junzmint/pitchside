@@ -246,8 +246,7 @@ func buildLegendSquad(code string, idx int) *quickSquad {
 	}
 	var squad []*Player
 	for _, lv := range picks {
-		p := MakeStar(r, StarDef{Name: lv.Name, Nation: lv.Nation, Age: lv.Age, Pos: lv.Pos, Ovr: lv.Ovr, Pot: int(lv.Ovr), Style: lv.Style})
-		p.Tag = "legend"
+		p := legendStar(r, lv, int(lv.Ovr)) // a legend card: built for and playing the role he played
 		p.Version = lc.def.Name + " " + lv.Label
 		p.Tenure = 40 + r.Intn(40)
 		p.Morale = 85

@@ -214,8 +214,9 @@ type FacilityView struct {
 	Kind  string `json:"kind"`
 	Level int    `json:"level"`
 	Max   int    `json:"max"`
-	Next  int64  `json:"next"` // cost of the next level, 0 at max
-	Wear  int    `json:"wear"` // seasons left before it slips a level (0: not running)
+	Next  int64  `json:"next"`  // cost of the next level, 0 at max
+	Wear  int    `json:"wear"`  // seasons left before it slips a level (0: not running)
+	Renew int64  `json:"renew"` // renovation: keeps the level RenovateSeasons more seasons (0: not needed now)
 }
 
 func (s *Store) Finance(ctx context.Context, careerID int) (*FinanceView, error) {
@@ -237,6 +238,9 @@ func (s *Store) Finance(ctx context.Context, careerID int) (*FinanceView, error)
 		fv := FacilityView{Kind: k, Level: lvl, Max: MaxFacility, Wear: c.Commercial.Wear[k]}
 		if lvl < MaxFacility {
 			fv.Next = facilityCosts[k][lvl-1]
+		}
+		if lvl > 1 && fv.Wear < RenovateSeasons {
+			fv.Renew = RenovateCost(k, lvl)
 		}
 		v.Facilities = append(v.Facilities, fv)
 	}

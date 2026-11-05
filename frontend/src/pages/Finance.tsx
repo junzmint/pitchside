@@ -170,6 +170,12 @@ export default function Finance({ ctx }: { ctx: Ctx }) {
                 ? <ConfirmButton className="primary small" label={<><Icon name="up" size={14} /> {t('dev.upgrade', { v: money(fc.next) })}</>} confirm={t('confirm')} disabled={fc.next > f.budget}
                     onConfirm={() => act(() => api.upgradeFacility(ctx.id, fc.kind), t('dev.upgraded'))} />
                 : <span className="chip special"><Icon name="crown" size={13} /> {t('dev.max')}</span>}
+              {(fc.renew ?? 0) > 0 && (
+                <ConfirmButton className={'small' + (fc.next > 0 ? '' : ' primary')} label={<><Icon name="upkeep" size={14} /> {t('dev.renovate', { v: money(fc.renew ?? 0) })}</>}
+                  confirm={t('dev.renovateConfirm', { n: 3 })} disabled={(fc.renew ?? 0) > f.budget}
+                  onConfirm={() => act(() => api.renovateFacility(ctx.id, fc.kind), t('dev.renovated', { n: 3 }))} />
+              )}
+              {fc.level > 1 && !(fc.renew ?? 0) && <span className="muted" style={{ fontSize: 12 }}>{t('dev.renovatedRecently')}</span>}
             </div>
           ))}
         </div>

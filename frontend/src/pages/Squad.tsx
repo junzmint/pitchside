@@ -260,6 +260,12 @@ function PlayerFlags({ p, slot, loanee, listed, clubName }: { p: Player; slot: s
 // legends cost double (they don't age, but improve slowly)
 const attrCost = (v: number, legend = false) => (1 + Math.max(0, Math.floor((v - 50) / 10))) * (legend ? 2 : 1)
 const potCost = (pot: number, legend = false) => (5 + Math.max(0, Math.floor((pot - 80) / 3))) * (legend ? 2 : 1)
+// potential is a guide, not a wall: past it an upgrade may not take (club.go UpgradeChance, same numbers)
+export const upgradeChance = (p: Player, legend = false) => {
+  const over = p.overall - p.potential
+  if (over < 0) return 1
+  return legend ? Math.max(0.3, 0.85 - 0.06 * over) : Math.max(0.15, 0.75 - 0.1 * over)
+}
 
 export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
   const legend = p.tag === 'legend' || p.tag === 'custom'
@@ -267,11 +273,15 @@ export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
   const farFromLimit = !freeBreak && p.overall < p.potential - 2
   const { t } = useI18n()
   const tp = ctx?.st.career.tp ?? 0
+  const chance = upgradeChance(p, legend)
   async function up(what: string) {
     if (!ctx) return
     try {
       if (what === '__reveal') await api.revealTraits(ctx.id, p.id)
-      else await api.upgradePlayer(ctx.id, p.id, what)
+      else {
+        const r = await api.upgradePlayer(ctx.id, p.id, what)
+        if (r?.failed) ctx.toast(t('up.failed'), true)
+      }
       await ctx.reload()
     } catch (e) { ctx.toast(errText(t, e), true) }
   }
@@ -317,8 +327,9 @@ export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
             <div style={{ flex: 1 }}><Bar v={p[a]} color={p.focus === a ? 'var(--club)' : undefined} /></div>
             <b className="num" style={{ width: 40, textAlign: 'right' }}>{p[a].toFixed(1)}</b>
             {ctx && (
-              <button className="small upbtn" title={t('up.attr', { c: attrCost(p[a], legend) })} disabled={tp < attrCost(p[a], legend) || p[a] >= (legend ? 110 : 99) || p.overall >= p.potential}
-                onClick={() => up(a)}><Icon name="plus" size={12} />1 · {attrCost(p[a], legend)}<Icon name="tp" size={12} /></button>
+              <button className="small upbtn" title={chance < 1 ? t('up.chance', { n: Math.round(chance * 100), c: attrCost(p[a], legend) }) : t('up.attr', { c: attrCost(p[a], legend) })}
+                disabled={tp < attrCost(p[a], legend) || p[a] >= (legend ? 110 : 99)}
+                onClick={() => up(a)}><Icon name="plus" size={12} />1 · {attrCost(p[a], legend)}<Icon name="tp" size={12} />{chance < 1 && <small className="upchance"> {Math.round(chance * 100)}%</small>}</button>
             )}
           </div>
         ))}

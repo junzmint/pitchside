@@ -78,6 +78,61 @@ func (s *Store) UpgradeFacility(ctx context.Context, careerID int, kind string) 
 	})
 }
 
+// Renovation keeps a facility at its level for RenovateSeasons more seasons (facilityWear) for a share of what
+// that level cost to build: the way to hold the top level, and a cheaper way than upgrading to hold any other.
+const (
+	RenovateShare   = 0.4
+	RenovateSeasons = 3
+)
+
+// RenovateCost: what renovating a facility at this level costs (0 at level 1, which never wears).
+func RenovateCost(kind string, lvl int) int64 {
+	costs := facilityCosts[kind]
+	if lvl < 2 || lvl-2 >= len(costs) {
+		return 0
+	}
+	return int64(float64(costs[lvl-2])*RenovateShare/100_000) * 100_000
+}
+
+func (s *Store) RenovateFacility(ctx context.Context, careerID int, kind string) error {
+	return s.tx(ctx, func(q pgx.Tx) error {
+		c, err := getCareer(ctx, q, careerID)
+		if err != nil {
+			return err
+		}
+		club, err := getClub(ctx, q, c.UserClubID)
+		if err != nil {
+			return err
+		}
+		lvl := facilityLevel(club, kind)
+		if lvl == nil {
+			return userErr("bad_facility", "Unknown facility")
+		}
+		if *lvl < 2 {
+			return userErr("renovate_base", "A level-1 facility never wears")
+		}
+		if c.Commercial.Wear[kind] >= RenovateSeasons {
+			return userErr("renovate_fresh", "It was renewed recently")
+		}
+		cost := RenovateCost(kind, *lvl)
+		if club.Budget < cost {
+			return userErr("no_budget", "Not enough budget")
+		}
+		club.Budget -= cost
+		if c.Commercial.Wear == nil {
+			c.Commercial.Wear = map[string]int{}
+		}
+		c.Commercial.Wear[kind] = RenovateSeasons
+		if err := addFinance(ctx, q, c, "facility", -cost, kind); err != nil {
+			return err
+		}
+		if err := saveCareer(ctx, q, c); err != nil {
+			return err
+		}
+		return saveClub(ctx, q, club)
+	})
+}
+
 // ---------------------------------------------------------------- tickets & loans
 
 var ticketIncome = map[string]float64{"low": 0.8, "normal": 1, "high": 1.25}
@@ -261,6 +316,20 @@ func PotentialUpgradeCost(pot int) int { return 5 + int(math.Max(0, float64(pot-
 type UpgradeResult struct {
 	Player *Player `json:"player"`
 	TP     int     `json:"tp"`
+	Failed bool    `json:"failed,omitempty"` // past his potential, the upgrade did not take
+}
+
+// UpgradeChance: below his potential an attribute upgrade always takes; past it, the further past, the
+// lower the chance (icons keep better odds). The UI shows the same numbers (Squad.tsx upgradeChance).
+func UpgradeChance(p *Player) float64 {
+	over := OverallAs(p, p.Position) - float64(p.Potential)
+	switch {
+	case over < 0:
+		return 1
+	case isLegend(p):
+		return math.Max(0.3, 0.85-0.06*over)
+	}
+	return math.Max(0.15, 0.75-0.1*over)
 }
 
 func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what string) (*UpgradeResult, error) {
@@ -278,6 +347,7 @@ func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what 
 			return userErr("not_yours", "This player is not at your club")
 		}
 		var cost int
+		failed := false
 		if what == "potential" {
 			// legend_versions.go breakCheck: a legend card breaks his limit at any level (still once a season)
 			switch breakCheck(c, p) {
@@ -311,9 +381,12 @@ func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what 
 			if c.TP < cost {
 				return userErr("no_tp", "Not enough upgrade points")
 			}
-			*v = math.Min(attrCap(p), math.Floor(*v)+1)
-			if OverallAs(p, p.Position) > float64(p.Potential)+0.5 {
-				return userErr("at_potential", "He has reached his potential: break the limit first")
+			// past his potential an upgrade may not take (the TP are spent either way)
+			chance := UpgradeChance(p)
+			if chance < 1 && newRand().Float64() >= chance {
+				failed = true
+			} else {
+				*v = math.Min(attrCap(p), math.Floor(*v)+1)
 			}
 		}
 		c.TP -= cost
@@ -321,7 +394,7 @@ func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what 
 		if err := savePlayer(ctx, q, p); err != nil {
 			return err
 		}
-		out = &UpgradeResult{Player: p, TP: c.TP}
+		out = &UpgradeResult{Player: p, TP: c.TP, Failed: failed}
 		return saveCareer(ctx, q, c)
 	})
 	return out, err

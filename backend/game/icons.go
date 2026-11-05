@@ -2,10 +2,14 @@ package game
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"sort"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -219,6 +223,30 @@ func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*IconSi
 // ---------------------------------------------------------------- new legend data for old saves
 
 // SyncLegendCards adds legend cards that were added to the game after a career was created.
+// LiftYoungLegends: a legend version younger than his peak age has his peak as potential (he can grow into
+// it). Saves from before that rule get it for their cards and for the versions already signed; nothing is
+// lowered, so a ceiling raised since (a season at the club, a merge, a limit break) stays.
+func (s *Store) LiftYoungLegends(ctx context.Context) error {
+	var names, versions []string
+	var pots []int32
+	for _, lv := range LegendVersions {
+		if lv.Club == "" || lv.Pot <= int(lv.Ovr) {
+			continue // the Icon card, or not a young version
+		}
+		names, versions, pots = append(names, lv.Name), append(versions, lv.Club+" "+lv.Label), append(pots, int32(lv.Pot))
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	if _, err := s.DB.Exec(ctx, `UPDATE templates t SET potential = u.pot FROM unnest($1::text[], $2::text[], $3::int[]) AS u(name, version, pot)
+		WHERE t.kind='legend' AND t.name=u.name AND t.version=u.version AND t.potential < u.pot`, names, versions, pots); err != nil {
+		return err
+	}
+	_, err := s.DB.Exec(ctx, `UPDATE players p SET potential = u.pot FROM unnest($1::text[], $2::text[], $3::int[]) AS u(name, version, pot)
+		WHERE p.tag='legend' AND p.name=u.name AND p.version=u.version AND p.potential < u.pot`, names, versions, pots)
+	return err
+}
+
 func (s *Store) SyncLegendCards(ctx context.Context) error {
 	rows, err := s.DB.Query(ctx, `SELECT id FROM careers`)
 	if err != nil {
@@ -269,4 +297,145 @@ func (s *Store) SyncLegendCards(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ---------------------------------------------------------------- legend roles for old saves
+
+// legendVersionIndex: the data's legend versions by (name, version label as stored: "Real Madrix '14", "Icon").
+var legendVersionIndex = sync.OnceValue(func() map[[2]string]LegendVersion {
+	m := map[[2]string]LegendVersion{}
+	for _, lv := range LegendVersions {
+		label := lv.Label
+		if lv.Club != "" {
+			label = lv.Club + " " + lv.Label
+		}
+		m[[2]string{lv.Name, label}] = lv
+	}
+	return m
+})
+
+// legendMisbuilt: a stored legend card whose numbers read as another line than the role his real-life self
+// played (fitsLine: a full-back built as a centre-back, a winger as a striker, or the other way round) — cards
+// made before the data had roles. It returns the data's version of him to build the card again from.
+func legendMisbuilt(t *Template) (LegendVersion, bool) {
+	lv, ok := legendVersionIndex()[[2]string{t.Name, t.Version}]
+	if !ok || t.Kind != "legend" || !linedRole(lv.Role) || !roleInPosition(lv.Role, t.Position) {
+		return lv, false
+	}
+	return lv, !fitsLine(t.toPlayer(), lv.Role)
+}
+
+// FixLegendRoles: a legend card plays the role his real-life self played (the data's position/role, legendRole)
+// and is built for it (legendStar). Saves from before the data had roles hold cards built for another line, so
+// every unsigned card (a template not signed yet) that legendMisbuilt finds is built again for his role, his
+// listing too if he is on the market now; his potential is never lowered. Signed cards keep every number (they
+// may carry upgrades) and only their role label follows the data: the log counts the ones in squads whose label
+// changed, per name, when a career is fixed. Idempotent: a card built again fits his line, so a second run finds
+// nothing.
+func (s *Store) FixLegendRoles(ctx context.Context) error {
+	rows, err := s.DB.Query(ctx, `SELECT career_id, id, kind, name, version, position, pace, shooting, passing, dribbling,
+		defending, physical, goalkeeping, potential FROM templates WHERE kind='legend' AND NOT signed ORDER BY career_id, id`)
+	if err != nil {
+		return err
+	}
+	todo := map[int][]*Template{}
+	var careers []int
+	for rows.Next() {
+		var cid int
+		t := &Template{}
+		if err := rows.Scan(&cid, &t.ID, &t.Kind, &t.Name, &t.Version, &t.Position, &t.Pace, &t.Shooting, &t.Passing,
+			&t.Dribbling, &t.Defending, &t.Physical, &t.Goalkeeping, &t.Potential); err != nil {
+			rows.Close()
+			return err
+		}
+		if _, bad := legendMisbuilt(t); bad {
+			if todo[cid] == nil {
+				careers = append(careers, cid)
+			}
+			todo[cid] = append(todo[cid], t)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil || len(careers) == 0 {
+		return err
+	}
+	r := newRand()
+	for _, cid := range careers {
+		if err := s.tx(ctx, func(q pgx.Tx) error {
+			listed := 0
+			for _, t := range todo[cid] {
+				lv, _ := legendMisbuilt(t)
+				p := legendStar(r, lv, max(t.Potential, lv.Pot))
+				args := []any{t.ID, p.Pace, p.Shooting, p.Passing, p.Dribbling, p.Defending, p.Physical, p.Goalkeeping, p.Potential}
+				if _, err := q.Exec(ctx, `UPDATE templates SET pace=$2, shooting=$3, passing=$4, dribbling=$5, defending=$6,
+					physical=$7, goalkeeping=$8, potential=$9 WHERE id=$1`, args...); err != nil {
+					return err
+				}
+				// on the market now: the listing shows (and sells) the new numbers; the floor of rule 7
+				// (legend_versions.go) is applied again wherever the card is shown or signed
+				tag, err := q.Exec(ctx, `UPDATE players SET pace=$2, shooting=$3, passing=$4, dribbling=$5, defending=$6,
+					physical=$7, goalkeeping=$8, potential=$9 WHERE template_id=$1 AND club_id IS NULL AND NOT retired`, args...)
+				if err != nil {
+					return err
+				}
+				listed += int(tag.RowsAffected())
+			}
+			signed, err := signedRoleChanges(ctx, q, cid)
+			if err != nil {
+				return err
+			}
+			var user string
+			_ = q.QueryRow(ctx, `SELECT COALESCE((SELECT username FROM users u WHERE u.id=c.user_id), '') FROM careers c WHERE c.id=$1`, cid).Scan(&user)
+			log.Printf("legend roles: career %d (%s): %d unsigned card(s) rebuilt for their role (%d on the market); "+
+				"signed cards in squads keep their numbers, their role now from the data: %s", cid, user, len(todo[cid]), listed, signed)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// signedRoleChanges: roleChanges of the career's legend cards in a squad.
+func signedRoleChanges(ctx context.Context, q DBTX, careerID int) (string, error) {
+	ps, err := queryPlayers(ctx, q, `career_id=$1 AND tag='legend' AND club_id IS NOT NULL AND NOT retired`, careerID)
+	if err != nil {
+		return "", err
+	}
+	return roleChanges(ps), nil
+}
+
+// roleChanges: the legend cards whose role label the data changed (their old label is what their attributes
+// and id gave, attrRole), per name: "Trent Alexander-Arnald ×1 (CB→RB), …", or "none".
+func roleChanges(ps []*Player) string {
+	count := map[string]int{}
+	moves := map[string]map[string]bool{}
+	for _, p := range ps {
+		now := legendRole(p)
+		if was := attrRole(p); now != "" && was != now {
+			if moves[p.Name] == nil {
+				moves[p.Name] = map[string]bool{}
+			}
+			count[p.Name]++
+			moves[p.Name][was+"→"+now] = true
+		}
+	}
+	if len(count) == 0 {
+		return "none"
+	}
+	names := make([]string, 0, len(count))
+	for n := range count {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	parts := make([]string, 0, len(names))
+	for _, n := range names {
+		ms := make([]string, 0, len(moves[n]))
+		for m := range moves[n] {
+			ms = append(ms, m)
+		}
+		sort.Strings(ms)
+		parts = append(parts, fmt.Sprintf("%s ×%d (%s)", n, count[n], strings.Join(ms, ", ")))
+	}
+	return strings.Join(parts, ", ")
 }

@@ -320,7 +320,7 @@ func insertLegendCards(ctx context.Context, q pgx.Tx, r *rand.Rand, careerID int
 	}
 	rows := make([][]any, 0, len(versions))
 	for _, lv := range versions {
-		p := MakeStar(r, StarDef{Name: lv.Name, Nation: lv.Nation, Age: lv.Age, Pos: lv.Pos, Ovr: lv.Ovr, Pot: int(lv.Ovr), Style: lv.Style})
+		p := legendStar(r, lv, lv.Pot) // built for the role he played (data_legends.go)
 		var cid *int
 		label := lv.Label
 		if lv.Club != "" {

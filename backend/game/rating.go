@@ -51,8 +51,17 @@ func OverallAs(p *Player, cat string) float64 {
 
 var catOrder = map[string]int{"GK": 0, "DF": 1, "MF": 2, "FW": 3}
 
-// NaturalRole reads a player's preferred position from his attributes (side from his id).
+// NaturalRole: a player's preferred position. A legend card plays where his real-life self did (legendRole,
+// from the legend data); everyone else's is read from his attributes (attrRole).
 func NaturalRole(p *Player) string {
+	if r := legendRole(p); r != "" {
+		return r
+	}
+	return attrRole(p)
+}
+
+// attrRole reads a player's preferred position from his attributes (side from his id).
+func attrRole(p *Player) string {
 	side := "L"
 	if p.ID%2 == 1 {
 		side = "R"

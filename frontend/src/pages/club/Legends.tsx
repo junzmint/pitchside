@@ -48,8 +48,8 @@ const SEEN = 'pitchside.honourSeen.'
 function seen(id: number, pid: number) { try { return sessionStorage.getItem(SEEN + id) === String(pid) } catch { return false } }
 function markSeen(id: number, pid: number) { try { sessionStorage.setItem(SEEN + id, String(pid)) } catch { /* storage unavailable */ } }
 
-/** The emotional moment: a long-serving player joins the wall; retire his number or keep it. */
-export function HonourModal({ ctx, le, onClose }: { ctx: Ctx; le: LegendEntry; onClose: () => void }) {
+/** Retire his number or keep it in use: the answer to a new legend's shirt-number question. */
+function useHonourAnswer(ctx: Ctx, le: LegendEntry, onDone?: () => void) {
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   async function answer(choice: 'retire' | 'keep') {
@@ -60,9 +60,29 @@ export function HonourModal({ ctx, le, onClose }: { ctx: Ctx; le: LegendEntry; o
       ctx.toast(t(choice === 'retire' ? 'cl.lg.retiredToast' : 'cl.lg.keptToast', { n: le.shirt, name: le.name }))
       refreshClubLife()
       await ctx.reload()
-      onClose()
+      onDone?.()
     } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy(false) }
   }
+  return { busy, answer }
+}
+
+/** Both answers side by side (the Inbox card): retire number N, or don't. */
+export function HonourChoices({ ctx, le, onMore }: { ctx: Ctx; le: LegendEntry; onMore?: () => void }) {
+  const { t } = useI18n()
+  const { busy, answer } = useHonourAnswer(ctx, le)
+  return (
+    <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+      <button className="primary small" disabled={busy} onClick={() => answer('retire')}><Icon name="crown" size={14} /> {t('cl.lg.retire', { n: le.shirt })}</button>
+      <button className="small" disabled={busy} onClick={() => answer('keep')}>{t('cl.lg.keepShort')}</button>
+      {onMore && <button className="small" disabled={busy} onClick={onMore}><Icon name="info" size={14} /> {t('cl.lg.why')}</button>}
+    </div>
+  )
+}
+
+/** The emotional moment: a long-serving player joins the wall; retire his number or keep it. */
+export function HonourModal({ ctx, le, onClose }: { ctx: Ctx; le: LegendEntry; onClose: () => void }) {
+  const { t } = useI18n()
+  const { busy, answer } = useHonourAnswer(ctx, le, onClose)
   return (
     <Modal onClose={onClose} className="cl-honour" label={t('cl.lg.honourTitle')}>
       <span className="eyebrow"><Icon name="legend" size={13} /> {t('cl.lg.title')}</span>

@@ -53,12 +53,33 @@ func main() {
 	if err := store.SyncLegendCards(ctx); err != nil {
 		log.Printf("legend sync: %v", err)
 	}
+	// …and young legend versions their peak as potential
+	if err := store.LiftYoungLegends(ctx); err != nil {
+		log.Printf("young legends: %v", err)
+	}
+	// …and unsigned cards built for another line than the role in the data (a full-back as a centre-back) rebuilt
+	if err := store.FixLegendRoles(ctx); err != nil {
+		log.Printf("legend roles: %v", err)
+	}
 	// `pitchside seed` loads demo data and exits; AUTO_SEED=1 seeds a brand-new database on start.
 	if len(os.Args) > 1 && os.Args[1] == "seed" {
 		if err := runSeed(ctx, store); err != nil {
 			log.Fatalf("seed: %v", err)
 		}
 		log.Printf("seed: done")
+		return
+	}
+	// `pitchside induct-legends <career id>`: this season's picks for the Legends wall, now
+	if len(os.Args) > 2 && os.Args[1] == "induct-legends" {
+		id, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			log.Fatalf("induct-legends: career id: %v", err)
+		}
+		names, err := store.InductLegends(ctx, id)
+		if err != nil {
+			log.Fatalf("induct-legends: %v", err)
+		}
+		log.Printf("induct-legends: %d on the wall %v", len(names), names)
 		return
 	}
 	// `pitchside merge-versions <career id>`: a club holding a legend version and his modern self merges them
@@ -367,6 +388,9 @@ func routes(s *game.Store) *http.ServeMux {
 	// club development
 	mux.HandleFunc("POST /api/careers/{id}/facilities/{kind}", career(s, func(r *http.Request, id int) (any, error) {
 		return nil, s.UpgradeFacility(r.Context(), id, r.PathValue("kind"))
+	}))
+	mux.HandleFunc("POST /api/careers/{id}/facilities/{kind}/renovate", career(s, func(r *http.Request, id int) (any, error) {
+		return nil, s.RenovateFacility(r.Context(), id, r.PathValue("kind"))
 	}))
 	mux.HandleFunc("PUT /api/careers/{id}/ticket", career(s, func(r *http.Request, id int) (any, error) {
 		var req struct {

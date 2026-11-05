@@ -3,14 +3,16 @@ package game
 import (
 	"context"
 	"sort"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ---------------------------------------------------------------- the Legends wall
 //
 // A player who serves the club a long time can join its Legends wall while he still plays for the club:
-// at the end of every season the fans choose one current player who has earned it (inductActive): about 150
+// at the end of every season the fans choose two current players who have earned it (inductActive): about 150
 // appearances, or five seasons, or a big haul of trophies. Icons, who never age, retire or get sold off, get
-// there the same way. One a season keeps the wall special (a dominant side would otherwise put its whole XI
+// there the same way. Two a season keeps the wall special (a dominant side would otherwise put its whole XI
 // up at once); anyone else with such a record joins when he leaves or retires (legendCheck).
 //
 // The shirt number: the club can retire it for a legend who is still with the club (he keeps wearing it and
@@ -18,12 +20,15 @@ import (
 // who was sold or let go cannot have his number retired, and selling a legend whose number is retired gives
 // the number back and angers the fans.
 
+// A legend's record: LegendApps games for the club, or LegendSeasons seasons or LegendTrophies trophies with at
+// least LegendMinApps games (a hundred-odd games is a good servant, not a legend).
 const (
-	LegendApps      = 150
-	LegendSeasons   = 5
-	LegendTrophies  = 3
+	LegendApps      = 250
+	LegendSeasons   = 7
+	LegendTrophies  = 6
+	LegendMinApps   = 150
 	MaxRetired      = 12 // retired shirt numbers
-	LegendPerSeason = 1  // current players the fans put on the wall at the end of a season
+	LegendPerSeason = 2  // current players the fans put on the wall at the end of a season
 )
 
 type LegendEntry struct {
@@ -200,7 +205,7 @@ func (w *world) legendCheck(ctx context.Context, q DBTX, p *Player, e RosterEntr
 
 // legendWorthy: has he done enough for the wall? total = appearances (counting the years before the career).
 func legendWorthy(total, seasons, trophies int) bool {
-	return total >= LegendApps || (seasons >= LegendSeasons && total >= 60) || (trophies >= LegendTrophies && total >= 40)
+	return total >= LegendApps || (total >= LegendMinApps && (seasons >= LegendSeasons || trophies >= LegendTrophies))
 }
 
 // legendNumbers: a player's record for the user's club (competitive matches only).
@@ -315,9 +320,15 @@ func (w *world) inductActive(ctx context.Context, q DBTX, life *ClubLife, squad 
 		cands = append(cands, candidate{le, total + 20*s.trophies + 10*s.seasons})
 	}
 	sort.SliceStable(cands, func(i, j int) bool { return cands[i].score > cands[j].score })
+	room := LegendPerSeason // the fans' picks this season, less any already made
+	for _, le := range life.Legends {
+		if le.Reason == "active" && le.Season == c.Season {
+			room--
+		}
+	}
 	var notes []FanNote
 	for i, cd := range cands {
-		if i >= LegendPerSeason {
+		if i >= room {
 			break
 		}
 		life.addLegend(cd.le)
@@ -325,6 +336,39 @@ func (w *world) inductActive(ctx context.Context, q DBTX, life *ClubLife, squad 
 		w.clubHappen(rep, ComEvent{Key: "legend_wall", Name: cd.le.Name, Amount: int64(cd.le.Apps)})
 	}
 	return notes, nil
+}
+
+// InductLegends: the fans' picks for this season, now (a save whose season started under a lower quota).
+// `pitchside induct-legends <career id>`. Picks already made this season count, so it is safe to run again.
+func (s *Store) InductLegends(ctx context.Context, careerID int) ([]string, error) {
+	var out []string
+	err := s.tx(ctx, func(q pgx.Tx) error {
+		w, err := loadWorld(ctx, q, newRand(), careerID)
+		if err != nil {
+			return err
+		}
+		life := w.clubLife(ctx, q)
+		if !life.Init {
+			return nil
+		}
+		before := len(life.Legends)
+		notes, err := w.inductActive(ctx, q, life, w.userSquad(), nil, true)
+		if err != nil {
+			return err
+		}
+		for _, le := range life.Legends[:len(life.Legends)-before] {
+			out = append(out, le.Name)
+		}
+		if len(notes) == 0 {
+			return nil
+		}
+		w.applyFanNotes(life, notes, false)
+		if err := saveClubLife(ctx, q, careerID, life); err != nil {
+			return err
+		}
+		return saveCareer(ctx, q, w.career)
+	})
+	return out, err
 }
 
 // legendLeaves: a legend who was still playing for the club has gone. Retiring here keeps the honour of his
@@ -389,14 +433,20 @@ func (life *ClubLife) unretire(n int) {
 	life.Retired = keep
 }
 
-// tidyLegends: a legend who left (sold or let go) has no number decision waiting any more (saves from
-// before this rule offered one).
+// tidyLegends keeps the wall to today's rules (saves from before them): a legend who left (sold or let go) has
+// no number decision waiting, and a record short of a legend's comes off the wall, unless the club retired
+// his number (that honour stays).
 func (life *ClubLife) tidyLegends() {
-	for i := range life.Legends {
-		if le := &life.Legends[i]; (le.Reason == "sold" || le.Reason == "left") && le.Honour == "" {
+	keep := life.Legends[:0]
+	for _, le := range life.Legends {
+		if (le.Reason == "sold" || le.Reason == "left") && le.Honour == "" {
 			le.Honour = "none"
 		}
+		if le.Honour == "retired" || legendWorthy(le.Apps, le.To-le.From+1, le.Trophies) {
+			keep = append(keep, le)
+		}
 	}
+	life.Legends = keep
 }
 
 // addLegend puts a player on the wall (again, if he came back and left once more).
