@@ -1,0 +1,78 @@
+/* Kit room (pages/kits/KitRoom.tsx) and kit pictures (kit.tsx). */
+
+.kitsvg { display: block; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45)); }
+
+/* the rack: three kits hanging under spotlights */
+.kitrack {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 18px;
+  background:
+    radial-gradient(ellipse 40% 70% at 17% 0%, rgba(255, 255, 255, 0.10), transparent 70%),
+    radial-gradient(ellipse 40% 70% at 50% 0%, rgba(255, 255, 255, 0.10), transparent 70%),
+    radial-gradient(ellipse 40% 70% at 83% 0%, rgba(255, 255, 255, 0.10), transparent 70%),
+    linear-gradient(180deg, #121821, #0b0f15);
+}
+.kitstand {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 10px 14px;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 14px; cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.kitstand:hover { transform: translateY(-3px); }
+.kitstand.on { border-color: var(--club, #ffd23f); box-shadow: 0 0 0 2px color-mix(in srgb, var(--club, #ffd23f) 55%, transparent), 0 12px 30px rgba(0, 0, 0, 0.45); }
+.kitstand .hanger { position: absolute; top: 6px; left: 50%; width: 46%; height: 12px; transform: translateX(-50%);
+  border: 2px solid rgba(255, 255, 255, 0.35); border-bottom: 0; border-radius: 30px 30px 0 0; }
+.kitstand b { font-family: "Saira Condensed", sans-serif; font-size: 18px; letter-spacing: 0.04em; text-transform: uppercase; }
+.kitstand .kitsvg { animation: kit-sway 4.5s ease-in-out infinite; transform-origin: 50% 0; }
+.kitstand:nth-child(2) .kitsvg { animation-delay: -1.5s; }
+.kitstand:nth-child(3) .kitsvg { animation-delay: -3s; }
+@keyframes kit-sway { 0%, 100% { transform: rotate(-1.2deg); } 50% { transform: rotate(1.2deg); } }
+
+/* the designer: a big kit under a spotlight, the controls beside it */
+.kitdesigner { display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 22px; align-items: start; }
+.kd-preview { display: flex; flex-direction: column; align-items: center; gap: 10px; position: sticky; top: 12px; }
+.kd-spot { width: 100%; display: grid; place-items: center; padding: 18px 0 10px; border-radius: 16px;
+  background: radial-gradient(ellipse 60% 55% at 50% 40%, color-mix(in srgb, var(--club, #ffd23f) 22%, transparent), transparent 75%), rgba(255, 255, 255, 0.02); }
+.kd-name { font-family: "Saira Condensed", sans-serif; font-size: 22px; text-transform: uppercase; letter-spacing: 0.04em; }
+.kd-quick { justify-content: center; gap: 6px; flex-wrap: wrap; }
+.kd-controls { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.kd-controls h4, .kitmatch h4 { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+.patgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.patbtn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); cursor: pointer; font-size: 12px; line-height: 1.25; text-align: center; }
+.patbtn:hover { background: rgba(255, 255, 255, 0.07); }
+.patbtn.on { border-color: var(--club, #ffd23f); background: color-mix(in srgb, var(--club, #ffd23f) 14%, transparent); }
+.patbtn .kitsvg { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4)); }
+
+.partlbl { display: inline-flex; align-items: center; gap: 6px; }
+.partlbl i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.5); display: inline-block; }
+
+.swatches { display: flex; flex-wrap: wrap; gap: 7px; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.18); cursor: pointer; padding: 0;
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.25); transition: transform 0.12s ease; }
+.swatch:hover { transform: scale(1.12); }
+.swatch.on { border-color: #fff; box-shadow: 0 0 0 3px var(--club, #ffd23f), inset 0 -3px 6px rgba(0, 0, 0, 0.25); }
+.swatch.other { position: relative; display: grid; place-items: center; background: conic-gradient(#e2001a, #fde100, #00843d, #1e90ff, #9b5de5, #e2001a); color: #fff; }
+.swatch.other input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+.presetrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.presetbtn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); font-size: 12px; line-height: 1.25; text-align: center; }
+.presetbtn:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-2px); }
+
+/* the next match: both sides in the kits they will wear */
+.kitmatch { display: flex; flex-direction: column; gap: 10px; }
+.km-row { display: flex; align-items: center; justify-content: center; gap: 28px; flex-wrap: wrap; }
+.km-side { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.km-vs { font-family: "Saira Condensed", sans-serif; font-size: 34px; font-style: italic; color: var(--muted); }
+.kitsave { display: flex; flex-direction: column; gap: 10px; }
+
+/* the pre-match kit choice */
+.lv-kitpick { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lv-kitpick .kits2 { display: flex; align-items: center; gap: 10px; }
+.lv-kitpick .kits2 small { color: var(--muted); }
+
+@media (max-width: 760px) {
+  .kitrack { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+  .kitdesigner { grid-template-columns: 1fr; }
+  .kd-preview { position: static; }
+}

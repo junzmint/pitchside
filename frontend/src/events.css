@@ -1,0 +1,28 @@
+/* styles of the "events" work stream (loaded after game.css) */
+.events { gap: 16px; }
+.mgrlevel { display: grid; gap: 6px; }
+.mgrlevel.compact { padding: 10px 14px; }
+.press .pressopts { gap: 10px; }
+.pressopt { text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.pressopt:hover:not(:disabled) { border-color: var(--accent, #3fcf7a); }
+.pressopt.primary { border-color: var(--accent, #3fcf7a); }
+.press.done { display: grid; gap: 4px; }
+.chip.derby, .derbytag { color: #ff8a5c; border-color: #ff8a5c; font-weight: 600; }
+.derbytag { margin-left: 4px; border: 0; }
+.chip.weather.rain { color: #6fb3ff; border-color: #6fb3ff; }
+.chip.weather.snow { color: #cfe6ff; border-color: #cfe6ff; }
+.chip.weather.heat { color: #ffb347; border-color: #ffb347; }
+.chip.weather.clear { color: #ffd84d; border-color: #ffd84d; }
+.chip.mine { color: var(--good); border-color: var(--good); }
+.wxicon { margin-left: 4px; font-size: 13px; }
+.evflags { gap: 6px; }
+.clublog ul.notes, .awards ul.notes { margin: 0; }
+.clublog .num { font-size: 12px; margin-right: 4px; }
+.tots { display: grid; gap: 6px; }
+.tots .chip small { margin-left: 4px; }
+.evreport { width: min(560px, 100%); margin-top: 12px; }
+.loans select, .captain select { min-width: 0; }
+.clublife { margin-top: 16px; }
+@media (max-width: 560px) {
+  .pressopts { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,262 @@
+package game
+
+import (
+	"context"
+	"math"
+	"math/rand"
+	"sort"
+	"strconv"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// ---------------------------------------------------------------- icon players (legends and custom players)
+
+// IconMax: icons can be pushed past the usual 99, up to this, for attributes and potential.
+const IconMax = 110
+
+func attrCap(p *Player) float64 {
+	if isLegend(p) {
+		return IconMax
+	}
+	return 99
+}
+
+func potentialCap(p *Player) int {
+	if isLegend(p) {
+		return IconMax
+	}
+	return 99
+}
+
+// isHomeCard: the exact club version of a legend (e.g. "Mersey Red '05") playing for that club.
+// The generic "Icon" card belongs to no club, so it never counts, even though signing it adds the
+// buyer to his history.
+func isHomeCard(p *Player, clubID int) bool {
+	return (p.Tag == "legend" || p.Tag == "custom") && p.Version != "Icon" && p.Version != "" && len(p.History) > 0 && p.History[0] == clubID
+}
+
+// homecoming: the right club version of a legend arrives with +2–3 on every attribute.
+func homecoming(r *rand.Rand, p *Player, clubID int) bool {
+	if !isHomeCard(p, clubID) {
+		return false
+	}
+	for _, a := range AttrNames {
+		v := p.Attr(a)
+		*v = math.Min(IconMax, *v+2+float64(r.Intn(2)))
+	}
+	p.Fill()
+	p.Potential = min(IconMax, max(p.Potential+2, p.Overall))
+	return true
+}
+
+// ---------------------------------------------------------------- the icon pick
+
+// IconPick: at most once a season (half the seasons, none in the other half) the shop offers a choice
+// of three icons, at a premium, for a few matchdays.
+type IconPick struct {
+	Season  int          `json:"season"`
+	Day     int          `json:"day"` // matchday it opens; 0 = not this season
+	Until   int          `json:"until"`
+	Done    bool         `json:"done"`
+	Options []IconOption `json:"options"`
+}
+
+type IconOption struct {
+	TemplateID int    `json:"templateId"`
+	Name       string `json:"name"`
+	Position   string `json:"position"`
+	Overall    int    `json:"overall"`
+	Version    string `json:"version"`
+	Price      int64  `json:"price"`
+	Home       bool   `json:"home"` // from your club's history: +2–3 on every attribute
+}
+
+// IconPriceFactor: an icon costs 1.5× a normal player of the same level.
+const IconPriceFactor = 1.5
+
+// IconPickPremium: on top of that, the rare icon pick asks a little more.
+const IconPickPremium = 1.2
+
+// Open: the pick is on offer right now.
+func (ip *IconPick) Open(c *Career) bool {
+	return ip != nil && ip.Season == c.Season && !ip.Done && len(ip.Options) > 0 && c.Day >= ip.Day && c.Day <= ip.Until
+}
+
+// iconPickTick plans this season's pick and opens it on its day.
+func (w *world) iconPickTick(ctx context.Context, q DBTX, r *rand.Rand, rep *DayReport) error {
+	c := w.career
+	if c.IconPick == nil || c.IconPick.Season != c.Season {
+		day := 0
+		if r.Float64() < 0.5 {
+			day = 6 + r.Intn(36)
+		}
+		c.IconPick = &IconPick{Season: c.Season, Day: day}
+	}
+	ip := c.IconPick
+	if ip.Day == 0 || c.Day != ip.Day || ip.Done || len(ip.Options) > 0 {
+		return nil
+	}
+	tps, err := listTemplates(ctx, q, c.ID, `AND NOT signed AND kind='legend'`)
+	if err != nil {
+		return err
+	}
+	var home, top []*Template
+	for _, t := range tps {
+		if t.OnMarket {
+			continue
+		}
+		if t.ClubID != nil && *t.ClubID == c.UserClubID {
+			home = append(home, t)
+		} else if t.Overall >= 85 {
+			top = append(top, t)
+		}
+	}
+	r.Shuffle(len(home), func(i, j int) { home[i], home[j] = home[j], home[i] })
+	r.Shuffle(len(top), func(i, j int) { top[i], top[j] = top[j], top[i] })
+	var pick []*Template
+	if len(home) > 0 {
+		pick = append(pick, home[0]) // one from your own history when there is one
+	}
+	for _, t := range top {
+		if len(pick) >= 3 {
+			break
+		}
+		pick = append(pick, t)
+	}
+	if len(pick) == 0 {
+		ip.Done = true
+		return nil
+	}
+	sort.Slice(pick, func(i, j int) bool { return pick[i].Overall > pick[j].Overall })
+	for _, t := range pick {
+		ip.Options = append(ip.Options, IconOption{TemplateID: t.ID, Name: t.Name, Position: t.Position, Overall: t.Overall,
+			Version: t.Version, Price: int64(float64(t.Value)*IconPickPremium/100_000) * 100_000, Home: t.ClubID != nil && *t.ClubID == c.UserClubID})
+	}
+	ip.Until = c.Day + 5
+	rep.IconPick = true
+	return nil
+}
+
+// PickIcon signs one of the offered icons (templateID 0 passes on the offer).
+func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*Player, error) {
+	var out *Player
+	err := s.tx(ctx, func(q pgx.Tx) error {
+		c, err := getCareer(ctx, q, careerID)
+		if err != nil {
+			return err
+		}
+		if !c.IconPick.Open(c) {
+			return userErr("no_icon_pick", "There is no icon on offer")
+		}
+		if templateID == 0 {
+			c.IconPick.Done = true
+			return saveCareer(ctx, q, c)
+		}
+		var opt *IconOption
+		for i := range c.IconPick.Options {
+			if c.IconPick.Options[i].TemplateID == templateID {
+				opt = &c.IconPick.Options[i]
+			}
+		}
+		if opt == nil {
+			return userErr("not_on_market", "This player is not on offer")
+		}
+		club, err := getClub(ctx, q, c.UserClubID)
+		if err != nil {
+			return err
+		}
+		n, shirt, err := nextShirt(ctx, q, club.ID)
+		if err != nil {
+			return err
+		}
+		if n >= MaxSquad {
+			return userErr("squad_full", "Your squad is full")
+		}
+		if club.Budget < opt.Price {
+			return userErr("no_budget", "Not enough budget")
+		}
+		tps, err := listTemplates(ctx, q, careerID, `AND id=`+strconv.Itoa(templateID)+` AND NOT signed`)
+		if err != nil {
+			return err
+		}
+		if len(tps) == 0 {
+			return userErr("not_on_market", "This player is not on offer")
+		}
+		p := tps[0].toPlayer()
+		moveTo(p, &club.ID, shirt)
+		homecoming(newRand(), p, club.ID)
+		if err := insertPlayer(ctx, q, careerID, p); err != nil {
+			return err
+		}
+		if _, err := q.Exec(ctx, `UPDATE templates SET signed=true WHERE id=$1`, templateID); err != nil {
+			return err
+		}
+		club.Budget -= opt.Price
+		if err := addFinance(ctx, q, c, "transfer_in", -opt.Price, p.Name); err != nil {
+			return err
+		}
+		c.IconPick.Done = true
+		out = p
+		if err := saveClub(ctx, q, club); err != nil {
+			return err
+		}
+		return saveCareer(ctx, q, c)
+	})
+	return out, err
+}
+
+// ---------------------------------------------------------------- new legend data for old saves
+
+// SyncLegendCards adds legend cards that were added to the game after a career was created.
+func (s *Store) SyncLegendCards(ctx context.Context) error {
+	rows, err := s.DB.Query(ctx, `SELECT id FROM careers`)
+	if err != nil {
+		return err
+	}
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	for _, id := range ids {
+		if err := s.tx(ctx, func(q pgx.Tx) error {
+			have := map[string]bool{}
+			rs, err := q.Query(ctx, `SELECT DISTINCT name FROM templates WHERE career_id=$1 AND kind='legend'`, id)
+			if err != nil {
+				return err
+			}
+			for rs.Next() {
+				var n string
+				if err := rs.Scan(&n); err != nil {
+					rs.Close()
+					return err
+				}
+				have[n] = true
+			}
+			rs.Close()
+			var missing []LegendVersion
+			for _, lv := range LegendVersions {
+				if !have[lv.Name] {
+					missing = append(missing, lv)
+				}
+			}
+			if len(missing) == 0 {
+				return nil
+			}
+			clubs, err := listClubs(ctx, q, id)
+			if err != nil {
+				return err
+			}
+			return insertLegendCards(ctx, q, newRand(), id, clubs, missing)
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}

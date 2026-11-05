@@ -1,0 +1,42 @@
+name: pitchside
+
+services:
+  db:
+    image: postgres:16-alpine
+    shm_size: 256mb # Postgres' parallel workers share memory through /dev/shm (Docker's default 64 MB is too small)
+    environment:
+      POSTGRES_USER: pitch
+      POSTGRES_PASSWORD: pitch
+      POSTGRES_DB: pitchside
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pitch -d pitchside"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://pitch:pitch@db:5432/pitchside?sslmode=disable
+      PORT: "8095"
+      LAN_IP: ${LAN_IP:-} # set by `make up`: the address other devices on the Wi-Fi open for LAN play
+      AUTO_SEED: "1" # load backend/seed.json demo data the first time the database is empty
+    ports:
+      - "8095:8095"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./frontend
+    ports:
+      - "5195:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

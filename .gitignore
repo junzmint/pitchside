@@ -1,0 +1,14 @@
+# dependencies and builds
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+.vite/
+# Go binaries built locally (Docker builds its own)
+backend/api
+backend/pitchside
+backend/__debug_bin*
+# local settings, logs and OS files
+.env
+.env.*
+*.log
+.DS_Store
