@@ -35,9 +35,10 @@ export function LegendCard({ le, onHonour, compact }: { le: LegendEntry; onHonou
         <div><dt>{t('cl.lg.trophies')}</dt><dd>{le.trophies}</dd></div>
       </dl>
       <div className="row cl-legend-foot">
-        <span className="chip">{t('cl.lg.reason.' + le.reason)}</span>
+        <span className={'chip' + (le.reason === 'active' ? ' cl-active' : '')}>{t('cl.lg.reason.' + le.reason)}</span>
         {retired && <span className="chip special"><Icon name="crown" size={12} /> {t('cl.lg.retiredNo', { n: le.shirt })}</span>}
         {le.honour === '' && le.shirt > 0 && onHonour && <button className="small primary" onClick={() => onHonour(le)}>{t('cl.lg.decide')}</button>}
+        {(le.reason === 'sold' || le.reason === 'left') && le.honour !== 'retired' && le.shirt > 0 && <span className="muted cl-nohonour">{t('cl.lg.noHonour')}</span>}
       </div>
     </article>
   )
@@ -67,7 +68,7 @@ export function HonourModal({ ctx, le, onClose }: { ctx: Ctx; le: LegendEntry; o
       <span className="eyebrow"><Icon name="legend" size={13} /> {t('cl.lg.title')}</span>
       <h3 className="cl-bigtitle">{t('cl.lg.honourTitle')}</h3>
       <LegendCard le={le} />
-      <p style={{ margin: 0 }}>{t('cl.lg.honourBody', { name: le.name, apps: le.apps, n: le.shirt })}</p>
+      <p style={{ margin: 0 }}>{t(le.reason === 'active' ? 'cl.lg.honourBodyActive' : 'cl.lg.honourBody', { name: le.name, apps: le.apps, n: le.shirt })}</p>
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         <button onClick={onClose} disabled={busy}>{t('cl.lg.later')}</button>
         <button onClick={() => answer('keep')} disabled={busy}>{t('cl.lg.keep')}</button>

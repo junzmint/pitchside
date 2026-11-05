@@ -35,7 +35,8 @@ type DealQuote struct {
 
 type DealResult struct {
 	DealQuote
-	Accepted bool `json:"accepted"`
+	Accepted bool         `json:"accepted"`
+	Merged   *LegendMerge `json:"merged,omitempty"` // legend_versions.go: he merged with another version of himself
 }
 
 var typicalDepth = map[string]int{"GK": 3, "DF": 8, "MF": 8, "FW": 6}
@@ -406,6 +407,11 @@ func (s *Store) MakeDeal(ctx context.Context, careerID int, req DealReq) (*DealR
 			}
 			if err := savePlayer(ctx, q, d.p); err != nil {
 				return err
+			}
+			if req.Type != "sell" { // legend_versions.go: a legend version and his modern self merge into one
+				if out.Merged, err = signingMerge(ctx, q, d.c, d.user, d.p); err != nil {
+					return err
+				}
 			}
 			d.other.Deals++
 			if err := saveClub(ctx, q, d.other); err != nil {

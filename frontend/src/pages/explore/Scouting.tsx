@@ -6,6 +6,7 @@ import { ConfirmButton, Hint, Ovr, PosTag, TraitChips } from '../../ui'
 import { errText, useI18n } from '../../i18n'
 import type { XCtx } from '../Explore'
 import { MAP_POS, flag } from './common'
+import { mergeText } from '../../LegendBits'
 
 const POSES = ['', 'GK', 'DF', 'MF', 'FW'] as const
 
@@ -44,13 +45,16 @@ export default function Scouting({ ctx, x, refresh }: XCtx) {
   }
   async function sign(f: Find) {
     try {
-      await ctx.run(t('wait'), () => api.buy(ctx.id, f.playerId))
-      ctx.toast(t('deal.accepted', { name: f.name }))
+      const r = await ctx.run(t('wait'), () => api.buy(ctx.id, f.playerId))
+      // legend versions: a card that merged with his modern self says so
+      ctx.toast(r?.merged ? mergeText(t, r.merged) : t('deal.accepted', { name: f.name }))
       await refresh()
     } catch (e) { ctx.toast(errText(t, e), true) }
   }
 
+  // the server sends only the reports on show: signed players and faded reports are gone already
   const finds = x.finds.filter(f => filter === 'all' || f.star)
+  const days = x.findDays || 5
   const out = x.missions.filter(m => m.left > 0)
   const back = x.missions.filter(m => m.left <= 0).slice().reverse()
 
@@ -153,16 +157,17 @@ export default function Scouting({ ctx, x, refresh }: XCtx) {
       </section>
 
       <section className="panel">
-        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
           <h3 style={{ margin: 0 }}>{t('ex.log')}</h3>
           <div className="seg" role="group">
             <button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>{t('ex.all')} ({x.finds.length})</button>
             <button aria-pressed={filter === 'star'} onClick={() => setFilter('star')}>★ {t('ex.shortlist')} ({x.finds.filter(f => f.star).length})</button>
           </div>
         </div>
-        {finds.length === 0 && <p className="muted" style={{ margin: 0 }}>{t('ex.logEmpty')}</p>}
+        <div style={{ marginBottom: 10 }}><Hint text={t('ex.logHint', { n: days })} /></div>
+        {finds.length === 0 && <p className="muted" style={{ margin: 0 }}>{filter === 'star' ? t('ex.shortEmpty') : t('ex.logEmpty')}</p>}
         <div className="ex-finds">
-          {finds.map((f, i) => <FindCard key={i + ':' + f.playerId} f={f} fresh={fresh.current.has(f.mission)} onStar={() => star(f)} onDeal={() => setDeal(f)} onSign={() => sign(f)} />)}
+          {finds.map((f, i) => <FindCard key={i + ':' + f.playerId} f={f} days={days} fresh={fresh.current.has(f.mission)} onStar={() => star(f)} onDeal={() => setDeal(f)} onSign={() => sign(f)} />)}
         </div>
       </section>
 
@@ -171,10 +176,11 @@ export default function Scouting({ ctx, x, refresh }: XCtx) {
   )
 }
 
-function FindCard({ f, fresh, onStar, onDeal, onSign }: { f: Find; fresh: boolean; onStar: () => void; onDeal: () => void; onSign: () => void }) {
+function FindCard({ f, days, fresh, onStar, onDeal, onSign }: { f: Find; days: number; fresh: boolean; onStar: () => void; onDeal: () => void; onSign: () => void }) {
   const { t } = useI18n()
   const p = f.player
   const rar = f.golden ? 'golden' : f.rarity
+  const canBuy = f.status === 'club' || (f.status === 'free' && !!p)
   return (
     <article className={`ex-find r-${f.rarity}${f.golden ? ' golden' : ''}${fresh ? ' fresh' : ''}${f.status === 'gone' || f.status === 'retired' ? ' dim' : ''}`}>
       <header>
@@ -185,7 +191,7 @@ function FindCard({ f, fresh, onStar, onDeal, onSign }: { f: Find; fresh: boolea
             <PosTag p={f.pos} role={p?.role || f.role} /> {t('ex.age', { n: p?.age ?? f.age })} · {t('ex.pot', { n: p?.potential ?? f.pot })}
           </span>
         </div>
-        <button className={'ex-starbtn' + (f.star ? ' on' : '')} aria-pressed={f.star} title={f.star ? t('ex.unstar') : t('ex.star')} onClick={onStar}>★</button>
+        <button className={'ex-starbtn' + (f.star ? ' on' : '')} aria-pressed={f.star} aria-label={t('ex.star')} title={f.star ? t('ex.unstar') : t('ex.star')} onClick={onStar}>★</button>
       </header>
       <div className="ex-findtags">
         <span className={'ex-rar r-' + rar}>{t('ex.r.' + rar)}</span>
@@ -198,12 +204,41 @@ function FindCard({ f, fresh, onStar, onDeal, onSign }: { f: Find; fresh: boolea
         {p && f.status === 'club' && <span className="small num">{t('ex.ask', { v: money(p.price || p.value) })} · <span className="muted">{t('ex.value', { v: money(p.value) })}</span></span>}
         <span className="muted tiny">{flag(f.region)} {t('ex.foundAt', { s: f.season, d: f.day })}</span>
       </div>
-      <div className="row" style={{ gap: 6 }}>
-        {f.status === 'club' && <button className="primary small" onClick={onDeal}>{t('ex.offer')}</button>}
-        {f.status === 'free' && p && <ConfirmButton className="primary small" label={t('ex.sign', { v: money(p.price || p.value) })} confirm={t('confirm')} onConfirm={onSign} />}
-        {f.status === 'yours' && <span className="chip good">✔ {t('ex.st.yours')}</span>}
-      </div>
+      {canBuy && (
+        <div className="row" style={{ gap: 6 }}>
+          {f.status === 'club' && <button className="primary small" onClick={onDeal}>{t('ex.offer')}</button>}
+          {f.status === 'free' && p && <ConfirmButton className="primary small" label={t('ex.sign', { v: money(p.price || p.value) })} confirm={t('confirm')} onConfirm={onSign} />}
+        </div>
+      )}
+      {!f.star && f.left > 0 && <FadeStrip left={f.left} total={days} onKeep={f.status === 'gone' || f.status === 'retired' ? undefined : onStar} />}
     </article>
+  )
+}
+
+/** The countdown on a report that is not on the shortlist: when the pips run out, it leaves the log.
+ *  onKeep: the shortlist button (none for a player who retired or was lost track of). */
+function FadeStrip({ left, total, onKeep }: { left: number; total: number; onKeep?: () => void }) {
+  const { t } = useI18n()
+  const last = left <= 1
+  const tone = last ? 'var(--warn)' : 'var(--cyan)'
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 10px', paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
+      <div style={{ display: 'grid', gap: 4, flex: '1 1 96px', minWidth: 0 }}>
+        <span className="small" style={{ color: tone, fontWeight: 700, lineHeight: 1.45, overflowWrap: 'anywhere' }}>
+          <span aria-hidden="true">⏳ </span>{last ? t('ex.fade1') : t('ex.fade', { n: left })}
+        </span>
+        <span aria-hidden="true" style={{ display: 'flex', gap: 3 }}>
+          {Array.from({ length: Math.max(total, left) }, (_, i) => (
+            <i key={i} style={{ width: 14, height: 5, borderRadius: 2, background: i < left ? tone : 'rgba(140, 180, 220, 0.18)', boxShadow: i < left && last ? '0 0 8px var(--warn)' : undefined }} />
+          ))}
+        </span>
+      </div>
+      {onKeep && (
+        <button className="small" onClick={onKeep} style={{ flex: '0 1 auto', maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.45, color: 'var(--hot)', borderColor: 'rgba(255, 210, 63, 0.55)', background: 'rgba(255, 210, 63, 0.1)' }}>
+          ★ {t('ex.keep')}
+        </button>
+      )}
+    </div>
   )
 }
 

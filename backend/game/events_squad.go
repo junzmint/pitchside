@@ -219,6 +219,40 @@ func (w *world) expireTalks(rep *DayReport) {
 	es.Talks = keep
 }
 
+// forgetDeparted runs on every load, so nothing waits in the inbox about a player who has just been sold,
+// swapped, released or loaned out: his playing-time talk, a promise to him and bids for him (tidyEvents),
+// and the staff room's cards, promises and mentoring about him. (The matchday tick did this only the next day.)
+func (w *world) forgetDeparted() {
+	w.tidyEvents()
+	st := w.crew
+	if st == nil {
+		return
+	}
+	have := map[int]bool{}
+	for _, p := range w.userSquad() {
+		have[p.ID] = true
+	}
+	keepD := st.Decisions[:0]
+	for _, d := range st.Decisions {
+		if d.PlayerID == 0 || have[d.PlayerID] {
+			keepD = append(keepD, d)
+		}
+	}
+	st.Decisions = keepD
+	keepP := st.Promises[:0]
+	for _, pr := range st.Promises {
+		if pr.PlayerID == 0 || have[pr.PlayerID] {
+			keepP = append(keepP, pr)
+		}
+	}
+	st.Promises = keepP
+	for pid := range st.Mentees {
+		if !have[pid] {
+			delete(st.Mentees, pid)
+		}
+	}
+}
+
 // tidyEvents forgets players who have left the club.
 func (w *world) tidyEvents() {
 	c := w.career

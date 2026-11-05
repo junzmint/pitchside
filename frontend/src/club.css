@@ -230,3 +230,7 @@
   .cl-face, .cl-chant .cl-note, .cl-deadline, .cl-dl-time i, .cl-clock .second, .cl-today { animation: none !important; }
 }
 .cl-wallpanel .cl-wallgrid { max-height: none; overflow: visible; }
+
+/* Legends wall: a legend still playing for the club, and the note on one who left */
+.cl-legend .chip.cl-active { color: var(--good); border-color: color-mix(in srgb, var(--good) 55%, transparent); background: color-mix(in srgb, var(--good) 12%, transparent); }
+.cl-legend .cl-nohonour { font-size: 12.5px; line-height: 1.45; }

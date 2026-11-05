@@ -105,6 +105,7 @@ type ComEvent struct {
 	Key    string `json:"key"`
 	Name   string `json:"name,omitempty"`
 	Amount int64  `json:"amount,omitempty"`
+	Age    int    `json:"age,omitempty"` // a player's age, when it matters (which version of a legend turned up)
 }
 
 var investors = []string{"Al-Nahyar Group", "Petrov Holdings", "Sun Pacific Capital", "Redbridge Partners", "Vanterra Ventures", "Okafor Industries"}

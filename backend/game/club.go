@@ -278,16 +278,15 @@ func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what 
 		}
 		var cost int
 		if what == "potential" {
-			if p.Age > 30 && !isLegend(p) {
+			// legend_versions.go breakCheck: a legend card breaks his limit at any level (still once a season)
+			switch breakCheck(c, p) {
+			case "too_old":
 				return userErr("too_old", "Only players aged 30 or under can break their limit")
-			}
-			if p.Potential >= potentialCap(p) {
+			case "max_potential":
 				return userErr("max_potential", "Potential is already at the maximum")
-			}
-			if c.Care.Breaks[p.ID] == c.Season {
+			case "break_done":
 				return userErr("break_done", "He already broke his limit this season")
-			}
-			if OverallAs(p, p.Position) < float64(p.Potential-BreakGap)-0.5 {
+			case "not_at_limit":
 				return userErr("not_at_limit", "Only a player at his limit can break it")
 			}
 			cost = PotentialUpgradeCost(p.Potential) * legendCost(p)

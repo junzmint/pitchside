@@ -27,7 +27,11 @@ export interface Find {
   playerId: number; name: string; nation: string; pos: Pos; role: string; age: number; ovr: number; pot: number; dev: string; traits: string[] | null
   club: string; clubId: number; value: number; ask: number; rarity: Rarity; tags: string[] | null; region: string; mission: number
   season: number; day: number; star: boolean; signed: boolean; golden: boolean
-  player: Player | null; nowClub: string; nowClubId: number; status: 'club' | 'yours' | 'free' | 'retired' | 'gone'
+  player: Player | null; nowClub: string; nowClubId: number
+  /** a player who joined your club leaves the log, so there is no 'yours' */
+  status: 'club' | 'free' | 'retired' | 'gone'
+  /** matchdays before this unstarred report fades from the log (0 on the shortlist: it stays) */
+  left: number
 }
 export interface AchView {
   key: string; group: string; tier: AchTier; hidden: boolean; stat: string; target: number; tp: number; money: number; title: boolean
@@ -51,6 +55,8 @@ export interface ExploreFull {
   scouts: ScoutInfo[]
   missions: Mission[]
   finds: Find[]
+  /** ScoutFindDays: matchdays an unstarred report stays in the log */
+  findDays: number
   focus: string[]
   achievements: AchView[]
   stats: Record<string, number>

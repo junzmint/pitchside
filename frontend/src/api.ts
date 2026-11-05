@@ -1,4 +1,5 @@
 import type { CareerState, CareerSummary, Club, Chemistry, CompetitionsView, DayReport, DealQuote, FinanceView, HistoryView, LeagueInfo, MarketView, MatchSetup, Player, Quest, ScoutRow, StatsView, Tactic, TeamRating, User, AgeNote, Demand, CommercialView, ChanceCard } from './types'
+import type { LegendMerge } from './legendVersions'
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) {
@@ -46,13 +47,13 @@ export const api = {
   training: (id: number, intensity: string, focus: Record<string, string>) => req('PUT', c(id) + '/training', { intensity, focus }),
 
   market: (id: number) => req<MarketView>('GET', c(id) + '/market'),
-  buy: (id: number, pid: number) => req('POST', `${c(id)}/players/${pid}/buy`),
+  buy: (id: number, pid: number) => req<{ player?: Player; merged?: LegendMerge } | null>('POST', `${c(id)}/players/${pid}/buy`),
   release: (id: number, pid: number) => req<{ received: number }>('POST', `${c(id)}/players/${pid}/release`),
   createTemplate: (id: number, body: object) => req('POST', c(id) + '/templates', body),
   deleteTemplate: (id: number, tid: number) => req('DELETE', `${c(id)}/templates/${tid}`),
   scout: (id: number, league: string, pos: string) => req<ScoutRow[]>('GET', `${c(id)}/scout?league=${league}&pos=${pos}`),
   quote: (id: number, body: object) => req<DealQuote>('POST', c(id) + '/deals/quote', body),
-  deal: (id: number, body: object) => req<DealQuote & { accepted: boolean }>('POST', c(id) + '/deals', body),
+  deal: (id: number, body: object) => req<DealQuote & { accepted: boolean; merged?: LegendMerge }>('POST', c(id) + '/deals', body),
   hire: (id: number, cid: number) => req('POST', `${c(id)}/coaches/${cid}/hire`),
   fire: (id: number, cid: number) => req('POST', `${c(id)}/coaches/${cid}/fire`),
 
@@ -80,7 +81,7 @@ export const api = {
   play: (id: number, body: object) => req<DayReport>('POST', c(id) + '/play', body),
   friendly: (id: number, opponentId: number) => req('POST', c(id) + '/friendly', { opponentId }),
   newSeason: (id: number) => req<{ retired: string[] | null; aged: AgeNote[] | null; expired: string[] | null; regens: string[] | null; promoted?: string[] | null; transfers?: SummerMove[] | null }>('POST', c(id) + '/new-season'),
-  pickIcon: (id: number, templateId: number) => req<Player | null>('POST', c(id) + '/icon-pick', { templateId }),
+  pickIcon: (id: number, templateId: number) => req<(Player & { merged?: LegendMerge }) | null>('POST', c(id) + '/icon-pick', { templateId }),
   commercial: (id: number) => req<CommercialView>('GET', c(id) + '/commercial'),
   comAct: (id: number, body: { action: string; slot?: string; index?: number; offer?: number; choice?: string; amount?: number }) => req<{ card?: ChanceCard; ask?: number; outcome?: string }>('POST', c(id) + '/commercial', body),
   renew: (id: number, pid: number) => req('POST', `${c(id)}/players/${pid}/renew`),

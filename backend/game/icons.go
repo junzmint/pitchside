@@ -101,6 +101,9 @@ func (w *world) iconPickTick(ctx context.Context, q DBTX, r *rand.Rand, rep *Day
 	if err != nil {
 		return err
 	}
+	if err := floorTemplates(ctx, q, c.ID, tps); err != nil { // legend_versions.go: never below his modern self
+		return err
+	}
 	var home, top []*Template
 	for _, t := range tps {
 		if t.OnMarket {
@@ -139,8 +142,8 @@ func (w *world) iconPickTick(ctx context.Context, q DBTX, r *rand.Rand, rep *Day
 }
 
 // PickIcon signs one of the offered icons (templateID 0 passes on the offer).
-func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*Player, error) {
-	var out *Player
+func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*IconSigned, error) {
+	var out *IconSigned
 	err := s.tx(ctx, func(q pgx.Tx) error {
 		c, err := getCareer(ctx, q, careerID)
 		if err != nil {
@@ -184,6 +187,9 @@ func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*Player
 			return userErr("not_on_market", "This player is not on offer")
 		}
 		p := tps[0].toPlayer()
+		if err := floorCards(ctx, q, careerID, p); err != nil { // legend_versions.go: never below his modern self
+			return err
+		}
 		moveTo(p, &club.ID, shirt)
 		homecoming(newRand(), p, club.ID)
 		if err := insertPlayer(ctx, q, careerID, p); err != nil {
@@ -197,7 +203,11 @@ func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*Player
 			return err
 		}
 		c.IconPick.Done = true
-		out = p
+		out = &IconSigned{Player: p}
+		// legend_versions.go: he merges with his modern self if that player is at the club
+		if out.Merged, err = signingMerge(ctx, q, c, club, p); err != nil {
+			return err
+		}
 		if err := saveClub(ctx, q, club); err != nil {
 			return err
 		}

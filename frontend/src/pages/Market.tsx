@@ -10,6 +10,8 @@ import {
 import { errText, useI18n } from '../i18n'
 import { eventsOf } from '../api_events'
 import { revealSigning } from '../reveal'
+import { mergesWith } from '../legendVersions'
+import { MergeChip, mergeText } from '../LegendBits'
 
 export const MAX_SQUAD = 50
 
@@ -53,12 +55,15 @@ function FreeAgents({ ctx, m, reload }: { ctx: Ctx; m: MarketView; reload: () =>
   const [view, setView] = useViewMode('market')
   async function buy(p: Player) {
     try {
-      await api.buy(ctx.id, p.id)
-      revealSigning(p)
+      const r = await api.buy(ctx.id, p.id)
+      revealSigning(r?.merged?.legend ?? p) // a legend version who merged with his modern self shows as he is now
       await Promise.all([reload(), ctx.reload()])
-      ctx.toast(t('mk.signed', { name: p.name }))
+      ctx.toast(r?.merged ? mergeText(t, r.merged) : t('mk.signed', { name: p.name }))
     } catch (e) { ctx.toast(errText(t, e), true) }
   }
+  // legend versions: who he would merge with at your club (borrowed players don't count)
+  const borrowed = new Set(eventsOf(ctx.st)?.loanees ?? [])
+  const partner = (p: Player) => mergesWith(p, ctx.st.squad, borrowed, ctx.st.club.name)
   const list = m.players.filter(p => (pos === 'ALL' || p.position === pos) && (!afford || (p.price || p.value) <= ctx.st.club.budget))
     .sort((a, b) => (b.tag ? 1 : 0) - (a.tag ? 1 : 0)) // legends (and your own designs) first: they only stay a few days
   const full = ctx.st.squad.length >= MAX_SQUAD
@@ -82,14 +87,14 @@ function FreeAgents({ ctx, m, reload }: { ctx: Ctx; m: MarketView; reload: () =>
       {list.length === 0 ? <Empty icon="search">{t('mk.none')}</Empty>
         : view === 'cards' ? (
           <div className="cards">
-            {list.map(p => <PlayerCard key={p.id} p={p} flags={<MarketFlags p={p} />}>{action(p)}</PlayerCard>)}
+            {list.map(p => <PlayerCard key={p.id} p={p} flags={<MarketFlags p={p} merge={partner(p)} />}>{action(p)}</PlayerCard>)}
           </div>
-        ) : <PlayerTable players={list} action={action} badge={p => <TagChip p={p} />} />}
+        ) : <PlayerTable players={list} action={action} badge={p => <><TagChip p={p} /> <MergeChip partner={partner(p)} /></>} />}
     </section>
   )
 }
 
-function MarketFlags({ p, club }: { p: Player; club?: ScoutRow }) {
+function MarketFlags({ p, club, merge }: { p: Player; club?: ScoutRow; merge?: Player }) {
   const { t } = useI18n()
   const price = p.price || p.value
   const r = price / Math.max(1, p.value)
@@ -102,6 +107,7 @@ function MarketFlags({ p, club }: { p: Player; club?: ScoutRow }) {
       {p.injury > 0 && <span className="flag bad"><Icon name="injury" size={12} /> {p.injury}{t('wk')}</span>}
       <span className="flag" data-tip={t('wage')}><Icon name="wages" size={12} /> {money(p.wage)}</span>
       <TagChip p={p} />
+      <MergeChip partner={merge} />
       <TraitChips p={p} small />
     </span>
   )
@@ -121,6 +127,7 @@ function Scout({ ctx }: { ctx: Ctx }) {
     api.scout(ctx.id, league, pos === 'ALL' ? '' : pos).then(setRows).catch(e => ctx.toast(errText(t, e), true))
   }, [ctx.id, league, pos, ctx.st.career.day])
   const approach = (p: Player) => <button className="small" onClick={() => setDeal(rows?.find(r => r.player.id === p.id) ?? null)}><Icon name="chat" size={14} /> {t('mk.approach')}</button>
+  const borrowed = new Set(eventsOf(ctx.st)?.loanees ?? []) // legend versions: whom a signing would merge with
   return (
     <section className="panel stack">
       <div className="row spread">
@@ -144,10 +151,11 @@ function Scout({ ctx }: { ctx: Ctx }) {
       <Hint text={t('mk.scoutHelp')} />
       {!rows ? <Loading /> : rows.length === 0 ? <Empty icon="scout">{t('mk.none')}</Empty> : view === 'cards' ? (
         <div className="cards">
-          {rows.map(r => <PlayerCard key={r.player.id} p={r.player} flags={<MarketFlags p={r.player} club={r} />}>{approach(r.player)}</PlayerCard>)}
+          {rows.map(r => <PlayerCard key={r.player.id} p={r.player} flags={<MarketFlags p={r.player} club={r} merge={mergesWith(r.player, ctx.st.squad, borrowed, ctx.st.club.name)} />}>{approach(r.player)}</PlayerCard>)}
         </div>
       ) : (
-        <PlayerTable players={rows.map(r => r.player)} clubOf={id => rows.find(r => r.player.id === id)} action={approach} />
+        <PlayerTable players={rows.map(r => r.player)} clubOf={id => rows.find(r => r.player.id === id)} action={approach}
+          badge={p => <><TagChip p={p} /> <MergeChip partner={mergesWith(p, ctx.st.squad, borrowed, ctx.st.club.name)} /></>} />
       )}
       {deal && <Portal><DealDialog ctx={ctx} row={deal} onClose={() => setDeal(null)} /></Portal>}
     </section>
@@ -325,6 +333,7 @@ function DealDialog({ ctx, row, onClose }: { ctx: Ctx; row: ScoutRow; onClose: (
   const [give2, setGive2] = useState(0)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<boolean | null>(null)
+  const [merged, setMerged] = useState<string>('') // legend versions: he merged with another version of himself
   const base = p.price || p.value // their asking price this season
   const price = Math.round(base * pct / 100 / 1e4) * 1e4
   const opts = { agent, promise, sellOn, scout }
@@ -340,7 +349,8 @@ function DealDialog({ ctx, row, onClose }: { ctx: Ctx; row: ScoutRow; onClose: (
     try {
       const r = await ctx.run(t('wait.deal'), () => api.deal(ctx.id, body))
       setResult(r.accepted)
-      if (r.accepted) revealSigning(p)
+      if (r.accepted) revealSigning(r.merged?.legend ?? p)
+      if (r.merged) { setMerged(mergeText(t, r.merged)); ctx.toast(mergeText(t, r.merged)) }
       await ctx.reload()
     } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy(false) }
   }
@@ -356,6 +366,7 @@ function DealDialog({ ctx, row, onClose }: { ctx: Ctx; row: ScoutRow; onClose: (
         {result !== null ? (
           <>
             <div className={'verdictbox ' + (result ? 'ok' : 'no')}><Icon name={result ? 'check' : 'close'} size={30} /><p className="big">{result ? t('deal.accepted', { name: p.name }) : t('deal.rejected', { club: row.club })}</p></div>
+            {merged && <p className="lgv-mergeline"><Icon name="up" size={15} /> {merged}</p>}
             <button className="primary" onClick={onClose}>{t('close')}</button>
           </>
         ) : (

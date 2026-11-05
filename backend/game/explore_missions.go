@@ -121,8 +121,9 @@ type Find struct {
 	Mission  int      `json:"mission"`
 	Season   int      `json:"season"`
 	Day      int      `json:"day"`
-	Star     bool     `json:"star"`   // on the shortlist
-	Signed   bool     `json:"signed"` // he joined your club
+	Star     bool     `json:"star"`            // on the shortlist
+	Signed   bool     `json:"signed"`          // he joined your club
+	Since    int      `json:"since,omitempty"` // Career.now() when he came off the shortlist: his ScoutFindDays start again there
 	Golden   bool     `json:"golden"`
 }
 
@@ -225,19 +226,114 @@ func (w *world) addFinds(ctx context.Context, q DBTX, fs []Find) error {
 		x.Stats["finds"]++
 	}
 	x.Finds = append(fs, x.Finds...)
-	// keep the shortlist and the latest 60 others
+	pruneFinds(w.career)
+	return nil
+}
+
+// ---------------------------------------------------------------- the discovery log
+//
+// A report stays on the scouting screen for ScoutFindDays matchdays unless you shortlist (★) the
+// player; the shortlist keeps him until you take him off it. Once he joins your club (bought,
+// swapped in, signed as a free agent) his report has done its job and leaves the screen for good.
+// Reports off the screen stay behind as the scouts' memory (the latest scoutMemory of them): the
+// next trips don't bring the same players back, and signing one of them later still counts for
+// the achievements.
+
+// ScoutFindDays: matchdays an unstarred report stays on show, counted from the day it came in. Only
+// matchdays played count: the off-season between two seasons counts as none, so a report from the
+// last weeks of a season is still there when the next one starts.
+const ScoutFindDays = 5
+
+// scoutMemory: reports kept off the screen, besides the ones on show.
+const scoutMemory = 60
+
+// matchdayNo numbers the career's matchdays across seasons. The off-season (day len(Calendar)+1)
+// shares its number with matchday 1 of the next season, so the summer counts as no time at all.
+func matchdayNo(season, day int) int {
+	return season*len(Calendar) + min(max(day, 1), len(Calendar)+1)
+}
+
+// findAge: matchdays played since the report came in, or since he came off the shortlist.
+func findAge(c *Career, f *Find) int {
+	from := matchdayNo(f.Season, f.Day)
+	if f.Since > 0 {
+		from = max(from, matchdayNo(f.Since/100, f.Since%100))
+	}
+	return max(0, matchdayNo(c.Season, c.Day)-from)
+}
+
+// findLeft: matchdays an unstarred report has left on show (0: it has faded).
+func findLeft(c *Career, f *Find) int {
+	return max(0, ScoutFindDays-findAge(c, f))
+}
+
+// findOnShow: whether a report shows on the scouting screen (the log, the shortlist and the feed
+// lines about him). yours: he plays for the user's club now, even before trackSquad marks him Signed.
+func findOnShow(c *Career, f *Find, yours bool) bool {
+	if f.Signed || yours {
+		return false
+	}
+	return f.Star || findLeft(c, f) > 0
+}
+
+// pruneFinds keeps every report on show plus the latest scoutMemory others.
+func pruneFinds(c *Career) {
+	x := &c.Explore
 	keep := x.Finds[:0]
 	n := 0
-	for _, f := range x.Finds {
-		if f.Star || n < 60 {
+	for i := range x.Finds {
+		f := x.Finds[i]
+		on := findOnShow(c, &f, false)
+		if on || n < scoutMemory {
 			keep = append(keep, f)
-			if !f.Star {
+			if !on {
 				n++
 			}
 		}
 	}
 	x.Finds = keep
-	return nil
+}
+
+// toggleStar puts a reported player on (or off) the shortlist. Taken off it, his report gets a
+// fresh ScoutFindDays before it fades, so it never vanishes under the user's finger.
+func toggleStar(c *Career, playerID int) bool {
+	for i := range c.Explore.Finds {
+		if f := &c.Explore.Finds[i]; f.PlayerID == playerID {
+			f.Star, f.Since = !f.Star, 0
+			if !f.Star {
+				f.Since = c.now()
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// findFeedKeys: the feed lines about one reported player ("Legendary find: X", "Golden tip: X").
+var findFeedKeys = map[string]bool{"find_legendary": true, "golden_tip": true}
+
+// shownFeed: the Explore feed without the lines about reports that are off the scouting screen. A
+// line is matched to its report by the player's name and the day, both written in the same tick;
+// a line whose report is gone from the scouts' memory too is old enough to go.
+func shownFeed(c *Career, yours map[int]bool) []FeedItem {
+	type stamp struct {
+		name        string
+		season, day int
+	}
+	x := &c.Explore
+	on := map[stamp]bool{}
+	for i := range x.Finds {
+		f := &x.Finds[i]
+		k := stamp{f.Name, f.Season, f.Day}
+		on[k] = on[k] || findOnShow(c, f, yours[f.PlayerID])
+	}
+	out := make([]FeedItem, 0, len(x.Feed))
+	for _, it := range x.Feed {
+		if !findFeedKeys[it.Key] || on[stamp{it.Name, it.Season, it.Day}] {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // resolveMission: the scout's reports.
@@ -528,15 +624,12 @@ func (s *Store) MarkExploreSeen(ctx context.Context, careerID int) error {
 	})
 }
 
-// StarFind puts a discovered player on (or off) the shortlist.
+// StarFind puts a discovered player on (or off) the shortlist (see toggleStar).
 func (s *Store) StarFind(ctx context.Context, careerID, playerID int) error {
 	return s.exploreTx(ctx, careerID, func(w *world, q pgx.Tx) error {
-		for i := range w.career.Explore.Finds {
-			if f := &w.career.Explore.Finds[i]; f.PlayerID == playerID {
-				f.Star = !f.Star
-				return nil
-			}
+		if !toggleStar(w.career, playerID) {
+			return ErrNotFound
 		}
-		return ErrNotFound
+		return nil
 	})
 }

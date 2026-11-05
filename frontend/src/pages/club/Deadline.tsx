@@ -8,6 +8,7 @@ import { eventsApi } from '../../api_events'
 import { errText, useI18n } from '../../i18n'
 import { revealSigning } from '../../reveal'
 import { sfx } from '../../sfx'
+import { versionLabel } from '../../legendVersions'
 import { Badge, ConfirmButton, Icon, Ovr, PosTag } from '../../ui'
 
 /** A stadium clock stuck at one minute to midnight. */
@@ -83,7 +84,9 @@ export function DeadlineBanner({ ctx, v }: { ctx: Ctx; v: ClubLifeView }) {
               sfx('cash')
               if (r.player) revealSigning(r.player)
               return r
-            }, r => t('cl.dl.signed', { name: r.name ?? b.name, n: r.shirt ?? '' }))} />)}
+            }, r => r.player?.tag === 'legend' // legend versions: the bargain merged into a legend version of him you own
+              ? t('lgv.merged', { name: versionLabel(r.player) })
+              : t('cl.dl.signed', { name: r.name ?? b.name, n: r.shirt ?? '' }))} />)}
         </div>
         <div className="cl-dl-col">
           <h4><Icon name="transferIn" size={16} /> {t('cl.dl.deals')}</h4>

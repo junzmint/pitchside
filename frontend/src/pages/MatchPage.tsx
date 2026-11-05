@@ -23,6 +23,7 @@ import { happeningText, happeningTone } from './EventsInbox'
 import { feedText } from './Explore'
 import { Badge, Bar, ConfirmButton, Icon, Ovr, PosTag, Seg, useStageLabel, Hint } from '../ui'
 import { alertText } from './Alerts'
+import { OppSheetButton } from './OppSheet'
 import { errText, useI18n } from '../i18n'
 
 type Stage = 'pre' | 'live' | 'saving' | 'report'
@@ -189,6 +190,7 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
                 )
               })()}
               {(() => { const opp = setup.userIsHome ? away : home; return <p className="lv-oppstyle"><b>{t('lv.m.oppStyle')} · {opp.club.name}</b><br />{styleLine(t, styleFor(opp.club.tactic, opp.coachFit?.style), opp.club.tactic)}</p> })()}
+              <OppSheetButton setup={setup} kitPick={kitPick} small />{/* their formation, XI, bench and injuries */}
               <div className="row spread"><b>{t('lv.pre.mode')}</b>
                 <Seg value={mode} options={[['play', t('lv.pre.play')], ['watch', t('lv.pre.watch')], ['duo', t('lv.pre.duo')]]} onChange={pickMode} />
               </div>

@@ -1,4 +1,5 @@
 import type { Chemistry, CoachFit, Player, Pos, SlotChem, Tactic } from './types'
+import { onePerPerson } from './legendVersions'
 
 // Slot coordinates for a team attacking to the right; mirrors backend game/rating.go.
 // x: 0 = own goal line, 1 = opponent goal line. y: 0 = left touchline (top on screen), 1 = right.
@@ -65,7 +66,10 @@ export function arrangeLineup(players: Player[], lineup: number[], roles: string
 export const isIcon = (p: Player) => p.tag === 'legend' || p.tag === 'custom'
 
 /** Greedy best XI. With preferIcons, legends and custom players win a slot unless someone is clearly (15%+) better. */
-export function bestLineup(players: Player[], roles: string[], preferIcons = false): number[] {
+export function bestLineup(squad: Player[], roles: string[], preferIcons = false, clubName?: string): number[] {
+  // one version of a legend per match (legendVersions.ts): his club version when fit, otherwise the best-rated one
+  const fitOnes = squad.filter(p => p.injury === 0)
+  const players = onePerPerson(fitOnes, undefined, clubName)
   const used = new Set<number>()
   const out: number[] = new Array(roles.length).fill(-1)
   const pri: Record<Pos, number> = { GK: 0, FW: 1, DF: 2, MF: 3 }

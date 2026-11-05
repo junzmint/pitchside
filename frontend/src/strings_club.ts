@@ -80,7 +80,7 @@ export const clubStrings: { vi: Record<string, string>; en: Record<string, strin
     'cl.dl.potential': 'Tiềm năng {n}',
     // legends
     'cl.lg.title': 'Bức tường huyền thoại', 'cl.lg.open': 'Xem bức tường', 'cl.lg.count': '{n} huyền thoại',
-    'cl.lg.empty': 'Chưa có huyền thoại nào. Khoảng 150 trận, 5 mùa giải hoặc 3 danh hiệu cùng CLB sẽ đưa một cầu thủ lên đây khi anh ấy giải nghệ hoặc ra đi.',
+    'cl.lg.empty': 'Chưa có huyền thoại nào. Cuối mỗi mùa, cổ động viên chọn một cầu thủ đang thi đấu (kể cả icon) có khoảng 150 trận, 5 mùa giải hoặc 3 danh hiệu cùng CLB để đưa lên đây; người ra đi hoặc giải nghệ với thành tích như vậy cũng được ghi tên. Chỉ người ở lại CLB mới được treo số áo.',
     'cl.lg.rule': 'Khoảng 150 trận, 5 mùa giải hoặc 3 danh hiệu cùng CLB',
     'cl.lg.years': 'Mùa {a} – mùa {b}', 'cl.lg.year': 'Mùa {a}',
     'cl.lg.apps': 'Trận', 'cl.lg.goals': 'Bàn thắng', 'cl.lg.assists': 'Kiến tạo', 'cl.lg.trophies': 'Danh hiệu',
@@ -90,7 +90,7 @@ export const clubStrings: { vi: Record<string, string>; en: Record<string, strin
     'cl.lg.honourBody': '{name} bước lên bức tường huyền thoại sau {apps} trận cho CLB. Treo áo số {n} để vinh danh anh ấy? Sẽ không ai mặc lại số áo này nữa.',
     'cl.lg.retire': 'Treo áo số {n}', 'cl.lg.keep': 'Vẫn dùng số áo này', 'cl.lg.later': 'Để sau',
     'cl.lg.retiredToast': 'Áo số {n} đã được treo để vinh danh {name}', 'cl.lg.keptToast': 'Áo số {n} vẫn sẽ được dùng',
-    'cl.lg.decide': 'Treo số áo?', 'cl.lg.newest': 'Huyền thoại gần nhất',
+    'cl.lg.decide': 'Treo số áo?', 'cl.lg.reason.active': 'Đang thi đấu cho CLB', 'cl.lg.noHonour': 'Đã rời CLB nên không treo số áo', 'cl.lg.honourBodyActive': '{name} bước lên bức tường huyền thoại sau {apps} trận cho CLB, và vẫn đang thi đấu. Treo áo số {n} để vinh danh anh ấy? Anh ấy vẫn mặc số này, sau này không ai mặc lại nữa. Nếu bán anh ấy, số áo sẽ được dùng lại và cổ động viên sẽ rất giận.', 'cl.note.legend_retired': '{name} giải nghệ trong màu áo CLB', 'cl.note.legend_sold': 'Bán huyền thoại {name}', 'cl.note.legend_left': 'Huyền thoại {name} rời CLB', 'ev.legend_retired': 'Huyền thoại {name} giải nghệ sau {n} trận cho CLB', 'ev.shirt_unretired': 'Áo số {n} được dùng lại: {name} đã rời CLB', 'err.legend_left': 'Chỉ huyền thoại ở lại CLB (đang thi đấu hoặc giải nghệ tại đây) mới được treo số áo', 'cl.lg.newest': 'Huyền thoại gần nhất',
     // finance
     'cl.fin.title': 'Cổ động viên và khán giả',
     'cl.fin.ticket.low': 'Giá vé rẻ: cổ động viên +{v} sau mỗi trận sân nhà', 'cl.fin.ticket.normal': 'Giá vé bình thường: không ảnh hưởng tới cổ động viên',
@@ -192,7 +192,7 @@ export const clubStrings: { vi: Record<string, string>; en: Record<string, strin
     'cl.dl.potential': 'Potential {n}',
     // legends
     'cl.lg.title': 'Legends wall', 'cl.lg.open': 'Open the wall', 'cl.lg.count': '{n} legends',
-    'cl.lg.empty': 'No legends yet. About 150 appearances, five seasons or three trophies with the club earn a player his place when he retires or leaves.',
+    'cl.lg.empty': 'No legends yet. At the end of every season the fans choose one current player (icons too) with about 150 appearances, five seasons or three trophies for the club; a player who leaves or retires with such a record joins as well. Only a player who stays with the club can have his number retired.',
     'cl.lg.rule': 'About 150 appearances, five seasons or three trophies with the club',
     'cl.lg.years': 'Season {a} – Season {b}', 'cl.lg.year': 'Season {a}',
     'cl.lg.apps': 'Appearances', 'cl.lg.goals': 'Goals', 'cl.lg.assists': 'Assists', 'cl.lg.trophies': 'Trophies',
@@ -202,7 +202,7 @@ export const clubStrings: { vi: Record<string, string>; en: Record<string, strin
     'cl.lg.honourBody': '{name} joins the Legends wall after {apps} appearances for the club. Retire number {n} in his honour? Nobody will ever wear it again.',
     'cl.lg.retire': 'Retire number {n}', 'cl.lg.keep': 'Keep it in use', 'cl.lg.later': 'Decide later',
     'cl.lg.retiredToast': 'Number {n} retired in honour of {name}', 'cl.lg.keptToast': 'Number {n} stays in use',
-    'cl.lg.decide': 'Retire his number?', 'cl.lg.newest': 'Newest legend',
+    'cl.lg.decide': 'Retire his number?', 'cl.lg.reason.active': 'Still playing for us', 'cl.lg.noHonour': 'He left the club, so his number is not retired', 'cl.lg.honourBodyActive': '{name} joins the Legends wall after {apps} games for the club, and he is still playing. Retire number {n} in his honour? He keeps wearing it, and nobody else ever will. Sell him and the number goes back into use, and the fans will be furious.', 'cl.note.legend_retired': '{name} retires as one of ours', 'cl.note.legend_sold': 'Legend sold: {name}', 'cl.note.legend_left': 'Legend {name} has left', 'ev.legend_retired': 'Legend {name} retires after {n} games for the club', 'ev.shirt_unretired': 'Number {n} is back in use: {name} has left the club', 'err.legend_left': 'Only a legend who stayed (still playing here, or retired here) can have his number retired', 'cl.lg.newest': 'Newest legend',
     // finance
     'cl.fin.title': 'Fans and attendance',
     'cl.fin.ticket.low': 'Cheap tickets: fans +{v} after every home match', 'cl.fin.ticket.normal': 'Normal prices: no effect on the fans',
@@ -304,7 +304,7 @@ export const clubStrings: { vi: Record<string, string>; en: Record<string, strin
     'cl.dl.potential': 'ポテンシャル {n}',
     // legends
     'cl.lg.title': 'レジェンドの壁', 'cl.lg.open': '壁を見る', 'cl.lg.count': 'レジェンド{n}人',
-    'cl.lg.empty': 'まだレジェンドはいません。クラブで約150試合、5シーズン、またはタイトル3つ。その選手が引退か退団すると、ここに名前が刻まれます。',
+    'cl.lg.empty': 'まだレジェンドはいません。毎シーズン終了時、サポーターがクラブで約150試合、5シーズン、またはタイトル3つの現役選手（アイコンも含む）から1人を選び、ここに名前を刻みます。同じ実績で退団・引退した選手も加わります。背番号を永久欠番にできるのは、クラブに残った選手だけです。',
     'cl.lg.rule': 'クラブで約150試合、5シーズン、またはタイトル3つ',
     'cl.lg.years': 'シーズン{a}〜{b}', 'cl.lg.year': 'シーズン{a}',
     'cl.lg.apps': '出場', 'cl.lg.goals': '得点', 'cl.lg.assists': 'アシスト', 'cl.lg.trophies': 'タイトル',
@@ -314,7 +314,7 @@ export const clubStrings: { vi: Record<string, string>; en: Record<string, strin
     'cl.lg.honourBody': '{name}はクラブで{apps}試合に出場し、レジェンドの壁に加わります。敬意を表して背番号{n}を永久欠番にしますか？今後この番号は誰も着けません。',
     'cl.lg.retire': '背番号{n}を永久欠番に', 'cl.lg.keep': '番号は使い続ける', 'cl.lg.later': '後で決める',
     'cl.lg.retiredToast': '{name}をたたえ、背番号{n}を永久欠番にしました', 'cl.lg.keptToast': '背番号{n}は引き続き使われます',
-    'cl.lg.decide': '永久欠番にする？', 'cl.lg.newest': '最新のレジェンド',
+    'cl.lg.decide': '永久欠番にする？', 'cl.lg.reason.active': 'クラブで現役', 'cl.lg.noHonour': 'クラブを去ったため、背番号は永久欠番にしません', 'cl.lg.honourBodyActive': '{name}がクラブで{apps}試合を戦い、現役のままレジェンドの壁に名を刻みました。背番号{n}を永久欠番にしますか？本人はこの番号を着け続け、ほかの誰も着けることはありません。売却すれば番号は再び使われ、サポーターは激怒します。', 'cl.note.legend_retired': '{name}がクラブで引退', 'cl.note.legend_sold': 'レジェンド{name}を売却', 'cl.note.legend_left': 'レジェンド{name}が退団', 'ev.legend_retired': 'レジェンド{name}がクラブで{n}試合を戦い引退', 'ev.shirt_unretired': '{name}の退団で背番号{n}が再び使われることに', 'err.legend_left': 'クラブに残ったレジェンド（現役、またはここで引退）だけが背番号を永久欠番にできます', 'cl.lg.newest': '最新のレジェンド',
     // finance
     'cl.fin.title': 'サポーターと観客',
     'cl.fin.ticket.low': '安いチケット：ホーム戦ごとにサポーター +{v}', 'cl.fin.ticket.normal': '通常価格：サポーターへの影響なし',

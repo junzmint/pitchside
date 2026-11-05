@@ -83,6 +83,8 @@ func loadWorld(ctx context.Context, q DBTX, r *rand.Rand, careerID int) (*world,
 	}
 	// drop demands (and contracts) of anyone who has since been sold, released or let go
 	pruneContracts(c, w.players[c.UserClubID], w.coaches[c.UserClubID])
+	// …and everything else still waiting about him (a playing-time talk, a promise, a bid, a coach's card)
+	w.forgetDeparted()
 	sortDemands(c.Contracts.Demands)
 	for _, cl := range w.clubs {
 		if cl.IsUser && c.Care.AutoXI {
@@ -110,22 +112,39 @@ func resolveLineup(club *Club, squad []*Player) []int {
 	}
 	out := make([]int, len(roles))
 	used := map[int]bool{}
+	keep := lineupKeep(club.Lineup[:min(len(club.Lineup), len(roles))], byID) // legend_versions.go: two versions of one legend saved (old saves): one stays
+	inXI := map[string]bool{}
 	for i := range roles {
 		out[i] = -1
 		if i < len(club.Lineup) {
 			if p := byID[club.Lineup[i]]; p != nil && available(p) && !used[p.ID] {
+				k := personKey(p)
+				if k != "" && (keep[k] != p.ID || inXI[k]) {
+					continue
+				}
 				out[i] = p.ID
 				used[p.ID] = true
+				if k != "" {
+					inXI[k] = true
+				}
 			}
 		}
 	}
+	// the gaps: one version of each legend, none of a legend already in the eleven
+	var pool []*Player
+	for _, p := range squad {
+		if k := personKey(p); !used[p.ID] && available(p) && !p.Rushed && (k == "" || !inXI[k]) {
+			pool = append(pool, p)
+		}
+	}
+	pool = onePerPerson(pool)
 	for i, role := range roles {
 		if out[i] != -1 {
 			continue
 		}
 		best, bestR := -1, -1.0
-		for _, p := range squad {
-			if !used[p.ID] && available(p) && !p.Rushed {
+		for _, p := range pool {
+			if !used[p.ID] {
 				if r := Effective(p, role); r > bestR {
 					best, bestR = p.ID, r
 				}
@@ -209,7 +228,7 @@ func benchOf(starters []*Player, squad []*Player) []*Player {
 			bench = append(bench, p)
 		}
 	}
-	return bench
+	return benchVersions(starters, bench) // legend_versions.go: no second version of a starter, one of anyone else
 }
 
 // matchDrain: fitness a full 90 minutes costs, by pressing and fixture congestion.
@@ -262,6 +281,9 @@ type SideSetup struct {
 	Rotated   []SwapNote `json:"rotated"`   // tired starters rested by squad rotation
 	Congested bool       `json:"congested"` // second game in a week
 	Perks     []string   `json:"perks"`     // staff specialities (they also boost the live match)
+	// squad players who cannot play today (injured and not cleared to play), longest out first;
+	// the pre-match team sheet shows the opponent's (MatchCentre OppSheet). Not used by the engine.
+	Unavailable []*Player `json:"unavailable,omitempty"`
 }
 
 type MatchSetup struct {
@@ -277,7 +299,25 @@ type MatchSetup struct {
 func (w *world) side(clubID int, f *Fixture) SideSetup {
 	sh := w.sheet(clubID)
 	return SideSetup{Club: sh.Club, Starters: sh.Starters, Roles: sh.Roles, Bench: sh.Bench, HeadCoach: sh.HeadCoach,
-		Rating: sh.Rating(), Chemistry: sh.Chem, CoachFit: sh.Fit, Rotated: sh.Rotated, Congested: w.congested(clubID, f), Perks: perkList(sh.Perks)}
+		Rating: sh.Rating(), Chemistry: sh.Chem, CoachFit: sh.Fit, Rotated: sh.Rotated, Congested: w.congested(clubID, f), Perks: perkList(sh.Perks),
+		Unavailable: unavailableOf(w.players[clubID])}
+}
+
+// unavailableOf: the players of a squad who cannot play today (see available), longest out first.
+func unavailableOf(squad []*Player) []*Player {
+	var out []*Player
+	for _, p := range squad {
+		if !available(p) {
+			out = append(out, p)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Injury != out[j].Injury {
+			return out[i].Injury > out[j].Injury
+		}
+		return out[i].Overall > out[j].Overall
+	})
+	return out
 }
 
 func (s *Store) MatchSetup(ctx context.Context, careerID int) (*MatchSetup, error) {
@@ -805,8 +845,8 @@ func (w *world) advance(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepor
 	if err != nil {
 		return err
 	}
-	for _, name := range arrived { // market.go: a legend (or your own design) is on the market for a few days
-		w.happen(rep, "legend_market", name, LegendStay)
+	for _, a := range arrived { // market.go: a legend (or your own design) is on the market for a matchday or two
+		rep.Happenings = append(rep.Happenings, ComEvent{Key: "legend_market", Name: a.Name, Amount: int64(a.Stay), Age: a.Age})
 	}
 	if c.Day <= len(Calendar) {
 		c.Day++

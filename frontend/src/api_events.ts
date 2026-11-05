@@ -11,7 +11,7 @@ export interface YouthIntake { season: number; until: number; prospects: Prospec
 export interface LoanDeal { id: number; playerId: number; name: string; role: string; overall: number; clubId: number; club: string; season: number; fee: number; wage: number; years: number; appsAt: number }
 export interface Award { season: number; day: number; kind: 'potm' | 'best' | 'scorer' | 'young' | 'tots'; playerId: number; name: string; club: string; clubId: number; pos: string; value: number; mine: boolean }
 export interface PressConf { fixtureId: number; answer: string; opponent: string; result?: string; season: number; day: number }
-export interface Happening { season: number; day: number; key: string; name?: string; amount?: number }
+export interface Happening { season: number; day: number; key: string; name?: string; amount?: number; age?: number }
 export interface ManagerPerks { bidBonus: number; counterBonus: number; loanDiscount: number; youthBonus: number }
 export interface EventsView {
   level: number; xp: number; levelXp: number; nextXp: number; perks: ManagerPerks

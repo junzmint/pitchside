@@ -186,6 +186,8 @@ export interface SideSetup {
   rotated: SwapNote[] | null
   congested: boolean
   perks?: string[]
+  /** squad players who cannot play today (injured, not cleared to play), longest out first; the pre-match team sheet shows them */
+  unavailable?: Player[]
 }
 
 export interface SwapNote { out: string; in: string; outFit: number; inFit: number; minute?: number }

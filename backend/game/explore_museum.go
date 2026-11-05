@@ -23,7 +23,8 @@ type FindView struct {
 	Player  *Player `json:"player"` // as he is today (nil: gone from the game)
 	NowClub string  `json:"nowClub"`
 	NowID   int     `json:"nowClubId"`
-	Status  string  `json:"status"` // club | yours | free | retired | gone
+	Status  string  `json:"status"` // club | free | retired | gone (a player at your club leaves the log)
+	Left    int     `json:"left"`   // matchdays before an unstarred report fades (0 on the shortlist: it stays)
 }
 
 type TrophyItem struct {
@@ -78,7 +79,8 @@ type ExploreFull struct {
 	Regions      []Region       `json:"regions"`
 	Scouts       []ScoutInfo    `json:"scouts"`
 	Missions     []Mission      `json:"missions"`
-	Finds        []FindView     `json:"finds"`
+	Finds        []FindView     `json:"finds"`    // the reports on show (findOnShow)
+	FindDays     int            `json:"findDays"` // ScoutFindDays
 	Focus        []string       `json:"focus"`
 	Achievements []AchView      `json:"achievements"`
 	Stats        map[string]int `json:"stats"`
@@ -162,14 +164,11 @@ func (s *Store) ExploreFull(ctx context.Context, careerID int) (*ExploreFull, er
 	user := w.byID[c.UserClubID]
 	v := &ExploreFull{Badge: w.exploreView().(ExploreBadge), Regions: w.regions(), Missions: x.Missions, Focus: MissionFocus,
 		Achievements: w.achView(), Stats: x.Stats, Run: x.Run, Records: x.Records, Manager: x.Manager, Reach: reachable(x.Manager.Rep),
-		ClubRep: user.Reputation, Titles: []string{}, Feed: x.Feed, AlbumOwned: len(x.Album), AlbumTotal: len(LegendVersions),
-		Budget: user.Budget, TP: c.TP, Season: c.Season, Day: c.Day, Finds: []FindView{}, Trophies: []TrophyItem{}, Seasons: []SeasonLine{},
-		Hall: []HallItem{}, Scorers: []StatLine{}, Apps: []StatLine{}}
+		ClubRep: user.Reputation, Titles: []string{}, AlbumOwned: len(x.Album), AlbumTotal: len(LegendVersions),
+		Budget: user.Budget, TP: c.TP, Season: c.Season, Day: c.Day, Finds: []FindView{}, FindDays: ScoutFindDays, Trophies: []TrophyItem{},
+		Seasons: []SeasonLine{}, Hall: []HallItem{}, Scorers: []StatLine{}, Apps: []StatLine{}}
 	if v.Missions == nil {
 		v.Missions = []Mission{}
-	}
-	if v.Feed == nil {
-		v.Feed = []FeedItem{}
 	}
 	if v.Manager.Offers == nil {
 		v.Manager.Offers = []JobOffer{}
@@ -199,10 +198,13 @@ func (s *Store) ExploreFull(ctx context.Context, careerID int) (*ExploreFull, er
 	if len(v.Scouts) == 0 {
 		v.Scouts = []ScoutInfo{{ID: -1, Skill: SelfScoutSkill, Busy: busy[-1]}}
 	}
-	// the discovery log, with each player as he is today
+	// the discovery log, with each player as he is today: reports that faded and players who joined
+	// your club stay off the screen (findOnShow), and so do the feed lines about them
 	ids := []int{}
-	for _, f := range x.Finds {
-		ids = append(ids, f.PlayerID)
+	for i := range x.Finds {
+		if f := &x.Finds[i]; findOnShow(c, f, false) {
+			ids = append(ids, f.PlayerID)
+		}
 	}
 	now := map[int]*Player{}
 	if len(ids) > 0 {
@@ -216,27 +218,9 @@ func (s *Store) ExploreFull(ctx context.Context, careerID int) (*ExploreFull, er
 			now[p.ID] = p
 		}
 	}
-	for _, f := range x.Finds {
-		fv := FindView{Find: f, Status: "gone"}
-		if p := now[f.PlayerID]; p != nil {
-			fv.Player = p
-			switch {
-			case p.Retired:
-				fv.Status = "retired"
-			case p.ClubID == nil:
-				fv.Status = "free"
-			case *p.ClubID == user.ID:
-				fv.Status = "yours"
-			default:
-				fv.Status = "club"
-				fv.NowID = *p.ClubID
-				if cl := w.byID[*p.ClubID]; cl != nil {
-					fv.NowClub = cl.Name
-				}
-			}
-		}
-		v.Finds = append(v.Finds, fv)
-	}
+	var yours map[int]bool
+	v.Finds, yours = w.findViews(now)
+	v.Feed = shownFeed(c, yours)
 	// the trophy cabinet and the season book: history rows, told with the story of the day where we have it
 	detail := map[string]Celebration{}
 	for _, t := range x.Trophies {
@@ -338,6 +322,47 @@ func (s *Store) ExploreFull(ctx context.Context, careerID int) (*ExploreFull, er
 	v.Apps = top(func(a, b StatLine) bool { return a.Apps > b.Apps })
 	sort.Slice(v.Hall, func(i, j int) bool { return v.Hall[i].Apps > v.Hall[j].Apps })
 	return v, nil
+}
+
+// findViews: the reports on show (findOnShow), each with his player as he is today (now, by id).
+// yours: reported players who joined the user's club since the last matchday; trackSquad marks
+// them Signed on the next one, and until then they are off the screen all the same.
+func (w *world) findViews(now map[int]*Player) ([]FindView, map[int]bool) {
+	c := w.career
+	out, yours := []FindView{}, map[int]bool{}
+	for i := range c.Explore.Finds {
+		f := &c.Explore.Finds[i]
+		if !findOnShow(c, f, false) {
+			continue
+		}
+		fv := FindView{Find: *f, Status: "gone"}
+		if p := now[f.PlayerID]; p != nil {
+			fv.Player = p
+			switch {
+			case p.Retired:
+				fv.Status = "retired"
+			case p.ClubID == nil:
+				fv.Status = "free"
+			case *p.ClubID == c.UserClubID:
+				fv.Status = "yours"
+			default:
+				fv.Status = "club"
+				fv.NowID = *p.ClubID
+				if cl := w.byID[*p.ClubID]; cl != nil {
+					fv.NowClub = cl.Name
+				}
+			}
+		}
+		if fv.Status == "yours" {
+			yours[f.PlayerID] = true
+			continue
+		}
+		if !f.Star {
+			fv.Left = findLeft(c, f)
+		}
+		out = append(out, fv)
+	}
+	return out, yours
 }
 
 // ---------------------------------------------------------------- legend album

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Ctx } from '../App'
 import { api, money, type SummerMove } from '../api'
 import type { CompetitionsView, DayReport, FixtureView, MatchSetup, Player, SideSetup, AgeNote, TeamRating } from '../types'
@@ -11,6 +11,7 @@ import { ClubLog, ManagerLevel, PressAutoPanel, PressPanel } from './EventsInbox
 import { sfx } from '../sfx'
 import { TourPicker } from './club/Tour'
 import { PlayCard } from './play/PlayCard'
+import { OppSheetButton } from './OppSheet'
 
 export const WX_ICON: Record<Weather, IconName> = { clear: 'sun', rain: 'rain', snow: 'snow', heat: 'heat' }
 const COMP_ICON: Record<string, IconName> = { league: 'league', cup: 'cup', cl: 'continental', friendly: 'sponsor' }
@@ -152,7 +153,7 @@ export default function MatchCentre({ ctx }: { ctx: Ctx }) {
       {/* quick match, Wi-Fi two-player and the training ground (gold medals: +1 TP once per matchday) */}
       <PlayCard />
 
-      {ev && !st.career.ended && <ClubLife ev={ev} day={st.career.day} />}
+      {ev && !st.career.ended && <ClubLife ev={ev} day={st.career.day} season={st.career.season} />}
 
       {summer && (
         <Modal onClose={() => setSummer(null)} style={{ width: 'min(520px, 100%)', maxHeight: '85vh', overflow: 'auto' }} label={t('age.title')}>
@@ -320,11 +321,12 @@ function VsScreen({ ctx, fx, setup, comp, ev, snap, busy, onSim }: {
         </div>
       )}
 
-      {H && A && (
+      {setup && H && A && (
         <div className="vsx-body">
-          <KeyPlayers players={H.starters} side="home" />
+          {/* under the opponent's key players: their whole team sheet (formation, XI on a pitch, bench, injuries) */}
+          <KeyPlayers players={H.starters} side="home">{!setup.userIsHome && <OppSheetButton setup={setup} />}</KeyPlayers>
           <StrengthBars H={H} A={A} />
-          <KeyPlayers players={A.starters} side="away" />
+          <KeyPlayers players={A.starters} side="away">{setup.userIsHome && <OppSheetButton setup={setup} />}</KeyPlayers>
         </div>
       )}
 
@@ -350,7 +352,7 @@ function VsScreen({ ctx, fx, setup, comp, ev, snap, busy, onSim }: {
   )
 }
 
-function KeyPlayers({ players, side }: { players: Player[]; side: 'home' | 'away' }) {
+function KeyPlayers({ players, side, children }: { players: Player[]; side: 'home' | 'away'; children?: ReactNode }) {
   const { t } = useI18n()
   const top = [...players].filter(Boolean).sort((a, b) => b.overall - a.overall).slice(0, 3)
   return (
@@ -362,6 +364,7 @@ function KeyPlayers({ players, side }: { players: Player[]; side: 'home' | 'away
           <span className="vsx-pc-id"><b>{p.name}</b><small><PosTag p={p.position} role={p.role} /> {t('nation.' + p.nation)}</small></span>
         </div>
       ))}
+      {children}
     </div>
   )
 }
@@ -432,7 +435,7 @@ function PreMatchNotes({ setup }: { setup: MatchSetup }) {
 }
 
 /** Rival, manager level, what's coming up and the latest club news. */
-function ClubLife({ ev, day }: { ev: EventsView; day: number }) {
+function ClubLife({ ev, day, season }: { ev: EventsView; day: number; season: number }) {
   const { t } = useI18n()
   const upcoming: string[] = []
   if (ev.nextBreak && day <= 54) upcoming.push(t('ev.nextBreak', { d: ev.nextBreak }))
@@ -453,7 +456,7 @@ function ClubLife({ ev, day }: { ev: EventsView; day: number }) {
           {ev.captainName ? <span className="row" style={{ gap: 6 }}><Icon name="crown" size={15} className="gold" /> {t('cap.is', { name: ev.captainName })}</span> : <span className="muted" style={{ fontSize: 13 }}>{t('cap.none')}</span>}
         </section>
       </div>
-      <ClubLog ev={ev} limit={8} />
+      <ClubLog ev={ev} limit={8} season={season} />
     </div>
   )
 }

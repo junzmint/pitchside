@@ -10,6 +10,7 @@ import { SellDialog } from './Market'
 import { eventsOf } from '../api_events'
 import { MentorFlag } from './staff/MentorFlag'
 import { DemandCard } from './Demands'
+import { HomeMark } from '../LegendBits'
 
 type Sort = 'shirt' | 'overall' | 'potential' | 'age' | 'fitness' | 'value'
 
@@ -60,7 +61,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
   const ev = eventsOf(st)
   const loanee = new Set(ev?.loanees ?? [])
   const listed = new Set(ev?.listed ?? [])
-  const flagsOf = (p: Player) => <PlayerFlags p={p} slot={xi.has(p.id) ? slotOf.get(p.id) ?? '' : null} loanee={loanee.has(p.id)} listed={listed.has(p.id)} />
+  const flagsOf = (p: Player) => <PlayerFlags p={p} slot={xi.has(p.id) ? slotOf.get(p.id) ?? '' : null} loanee={loanee.has(p.id)} listed={listed.has(p.id)} clubName={st.club.name} />
 
   return (
     <>
@@ -125,7 +126,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
                   <tr className="click" onClick={() => setOpen(open === p.id ? null : p.id)} style={{ opacity: p.injury > 0 ? 0.6 : 1 }}>
                     <td className="num">{p.shirt}</td>
                     <td className="namecell"><div className="pname">
-                      <b>{p.name}</b> <TagChip p={p} /> <TraitChips p={p} small /> <MentorFlag p={p} />
+                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} />
                       {p.injury > 0 && <span className="inj"><Icon name="injury" size={13} /> {p.injury}{t('wk')}</span>}
                       {p.injury === 1 && (
                         <button className={'small rush' + (p.rushed ? ' on' : '')} title={t('rush.help')}
@@ -237,7 +238,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
 }
 
 /** Status flags under a player card: starter slot, injury, unrest, contract, legend. */
-function PlayerFlags({ p, slot, loanee, listed }: { p: Player; slot: string | null; loanee?: boolean; listed?: boolean }) {
+function PlayerFlags({ p, slot, loanee, listed, clubName }: { p: Player; slot: string | null; loanee?: boolean; listed?: boolean; clubName: string }) {
   const { t } = useI18n()
   return (
     <span className="pc-flagrow">
@@ -250,6 +251,7 @@ function PlayerFlags({ p, slot, loanee, listed }: { p: Player; slot: string | nu
       {p.load && <span className="flag">{t('load.' + p.load)}</span>}
       <MentorFlag p={p} />
       <TagChip p={p} />
+      <HomeMark p={p} clubName={clubName} />
       <TraitChips p={p} small />
     </span>
   )
@@ -261,6 +263,8 @@ const potCost = (pot: number, legend = false) => (5 + Math.max(0, Math.floor((po
 
 export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
   const legend = p.tag === 'legend' || p.tag === 'custom'
+  const freeBreak = p.tag === 'legend' // legend cards break their limit at any level (still once a season)
+  const farFromLimit = !freeBreak && p.overall < p.potential - 2
   const { t } = useI18n()
   const tp = ctx?.st.career.tp ?? 0
   async function up(what: string) {
@@ -295,12 +299,13 @@ export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
           <div className="stack" style={{ gap: 6, marginTop: 6 }}>
             <b>{t('up.title')}</b>
             <span className="muted" style={{ fontSize: 12 }}>{t('up.help', { n: tp })}</span>
-            <button className="small" disabled={(p.age > 30 && !legend) || p.potential >= (legend ? 110 : 99) || tp < potCost(p.potential, legend) || p.overall < p.potential - 2 || !!p.brokeLimit} onClick={() => up('potential')}>
+            <button className="small" disabled={(p.age > 30 && !legend) || p.potential >= (legend ? 110 : 99) || tp < potCost(p.potential, legend) || farFromLimit || !!p.brokeLimit} onClick={() => up('potential')}>
               <Icon name="up" size={14} /> {t('up.potential', { c: potCost(p.potential, legend) })}
             </button>
             {p.age > 30 && !legend && <span className="muted" style={{ fontSize: 12 }}>{t('up.tooOld')}</span>}
             {p.brokeLimit ? <span className="muted" style={{ fontSize: 12 }}>{t('up.brokeThisSeason')}</span>
-              : p.overall < p.potential - 2 && !(p.age > 30 && !legend) && <span className="muted" style={{ fontSize: 12 }}>{t('up.notAtLimit')}</span>}
+              : farFromLimit && !(p.age > 30 && !legend) && <span className="muted" style={{ fontSize: 12 }}>{t('up.notAtLimit')}</span>}
+            {freeBreak && !p.brokeLimit && p.potential < 110 && <span className="muted" style={{ fontSize: 12 }}>{t('lgv.breakFree')}</span>}
             {legend && <span className="muted" style={{ fontSize: 12 }}>{t('up.legend')}</span>}
           </div>
         )}

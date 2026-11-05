@@ -135,6 +135,12 @@ export const liveStrings: { vi: Record<string, string>; en: Record<string, strin
     'lv.rep.og': 'Phản lưới nhà', 'lv.rep.ogBy': 'Phản lưới nhà ({name})', 'lv.rep.subLine': '{in} vào sân thay {out}',
     'lv.rep.rotLine': '{in} đá chính thay {out} (thể lực {fit}%)',
     'lv.sb.you': 'Đội của bạn', 'lv.m.minimap': 'Bản đồ nhỏ', 'lv.m.minimapShow': 'Hiện bản đồ nhỏ ở cuối màn hình',
+    // the opponent's team sheet (pages/OppSheet.tsx)
+    'lv.opp.open': 'Đội hình đối thủ', 'lv.opp.benchN': '{n} dự bị', 'lv.opp.outN': '{n} vắng mặt', 'lv.opp.xi': 'Đội hình ra sân dự kiến',
+    'lv.opp.xiHint': 'Đội máy luôn tung ra 11 cầu thủ mạnh nhất còn thi đấu được, nên đây là đội hình bạn sẽ gặp nếu không có gì thay đổi trước giờ bóng lăn.',
+    'lv.opp.key': 'Cầu thủ đáng gờm', 'lv.opp.keyLegend': 'Cầu thủ đáng gờm: 3 người có chỉ số cao nhất', 'lv.opp.out': 'Vắng mặt', 'lv.opp.avg': 'Chỉ số TB {n}',
+    'lv.opp.noOut': 'Không ai chấn thương: họ có đủ quân.', 'lv.opp.weeks': 'nghỉ {n} tuần', 'lv.opp.shirt': 'số áo {n}',
+    'lv.opp.offRole': 'đá trái vị trí (sở trường: {r})', 'lv.opp.coach': 'HLV {name}',
   },
   en: {
     'lv.pre.mode': 'Mode', 'lv.pre.play': 'Play', 'lv.pre.watch': 'Watch', 'lv.pre.duo': '2 players',
@@ -259,6 +265,12 @@ export const liveStrings: { vi: Record<string, string>; en: Record<string, strin
     'lv.rep.og': 'Own goal', 'lv.rep.ogBy': 'Own goal ({name})', 'lv.rep.subLine': '{in} came on for {out}',
     'lv.rep.rotLine': '{in} started instead of {out} ({fit}% fit)',
     'lv.sb.you': 'Your team', 'lv.m.minimap': 'Minimap', 'lv.m.minimapShow': 'Show the minimap at the bottom of the screen',
+    // the opponent's team sheet (pages/OppSheet.tsx)
+    'lv.opp.open': 'Opponent\'s line-up', 'lv.opp.benchN': '{n} on the bench', 'lv.opp.outN': '{n} out', 'lv.opp.xi': 'Expected starting XI',
+    'lv.opp.xiHint': 'The computer always starts its eleven strongest fit players, so this is the team you will face unless something changes before kick-off.',
+    'lv.opp.key': 'Key player', 'lv.opp.keyLegend': 'Key players: their three highest-rated', 'lv.opp.out': 'Unavailable', 'lv.opp.avg': 'Avg rating {n}',
+    'lv.opp.noOut': 'No injuries: their whole squad is available.', 'lv.opp.weeks': '{n} wk out', 'lv.opp.shirt': 'No. {n}',
+    'lv.opp.offRole': 'out of position (natural {r})', 'lv.opp.coach': 'Coach {name}',
   },
   ja: {
     'lv.pre.mode': 'モード', 'lv.pre.play': 'プレー', 'lv.pre.watch': '観戦', 'lv.pre.duo': '2人対戦',
@@ -369,5 +381,11 @@ export const liveStrings: { vi: Record<string, string>; en: Record<string, strin
     'lv.rep.og': 'オウンゴール', 'lv.rep.ogBy': 'オウンゴール（{name}）', 'lv.rep.subLine': '{in}が{out}に代わって出場',
     'lv.rep.rotLine': '{in}が{out}（コンディション{fit}%）に代わって先発',
     'lv.sb.you': 'あなたのチーム', 'lv.m.minimap': 'ミニマップ', 'lv.m.minimapShow': '画面下にミニマップを表示',
+    // the opponent's team sheet (pages/OppSheet.tsx)
+    'lv.opp.open': '相手のメンバー', 'lv.opp.benchN': '控え{n}人', 'lv.opp.outN': '欠場{n}人', 'lv.opp.xi': '予想スタメン',
+    'lv.opp.xiHint': 'コンピューターは出場できる最強の11人を必ず先発させます。キックオフまでに変化がなければ、このメンバーと対戦します。',
+    'lv.opp.key': '要注意選手', 'lv.opp.keyLegend': '要注意選手：能力が高い上位3人', 'lv.opp.out': '欠場', 'lv.opp.avg': '平均能力 {n}',
+    'lv.opp.noOut': '負傷者なし：全員が出場可能です。', 'lv.opp.weeks': '{n}週間離脱', 'lv.opp.shirt': '背番号{n}',
+    'lv.opp.offRole': '本職外（本職：{r}）', 'lv.opp.coach': '監督 {name}',
   },
 }

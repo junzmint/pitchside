@@ -26,7 +26,7 @@ export interface DeadlineDeal { id: number; player?: string; ovr?: number; age?:
 export interface DeadlineView { window: '' | 'summer' | 'winter'; day: number; active: boolean; bargains: Bargain[]; bids: Bid[]; deals: DeadlineDeal[]; squadFull: boolean; next: number }
 export interface LegendEntry {
   playerId: number; name: string; nation: string; position: Pos; role: string; shirt: number; from: number; to: number
-  apps: number; goals: number; assists: number; trophies: number; overall: number; reason: 'retired' | 'sold' | 'left'; tag?: string
+  apps: number; goals: number; assists: number; trophies: number; overall: number; reason: 'active' | 'retired' | 'sold' | 'left'; tag?: string
   season: number; honour: '' | 'retired' | 'kept' | 'none'
 }
 export interface ClubLifeView {

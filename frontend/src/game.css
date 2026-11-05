@@ -1371,3 +1371,10 @@ button.pressopt:hover:not(:disabled) { transform: translateY(-2px); border-color
 .panel.alerts li.al-info .al-ico { color: var(--cyan, #38e1ff); }
 .panel.alerts .al-more { align-self: flex-start; }
 @media (max-width: 640px) { .panel.alerts li { grid-template-columns: auto 1fr; } .panel.alerts li button { grid-column: 1 / -1; justify-self: start; } }
+
+/* ---- legend versions (2026-11-05): the club version's home mark, the merge notices */
+.lgv-home { vertical-align: middle; cursor: help; line-height: 1; }
+.slot .nm .lgv-home { margin-left: 3px; display: inline-flex; vertical-align: -1px; }
+.lgv-merge { cursor: help; line-height: 1.45; }
+.lgv-mergeline { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; line-height: 1.5; font-weight: 700; color: var(--hot); border: 1px solid rgba(255, 210, 63, 0.45); background: rgba(255, 210, 63, 0.08); overflow-wrap: anywhere; }
+.lgv-mergeline .ico { flex: none; margin-top: 3px; }

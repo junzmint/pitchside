@@ -52,6 +52,7 @@ type Happening struct {
 	Key    string `json:"key"`
 	Name   string `json:"name,omitempty"`
 	Amount int64  `json:"amount,omitempty"`
+	Age    int    `json:"age,omitempty"`
 }
 
 const eventLogSize = 30
@@ -90,7 +91,7 @@ func (w *world) logHappening(ev ComEvent) {
 	c := w.career
 	es := &c.Events
 	day := min(c.Day, len(Calendar))
-	es.Log = append([]Happening{{Season: c.Season, Day: day, Key: ev.Key, Name: ev.Name, Amount: ev.Amount}}, es.Log...)
+	es.Log = append([]Happening{{Season: c.Season, Day: day, Key: ev.Key, Name: ev.Name, Amount: ev.Amount, Age: ev.Age}}, es.Log...)
 	if len(es.Log) > eventLogSize {
 		es.Log = es.Log[:eventLogSize]
 	}

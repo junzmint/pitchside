@@ -452,6 +452,12 @@ func (w *world) buyBargain(ctx context.Context, q DBTX, life *ClubLife, pid int)
 	}
 	applyPay(c, w.players[user.ID], w.coaches[user.ID])
 	w.logHappening(ComEvent{Key: "bargain_signed", Name: p.Name + " (" + from.Name + ")", Amount: b.Price})
+	// legend_versions.go: the club owns a legend version of him: he merges into it (the card reveal shows the legend)
+	if m, err := w.arrivalMerge(ctx, q, nil, p); err != nil {
+		return nil, 0, err
+	} else if m != nil {
+		p = m.Legend
+	}
 	return p, b.Price, nil
 }
 

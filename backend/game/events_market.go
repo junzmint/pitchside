@@ -563,6 +563,14 @@ func (w *world) returnLoans(ctx context.Context, q DBTX, r *rand.Rand, rep *DayR
 		touched = append(touched, p)
 	}
 	es.LoansIn = nil
+	// legend_versions.go: a player back from loan who meets a legend version of himself merges into it
+	for _, p := range touched {
+		if p.ClubID != nil && *p.ClubID == user.ID {
+			if _, err := w.arrivalMerge(ctx, q, rep, p); err != nil {
+				return err
+			}
+		}
+	}
 	w.tidyEvents()
 	return savePlayers(ctx, q, touched)
 }

@@ -214,6 +214,7 @@ func scanClub(row pgx.Row) (*Club, error) {
 	if _, ok := Formations[c.Formation]; !ok {
 		c.Formation = "4-4-2"
 	}
+	noteClub(c) // legend_versions.go: which club a legend card's era belongs to
 	return c, nil
 }
 

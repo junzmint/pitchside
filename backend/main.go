@@ -248,7 +248,7 @@ func routes(s *game.Store) *http.ServeMux {
 		if err != nil {
 			return nil, err
 		}
-		return nil, s.Buy(r.Context(), id, pid)
+		return s.Buy(r.Context(), id, pid)
 	}))
 	mux.HandleFunc("POST /api/careers/{id}/players/{pid}/release", career(s, func(r *http.Request, id int) (any, error) {
 		pid, err := intParam(r, "pid")

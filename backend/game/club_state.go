@@ -49,6 +49,7 @@ func loadClubLife(ctx context.Context, q DBTX, careerID int) (*ClubLife, error) 
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, cl)
 	}
+	cl.tidyLegends()
 	return cl, nil
 }
 
@@ -141,6 +142,12 @@ func (w *world) clubTick(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepo
 		}
 		notes = append(notes, ns...)
 	}
+	// club_legends.go: the wall's active legends keep their numbers up to date (new ones join at the season's end)
+	ns, err := w.inductActive(ctx, q, life, squad, rep, false)
+	if err != nil {
+		return err
+	}
+	notes = append(notes, ns...)
 	if life.Fans.Season != c.Season && c.Day <= len(Calendar) {
 		life.Fans.Season, life.Fans.Trend = c.Season, nil
 	}
@@ -205,6 +212,11 @@ func (w *world) clubNewSeason(ctx context.Context, q DBTX, r *rand.Rand, res *Ne
 		if err != nil {
 			return err
 		}
+		notes = append(notes, ns...)
+	}
+	if ns, err := w.inductActive(ctx, q, life, squad, nil, true); err != nil { // the fans' pick of the season
+		return err
+	} else {
 		notes = append(notes, ns...)
 	}
 	// a new season, new hope: the mood moves a good way back towards the hopeful middle
@@ -286,10 +298,15 @@ func (s *Store) ClubLifeInfo(ctx context.Context, careerID int) (*ClubLifeView, 
 		life.Fans = FanState{Mood: FanStart, Season: c.Season}
 	}
 	v := &ClubLifeView{Season: c.Season, Day: c.Day, Offseason: c.Day > len(Calendar), Budget: user.Budget, Short: user.Short,
-		Legends: life.Legends, Retired: life.Retired}
-	if v.Legends == nil {
-		v.Legends = []LegendEntry{}
-	}
+		Legends: append([]LegendEntry{}, life.Legends...), Retired: life.Retired}
+	// legends still playing for the club first (most games first), then the others, newest first
+	sort.SliceStable(v.Legends, func(i, j int) bool {
+		ai, aj := v.Legends[i].Reason == "active", v.Legends[j].Reason == "active"
+		if ai != aj {
+			return ai
+		}
+		return ai && v.Legends[i].Apps > v.Legends[j].Apps
+	})
 	if v.Retired == nil {
 		v.Retired = []int{}
 	}

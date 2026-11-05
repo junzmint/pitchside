@@ -4,6 +4,7 @@ import { api, money } from '../api'
 import { ConfirmButton, PosTag, Icon, tierOf } from '../ui'
 import { errText, useI18n } from '../i18n'
 import { revealSigning, useFlipIn } from '../reveal'
+import { mergeText } from '../LegendBits'
 
 // The rare icon pick: at most once a season the shop offers three icons, at a premium, for a few matchdays.
 // The three cards flip over the first time the pick is shown; signing one plays the "icon signed" reveal.
@@ -19,8 +20,9 @@ export function IconPickPanel({ ctx }: { ctx: Ctx }) {
     setBusy(true)
     try {
       const p = await api.pickIcon(ctx.id, id)
-      ctx.toast(p ? t('icon.signed', { name: p.name }) : t('icon.passed'))
-      if (p) revealSigning(p, 'icon')
+      // legend versions: an icon whose modern self plays for you merges with him (the toast says so)
+      ctx.toast(p ? (p.merged ? mergeText(t, p.merged) : t('icon.signed', { name: p.name })) : t('icon.passed'))
+      if (p) revealSigning(p.merged?.legend ?? p, 'icon')
       await ctx.reload()
     } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy(false) }
   }

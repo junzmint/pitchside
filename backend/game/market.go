@@ -176,8 +176,20 @@ func (s *Store) DeleteTemplate(ctx context.Context, careerID, id int) error {
 
 // refreshMarket replaces every free agent: a fresh batch of generic players, plus—per position, by
 // chance—one legend or custom-designed player.
-// LegendStay: matchdays a legend or custom card stays on the free-agent market once it turns up.
-const LegendStay = 5
+// Legend and custom cards on the free-agent market: there is usually one, and it changes every one or two
+// matchdays (a matchday is a week), so the legends you are after come round during a season.
+const (
+	LegendStayMin = 1   // matchdays a card stays once it turns up…
+	LegendStayMax = 2   // …at most
+	LegendExtra   = 0.1 // chance of a second card on the same matchday
+)
+
+// MarketArrival: a legend or custom card that has just turned up, and for how many matchdays.
+type MarketArrival struct {
+	Name string
+	Stay int
+	Age  int // which version of him: the same legend comes in several eras
+}
 
 func refreshMarket(ctx context.Context, q DBTX, r *rand.Rand, c *Career) error {
 	_, err := refreshMarketNews(ctx, q, r, c)
@@ -185,7 +197,7 @@ func refreshMarket(ctx context.Context, q DBTX, r *rand.Rand, c *Career) error {
 }
 
 // refreshMarketNews renews the free agents and returns the legend and custom cards that just arrived.
-func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]string, error) {
+func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]MarketArrival, error) {
 	now := c.now()
 	// free agents with a recorded career leave the game (kept for the history book); the rest vanish,
 	// except legend and custom cards still within their stay
@@ -235,9 +247,9 @@ func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]
 	if err != nil {
 		return nil, err
 	}
-	// Legends and custom designs share one rare slot pool: 0–2 cards a week in total
-	// (68% none, 24% one, 8% two). Each slot is a custom design only 25% of the time,
-	// so your own creations turn up even less often than the legends.
+	// Legends and custom designs share one slot: when no card is on the market a new one turns up, and now
+	// and then a second one. Each card is a custom design only 25% of the time, so your own creations turn
+	// up less often than the legends.
 	var legends, custom []*Template
 	for _, t := range tps {
 		if t.Kind == "custom" {
@@ -246,15 +258,19 @@ func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]
 			legends = append(legends, t)
 		}
 	}
+	showing := 0 // cards on the market now: unsigned, still within their stay
+	if err := q.QueryRow(ctx, `SELECT count(*) FROM templates WHERE career_id=$1 AND NOT signed AND market_until >= $2`, c.ID, now).Scan(&showing); err != nil {
+		return nil, err
+	}
 	n = 0
-	switch x := r.Float64(); {
-	case x < 0.08:
-		n = 2
-	case x < 0.32:
+	if showing == 0 {
 		n = 1
 	}
+	if r.Float64() < LegendExtra {
+		n++
+	}
 	used := map[int]bool{}
-	var arrived []string
+	var arrived []MarketArrival
 	for i := 0; i < n; i++ {
 		pool := legends
 		if len(custom) > 0 && (len(legends) == 0 || r.Float64() < 0.25) {
@@ -268,13 +284,14 @@ func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]
 			continue
 		}
 		used[t.ID] = true
-		if err := insertPlayer(ctx, q, c.ID, t.toPlayer()); err != nil {
+		if err := insertPlayer(ctx, q, c.ID, floorCard(ctx, q, c.ID, t.toPlayer())); err != nil {
 			return nil, err
 		}
-		// he stays for LegendStay matchdays (a summer arrival waits into the new season)
-		until := now + LegendStay - 1 // on the market after this matchday and the next four
+		// he stays for one or two matchdays (a summer arrival waits into the new season)
+		stay := LegendStayMin + r.Intn(LegendStayMax-LegendStayMin+1)
+		until := now + stay - 1 // on the market after this matchday (and the next one for a stay of 2)
 		if c.Day > len(Calendar) {
-			until = (c.Season+1)*100 + LegendStay - 1
+			until = (c.Season+1)*100 + stay - 1
 		}
 		if _, err := q.Exec(ctx, `UPDATE templates SET market_until=$2 WHERE id=$1`, t.ID, until); err != nil {
 			return nil, err
@@ -283,7 +300,7 @@ func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]
 		if t.Version != "" {
 			label += " (" + t.Version + ")"
 		}
-		arrived = append(arrived, label)
+		arrived = append(arrived, MarketArrival{Name: label, Stay: stay, Age: t.Age})
 	}
 	return arrived, nil
 }
@@ -308,6 +325,9 @@ func (s *Store) Market(ctx context.Context, careerID int) (*MarketView, error) {
 	}
 	ps, err := queryPlayers(ctx, s.DB, `career_id=$1 AND club_id IS NULL AND NOT retired ORDER BY id`, careerID)
 	if err != nil {
+		return nil, err
+	}
+	if err := floorCards(ctx, s.DB, careerID, ps...); err != nil { // legend_versions.go: a card is never below his modern self
 		return nil, err
 	}
 	sort.Slice(ps, func(i, j int) bool { return ps[i].Overall > ps[j].Overall })
@@ -345,6 +365,9 @@ func (s *Store) Market(ctx context.Context, careerID int) (*MarketView, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := floorTemplates(ctx, s.DB, careerID, lg); err != nil { // legend_versions.go: what he sees is what he gets
+		return nil, err
+	}
 	var n int
 	if err := s.DB.QueryRow(ctx, `SELECT count(*) FROM players WHERE club_id=$1`, club.ID).Scan(&n); err != nil {
 		return nil, err
@@ -371,8 +394,9 @@ func nextShirt(ctx context.Context, q DBTX, clubID int) (int, int, error) {
 	return n, next, err
 }
 
-func (s *Store) Buy(ctx context.Context, careerID, playerID int) error {
-	return s.tx(ctx, func(q pgx.Tx) error {
+func (s *Store) Buy(ctx context.Context, careerID, playerID int) (*SignResult, error) {
+	var out *SignResult
+	err := s.tx(ctx, func(q pgx.Tx) error {
 		c, err := getCareer(ctx, q, careerID)
 		if err != nil {
 			return err
@@ -387,6 +411,10 @@ func (s *Store) Buy(ctx context.Context, careerID, playerID int) error {
 		}
 		if p.ClubID != nil || p.Retired {
 			return userErr("not_on_market", "This player is no longer on the market")
+		}
+		// legend_versions.go: a card is never below his modern self (as the market showed him, price included)
+		if err := floorCards(ctx, q, careerID, p); err != nil {
+			return err
 		}
 		n, shirt, err := nextShirt(ctx, q, club.ID)
 		if err != nil {
@@ -417,11 +445,17 @@ func (s *Store) Buy(ctx context.Context, careerID, playerID int) error {
 			return err
 		}
 		noteSigning(c, p, price)
+		out = &SignResult{Player: p}
+		// legend_versions.go: a legend version and his modern self at the club merge into one
+		if out.Merged, err = signingMerge(ctx, q, c, club, p); err != nil {
+			return err
+		}
 		if err := saveCareer(ctx, q, c); err != nil {
 			return err
 		}
 		return saveClub(ctx, q, club)
 	})
+	return out, err
 }
 
 // QuickSell releases a player to the market for a guaranteed 70% of his value.
@@ -567,6 +601,9 @@ func (s *Store) SetLineup(ctx context.Context, careerID int, req LineupReq) erro
 				return userErr("duplicate", "A player is picked twice")
 			}
 			seen[id] = true
+		}
+		if twoVersions(req.Lineup, own) { // legend_versions.go: one version of a legend per match
+			return userErr("legend_twice", "Two versions of the same legend cannot play in one match")
 		}
 		req.Tactic.Normalize()
 		if req.Formation != club.Formation {

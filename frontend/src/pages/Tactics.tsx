@@ -6,6 +6,8 @@ import { COACH_STYLES, ROLE_CAT, SLOTS, arrangeLineup, bestLineup, isIcon, coach
 import { Bar, Ovr, PosTag, Seg, TagChip, TraitChips, Hint, Abbr, Icon } from '../ui'
 import { errText, useI18n } from '../i18n'
 import { eventsApi, eventsOf } from '../api_events'
+import { personKeys, twoVersions } from '../legendVersions'
+import { HomeMark } from '../LegendBits'
 
 function chemColor(c: number) {
   return c >= 7 ? '#3fcf7a' : c >= 5 ? '#e8c547' : '#ef6a55'
@@ -25,6 +27,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
   useEffect(() => { setFormation(st.club.formation); setLineup(st.club.lineup); setTactic(st.club.tactic); setSel(null) }, [saved])
   const roles = st.formations[formation]
   const byId = useMemo(() => new Map(st.squad.map(p => [p.id, p])), [st.squad])
+  const keyOf = useMemo(() => personKeys(st.squad), [st.squad]) // legend versions: one per match
   const dirty = formation !== st.club.formation || JSON.stringify(lineup) !== JSON.stringify(st.club.lineup) || JSON.stringify(tactic) !== JSON.stringify(st.club.tactic)
   const starters = lineup.map(id => byId.get(id))
   const formWeeks = formation === st.club.formation ? st.club.formWeeks : 0
@@ -36,7 +39,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
   function changeFormation(f: string) {
     const keep = lineup.map(id => byId.get(id)).filter(Boolean) as Player[]
     setFormation(f)
-    setLineup(bestLineup(keep.length === 11 ? keep : st.squad, st.formations[f]))
+    setLineup(bestLineup(keep.length === 11 ? keep : st.squad, st.formations[f], false, st.club.name))
     setSel(null)
   }
 
@@ -48,6 +51,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
     const other = next.indexOf(pid)
     if (other >= 0) next[other] = next[sel]
     next[sel] = pid
+    if (twoVersions(next, byId, keyOf)) return ctx.toast(t('err.legend_twice'), true) // another version of him already starts
     setLineup(next)
     setSel(null)
   }
@@ -89,6 +93,9 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
 
   const xi = new Set(lineup)
   const bench = st.squad.filter(p => !xi.has(p.id))
+  // legend versions: a player whose other version is in the XI can't be on the bench either
+  const startingPeople = new Set(lineup.map(id => keyOf(byId.get(id))).filter(Boolean))
+  const otherStarts = (p: typeof st.squad[number]) => !xi.has(p.id) && startingPeople.has(keyOf(p))
   const selRole = sel !== null ? roles[sel] : null
   const list = selRole ? [...st.squad].sort((a, b) => (a.injury > 0 && !a.rushed ? 1 : 0) - (b.injury > 0 && !b.rushed ? 1 : 0) || effective(b, selRole) - effective(a, selRole)) : bench
   const weak = roles.map((r, i) => ({ r, i, c: chem.slots[i], p: starters[i] })).filter(x => x.p && x.c.chem < 5)
@@ -98,10 +105,10 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
       <div className="head">
         <div><span className="eyebrow">{t('tac.eyebrow')}</span><h2>{t('tab.tactics')}</h2></div>
         <div className="row">
-          <button onClick={() => { setLineup(bestLineup(st.squad, roles)); setSel(null) }}>{t('tac.auto')}</button>
+          <button onClick={() => { setLineup(bestLineup(st.squad, roles, false, st.club.name)); setSel(null) }}>{t('tac.auto')}</button>
           <button data-tip={t('tac.arrangeHint')} onClick={() => { setLineup(arrangeLineup(st.squad, lineup, roles)); setSel(null) }}>⇅ {t('tac.arrange')}</button>
           {st.squad.some(isIcon) && (
-            <button title={t('tac.iconsHint')} onClick={() => { setLineup(bestLineup(st.squad, roles, true)); setSel(null) }}>★ {t('tac.icons')}</button>
+            <button title={t('tac.iconsHint')} onClick={() => { setLineup(bestLineup(st.squad, roles, true, st.club.name)); setSel(null) }}>★ {t('tac.icons')}</button>
           )}
           <button className="primary" disabled={!dirty || saving} onClick={save}>{saving ? t('wait') : dirty ? t('saveChanges') : t('saved')}</button>
         </div>
@@ -135,7 +142,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
                     {p ? Math.round(effective(p, role)) : '?'}
                     {p && <i className="chemdot" style={{ background: chemColor(c.chem) }} title={`${t('chemistry')} ${c.chem.toFixed(1)}/10`} />}
                   </span>
-                  <span className="nm">{p && isIcon(p) ? '★ ' : ''}{p ? p.name : t('empty')}</span>
+                  <span className="nm">{p && isIcon(p) ? '★ ' : ''}{p ? p.name : t('empty')}{p && <HomeMark p={p} clubName={st.club.name} size={10} focusable={false} />}</span>
                   <span className={'rl' + (fit < 1 ? ' warn' : '')}>{role}{p && fit < 1 ? ` · ${t('tac.natural')} ${p.role}` : ''}</span>
                 </button>
               )
@@ -210,7 +217,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
                 <tbody>
                   {list.map(p => (
                     <tr key={p.id} className={selRole && (p.injury === 0 || p.rushed) ? 'click' : ''} onClick={() => selRole && assign(p.id)} style={{ opacity: p.injury > 0 && !p.rushed ? 0.5 : 1 }}>
-                      <td className="namecell"><div className="pname">{p.shirt}. {p.name} <TagChip p={p} /> <TraitChips p={p} small />{p.injury > 0 && <span className="inj"> ✚ {p.injury}{t('wk')}{p.rushed ? ' · ' + t('rush.on') : ''}</span>}{xi.has(p.id) ? <span className="slotchip">{t('starter')} · {roles[lineup.indexOf(p.id)]}</span> : null}</div></td>
+                      <td className="namecell"><div className="pname">{p.shirt}. {p.name} <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small />{otherStarts(p) && <span className="flag warn" data-tip={t('lgv.otherStartsTip')}><Icon name="legend" size={12} /> {t('lgv.otherStarts')}</span>}{p.injury > 0 && <span className="inj"> ✚ {p.injury}{t('wk')}{p.rushed ? ' · ' + t('rush.on') : ''}</span>}{xi.has(p.id) ? <span className="slotchip">{t('starter')} · {roles[lineup.indexOf(p.id)]}</span> : null}</div></td>
                       <td><PosTag p={p.position} role={p.role} /></td>
                       <td className="r"><Ovr v={p.overall} /></td>
                       {selRole && <td className="r num"><b style={{ color: ROLE_CAT[selRole] === p.position ? undefined : 'var(--warn)' }}>{Math.round(effective(p, selRole))}</b></td>}

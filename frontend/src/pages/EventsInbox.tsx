@@ -20,8 +20,9 @@ export function EventsInbox({ ctx }: { ctx: Ctx }) {
       <BidsPanel ctx={ctx} ev={ev} />
       <YouthPanel ctx={ctx} ev={ev} />
       <LoansPanel ctx={ctx} ev={ev} />
-      <AwardsPanel ev={ev} />
-      <ClubLog ev={ev} />
+      {/* the Inbox is about this season: last season's awards and news stay in the club's history */}
+      <AwardsPanel ev={ev} season={ctx.st.career.season} />
+      <ClubLog ev={ev} season={ctx.st.career.season} />
     </div>
   )
 }
@@ -32,8 +33,14 @@ export function eventsCount(st: CareerState): number {
 }
 
 /** One line of the day report / club log. */
-export function happeningText(t: TFn, h: { key: string; name?: string; amount?: number }) {
-  return t('ev.' + h.key, { name: h.name ?? '', v: money(Math.abs(h.amount ?? 0)), n: h.amount ?? 0 })
+export function happeningText(t: TFn, h: { key: string; name?: string; amount?: number; age?: number }) {
+  const params = { name: h.name ?? '', v: money(Math.abs(h.amount ?? 0)), n: h.amount ?? 0, age: h.age ?? 0 }
+  if (h.age) { // a variant that names his age (which version of a legend it is), where there is one
+    const k = 'ev.' + h.key + '_age'
+    const s = t(k, params)
+    if (s !== k) return s
+  }
+  return t('ev.' + h.key, params)
 }
 
 const BAD = ['loss', 'broken', 'timeout', 'wait', 'expired', 'walked', 'breach', 'injury', 'gone']
@@ -346,10 +353,11 @@ export function awardText(t: TFn, a: Award) {
   return t('award.' + a.kind) + ': ' + a.name + ' (' + a.club + ')' + (a.kind === 'scorer' ? ` · ${a.value} ${t('award.goals')}` : ` · ${a.value.toFixed(2)}`)
 }
 
-function AwardsPanel({ ev }: { ev: EventsView }) {
+function AwardsPanel({ ev, season }: { ev: EventsView; season?: number }) {
   const { t } = useI18n()
-  const shown = ev.awards.filter(a => a.kind !== 'tots').slice(0, 8)
-  const tots = ev.awards.filter(a => a.kind === 'tots')
+  const awards = season == null ? ev.awards : ev.awards.filter(a => a.season === season)
+  const shown = awards.filter(a => a.kind !== 'tots').slice(0, 8)
+  const tots = awards.filter(a => a.kind === 'tots')
   const lastTots = tots.length ? tots.filter(a => a.season === tots[0].season) : []
   if (shown.length === 0 && lastTots.length === 0) return null
   return (
@@ -374,14 +382,16 @@ function AwardsPanel({ ev }: { ev: EventsView }) {
   )
 }
 
-export function ClubLog({ ev, limit = 12 }: { ev: EventsView; limit?: number }) {
+/** The club's recent happenings (only `season`'s when given) and the open promises. */
+export function ClubLog({ ev, limit = 12, season }: { ev: EventsView; limit?: number; season?: number }) {
   const { t } = useI18n()
-  if (ev.log.length === 0) return null
+  const log = season == null ? ev.log : ev.log.filter(h => h.season === season)
+  if (log.length === 0 && ev.promises.length === 0) return null
   return (
     <section className="panel stack clublog">
       <Title icon="news">{t('ev.logTitle')}</Title>
       <ul className="notes">
-        {ev.log.slice(0, limit).map((h: Happening, i) => (
+        {log.slice(0, limit).map((h: Happening, i) => (
           <li key={i} className={happeningTone(h.key)}><span className="muted num" data-tip={`${t('seasonN', { n: h.season })} · ${t('vs.matchday', { d: h.day })}`}>{t('seasonShort')}{h.season} · {t('dayShort')}{h.day}</span> {happeningText(t, h)}</li>
         ))}
       </ul>

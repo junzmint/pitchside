@@ -122,9 +122,10 @@ export function useStageLabel() {
 }
 
 /** "Legend · Real Madrix '14" / "Custom" chip. */
-export function TagChip({ p }: { p: { tag?: string; version?: string } }) {
+export function TagChip({ p }: { p: { tag?: string; version?: string; age?: number } }) {
   const { t } = useI18n()
-  const label = p.tag === 'legend' ? `${t('tag.legend')}${p.version ? ` · ${p.version}` : ''}` : p.tag === 'custom' ? `${t('tag.legend')} · ${t('tag.custom')}` : ''
+  // a legend's age tells which version of him this is (the same player comes in several eras)
+  const label = p.tag === 'legend' ? `${t('tag.legend')}${p.version ? ` · ${p.version}` : ''}${p.age ? ` · ${t('age.years', { n: p.age })}` : ''}` : p.tag === 'custom' ? `${t('tag.legend')} · ${t('tag.custom')}` : ''
   if (label) return <span className="chip legendtag" data-tip={`${label}\n${t('tag.legendHint')}`} tabIndex={0}><Icon name="star" size={12} /> {label}</span>
   return null
 }

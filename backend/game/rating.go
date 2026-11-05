@@ -173,6 +173,7 @@ func BestLineup(players []*Player, formation string) []int {
 			avail = append(avail, p)
 		}
 	}
+	avail = onePerPerson(avail) // legend_versions.go: one version of a legend per match (the club version first)
 	// each player's worth in each slot: his effective rating, a little more in his natural role
 	// (chemistry rewards it, and a winger at centre-forward looks wrong even when he rates well)
 	score := make([][]float64, len(avail))
