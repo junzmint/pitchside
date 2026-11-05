@@ -20,7 +20,7 @@ export type { Phase }
 
 export type Difficulty = 'easy' | 'normal' | 'hard'
 export type RestartKind = 'kickoff' | 'throw' | 'corner' | 'goalkick' | 'free' | 'penalty'
-export type PauseReason = '' | 'user' | 'menu' | 'disconnect'
+export type PauseReason = '' | 'user' | 'menu' | 'disconnect' | 'rotate'
 export type Side = 0 | 1
 type Mentality = Tactic['mentality']
 export type ShotKind = 'normal' | 'finesse' | 'chip' | 'driven' | 'header' | 'volley' | 'pen' | 'panenka' | 'fk'

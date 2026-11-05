@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Engine, HudState, HumanActs } from './engine'
 import type { Glyphs } from './frame'
 import { glyphParams } from './controls'
+import { touchParams } from './touch'
 import { useI18n } from '../i18n'
 
 // First-match tutorial: six small steps, each waiting for the action before moving on. It sits at the top of the
@@ -61,7 +62,7 @@ export function Tutorial({ eng, hud, g, onClose }: { eng: Engine; hud: HudState;
       {state === 'done' ? <b className="lv-tut-text">{t('lv.tut.done')}</b> : (
         <>
           <b className="lv-tut-step">{state === 'good' ? `✓ ${t('lv.tut.good')}` : t('lv.tut.' + step.k + '.t')}</b>
-          <span className="lv-tut-text">{t('lv.tut.' + step.k, glyphParams(g, def))}</span>
+          <span className="lv-tut-text">{t('lv.tut.' + step.k, g === 'touch' ? touchParams(t, def) : glyphParams(g, def))}</span>
           {waiting && <small className="lv-tut-wait">{t(step.ctx === 'att' ? 'lv.tut.waitAtt' : 'lv.tut.waitDef')}</small>}
           {i === 0 && state === 'do' && <small className="lv-tut-wait">{t('lv.tut.soft')}</small>}
         </>

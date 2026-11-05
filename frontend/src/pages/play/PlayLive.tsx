@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n'
 import type { LanHost } from '../../lan/host'
 import { gameKey, typing } from './keys'
 import { KeyRows, WifiIcon, devParams } from './bits'
+import { MatchTouch, RotateHint, enterGameScreen, isTouchDevice, leaveGameScreen, touchParams, usePortrait } from '../../match/touch'
 
 // The live screen of a quick match: one player against the computer, two players on this device,
 // or player 2 on another device over Wi-Fi (this browser runs the only engine and streams the
@@ -197,6 +198,20 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
   const eng = engRef.current
   const duo = mode !== 'cpu'
   const menuOpen = !!hud?.paused && (hud.pauseReason === 'user' || hud.pauseReason === 'menu') && !done
+  // phones and tablets: an on-screen pad for P1, and the match waits while the device is held upright
+  const [touch] = useState(isTouchDevice)
+  const portrait = usePortrait()
+  const [padOn, setPadOn] = useState(true)
+  const usingPad = glyphs[0] === 'ps' || glyphs[0] === 'xbox'
+  const showPad = touch && padOn && !done && !usingPad
+  const rotate = touch && portrait && !done
+  useEffect(() => {
+    if (!eng) return
+    if (rotate && !eng.paused) eng.pause('rotate')
+    else if (!rotate && eng.paused && eng.pauseReason === 'rotate') eng.resume()
+  }, [rotate, eng, hud?.paused])
+  const leave = () => { leaveGameScreen(); onLeave() }
+  const params = (s: Side) => (glyphs[s] === 'touch' ? touchParams(t, hud!.sides[s].ctx === 'def') : devParams(t, glyphs[s], hud!.sides[s].ctx === 'def'))
   const reds = (s: Side) => hud?.cards.filter(c => c.team === s && c.kind === 'r').length ?? 0
   const clock = !hud ? "0'" : hud.half >= 5 ? t('lv.hud.pens') : `${hud.minute}'${hud.half >= 3 ? ' ' + t('lv.hud.et') : ''}`
   // P1's prompts always; P2's only when P2 sits at this screen (on Wi-Fi the guest's own device shows them)
@@ -223,14 +238,16 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
           </>}
           <span className="num">{t('possession')} {hud?.poss ?? 50}% · {t('shots')} {hud?.stats.shots[0] ?? 0}-{hud?.stats.shots[1] ?? 0}</span>
           <button data-tip="C" onClick={() => changeCam(1)}><Icon name="camera" size={15} /> {t('lv.cam.' + camMode)}</button>
+          {touch && <button className={'lv-padbtn' + (showPad ? ' on' : '')} onClick={() => setPadOn(!showPad)} aria-pressed={showPad} data-tip={t('touch.padTip')}>✋ {t('touch.pad')}</button>}
+          {touch && !document.fullscreenElement && <button className="lv-fsbtn" onClick={() => void enterGameScreen()} data-tip={t('touch.fullTip')}>⛶</button>}
           <button disabled={!!lost || !!done} onClick={() => { if (!eng) return; if (eng.paused) resume(); else eng.pause('menu') }}>{hud?.paused ? t('resume') : t('pause')}</button>
-          <ConfirmButton label={t('mp.leave')} confirm={t('pl.live.leaveConfirm')} onConfirm={onLeave} />
+          <ConfirmButton label={t('mp.leave')} confirm={t('pl.live.leaveConfirm')} onConfirm={leave} />
         </div>
       </div>
       <div className="mcanvas">
         <canvas ref={canvas} tabIndex={0} aria-label={t('pitch')} />
         <div className="feed">{hud?.feed.map((f, i) => <span key={i} style={{ opacity: 1 - i * 0.14 }}>{f}</span>)}</div>
-        {showKeys && hud && hud.sides[0].ctx !== 'none' && !hud.paused && (
+        {showKeys && !showPad && hud && hud.sides[0].ctx !== 'none' && !hud.paused && (
           <div className="keys lv-keys">
             <KeyRows group={hud.sides[0].ctx} d={glyphs[0]} max={hud.sides[0].ctx === 'att' ? 8 : 9} />
             {mode === 'duo' && hud.human[1] && hud.sides[1].ctx !== 'none' && <><i className="p2">P2</i><KeyRows group={hud.sides[1].ctx} d={glyphs[1]} max={6} /></>}
@@ -241,13 +258,13 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
         {hud?.banner && <div className={'banner' + (hud.phase === 'goal' ? ' lv-goal' : '')}>{hud.banner}</div>}
         {!hud?.paused && prompts.map(s => (
           <div key={s} className={'setpiece lv-prompt p' + (s + 1) + (prompts.length > 1 ? ' two' : '')}>
-            {duo && <b>P{s + 1} </b>}{t('lv.p.' + hud!.sides[s].prompt, devParams(t, glyphs[s], hud!.sides[s].ctx === 'def'))}
+            {duo && <b>P{s + 1} </b>}{t('lv.p.' + hud!.sides[s].prompt, params(s))}
           </div>
         ))}
         {!hud?.paused && mode === 'duo' && hud && !hud.human[1] && <div className="lv-join">{t('lv.hud.p2join')}</div>}
         {back && <div className="setpiece pl-back"><WifiIcon /> {t('pl.lan.back')}</div>}
         {menuOpen && eng && (
-          <PauseCard eng={eng} hud={hud!} g={glyphs[0]} camMode={camMode} onCam={changeCam} onResume={resume} onLeave={onLeave} showKeys={showKeys} setShowKeys={setShowKeys} />
+          <PauseCard eng={eng} hud={hud!} g={glyphs[0]} camMode={camMode} onCam={changeCam} onResume={resume} onLeave={leave} showKeys={showKeys} setShowKeys={setShowKeys} />
         )}
         {hud?.paused && hud.pauseReason === 'disconnect' && lost && eng && !done && (
           <div className="overlay">
@@ -258,7 +275,7 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
                 <div className="pl-wait"><span className="pl-dots"><i /><i /><i /></span> {t('pl.lan.waiting')}</div>
                 <div className="row" style={{ justifyContent: 'center' }}>
                   <button className="primary" onClick={() => { eng.setHuman(1, false); setLost(''); resume() }}><Icon name="playNow" size={15} /> {t('pl.lan.cpuTakes')}</button>
-                  <ConfirmButton label={t('mp.leave')} confirm={t('pl.live.leaveConfirm')} onConfirm={onLeave} />
+                  <ConfirmButton label={t('mp.leave')} confirm={t('pl.live.leaveConfirm')} onConfirm={leave} />
                 </div>
               </> : <>
                 <h3><Icon name="gamepad" /> {t('pl.live.padLost')}</h3>
@@ -271,6 +288,10 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
             </div>
           </div>
         )}
+        {showPad && hud && !menuOpen && !lost && (
+          <MatchTouch hub={hubRef.current} side={0} ctxOf={s => engRef.current?.contextOf(s) ?? 'att'} def={hud.sides[0].ctx === 'def'} />
+        )}
+        {rotate && <RotateHint onLeave={leave} />}
         {done && (
           <div className="overlay">
             <div className="card pl-ft">
@@ -283,7 +304,7 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
               <p className="muted" style={{ margin: 0 }}>{ftLine(t, done, mode, home.club.name, away.club.name)}</p>
               <div className="row" style={{ justifyContent: 'center' }}>
                 <button className="primary" onClick={onRematch}><Icon name="replay" size={16} /> {t('pl.ft.rematch')}</button>
-                <button onClick={onLeave}><Icon name="prev" size={16} /> {t('pl.ft.back')}</button>
+                <button onClick={leave}><Icon name="prev" size={16} /> {t('pl.ft.back')}</button>
               </div>
             </div>
           </div>

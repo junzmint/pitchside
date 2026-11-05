@@ -31,7 +31,7 @@ export const BTN = {
   SKILL: 1 << 16, // keyboard / touch: hold and tap directions = right-stick flicks
 } as const
 
-export type Glyphs = 'kb' | 'ps' | 'xbox'
+export type Glyphs = 'kb' | 'ps' | 'xbox' | 'touch'
 /** What the buttons mean right now for a side: attacking, defending or taking a set piece. */
 export type Ctx = 'att' | 'def' | 'set'
 

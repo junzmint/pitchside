@@ -11,6 +11,7 @@ import './stage.css'
 import './club.css'
 import './play.css'
 import './kits.css'
+import './mobile.css'
 import './staff.css'
 import './medical.css'
 

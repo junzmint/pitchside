@@ -4,6 +4,7 @@ import { api, money } from '../api'
 import type { DayReport, MatchSetup } from '../types'
 import { Engine, defaultAssists, takeSnapshot, type Assists, type Difficulty, type EngineEvent, type HudState, type MatchOutcome, type Side, chooseKits, kitSetOf, type KitChoice, type KitSet } from '../match/engine'
 import { KitSVG } from '../kit'
+import { MatchTouch, RotateHint, enterGameScreen, isTouchDevice, leaveGameScreen, touchParams, usePortrait } from '../match/touch'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Snapshot } from '../match/snapshot'
 import { InputHub, KB_CODES, type DeviceRef } from '../match/input'
 import { listPads, rawPad, type PadInfo } from '../match/gamepad'
@@ -159,7 +160,7 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
       {stage === 'live' ? (
         <LiveMatch setup={setup} halfSeconds={Number(len)} difficulty={diff} assists={assists} snapshot={snap} careerId={ctx.id} mode={mode} assign={assign} kitPick={kitPick}
           cam={cam} replays={replays} onCam={c => { setCam(c); saveCam(c) }}
-          onEnd={(o, sum) => { setLive(sum); submit({ mode: 'live', ...o, ratings: sum.byId }) }} onLeave={onClose} />
+          onEnd={(o, sum) => { leaveGameScreen(); setLive(sum); submit({ mode: 'live', ...o, ratings: sum.byId }) }} onLeave={() => { leaveGameScreen(); onClose() }} />
       ) : (
         <div className="overlay">
           {stage === 'report' && report ? <Report r={report} clubId={ctx.st.club.id} onClose={onClose} live={live} /> : (
@@ -202,7 +203,7 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
               {mode !== 'watch' && <ControlsCard />}
               {err && <p className="error">{err}</p>}
               <div className="row">
-                <button className="primary" disabled={stage === 'saving'} onClick={() => setStage('live')}>{mode === 'watch' ? t('lv.pre.startWatch') : mode === 'duo' ? t('lv.pre.startDuo') : t('mc.playLive')}</button>
+                <button className="primary" disabled={stage === 'saving'} onClick={() => { void enterGameScreen(); setStage('live') }}>{mode === 'watch' ? t('lv.pre.startWatch') : mode === 'duo' ? t('lv.pre.startDuo') : t('mc.playLive')}</button>
                 <button disabled={stage === 'saving'} onClick={() => submit({ mode: 'sim' })}>{stage === 'saving' ? t('wait') : t('mc.quickSim')}</button>
                 <button onClick={onClose}>{t('back')}</button>
               </div>
@@ -556,6 +557,19 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
   const duo = mode === 'duo'
   const watch = mode === 'watch'
   const menuOpen = !!hud?.paused && (hud.pauseReason === 'user' || hud.pauseReason === 'menu') && !done
+  // phones and tablets: an on-screen pad, and the match waits while the device is held upright
+  const [touch] = useState(isTouchDevice)
+  const portrait = usePortrait()
+  const [padOn, setPadOn] = useState(true)
+  const usingPad = glyphs[0] === 'ps' || glyphs[0] === 'xbox' // a controller took over: the pad steps aside
+  const showPad = touch && padOn && !watch && !done && !usingPad
+  const rotate = touch && portrait && !done
+  useEffect(() => {
+    if (!eng) return
+    if (rotate && !eng.paused) eng.pause('rotate')
+    else if (!rotate && eng.paused && eng.pauseReason === 'rotate') eng.resume()
+  }, [rotate, eng, hud?.paused])
+  const params = (s: Side) => (glyphs[s] === 'touch' ? touchParams(t, hud!.sides[s].ctx === 'def') : glyphParams(glyphs[s], hud!.sides[s].ctx === 'def'))
   const resume = () => { eng?.resume(); setSubsFor(null) }
   const openSubs = (s: Side) => { if (!eng) return; eng.pause('menu'); setSubsFor(s) }
   const prompts = ([0, 1] as const).filter(s => hud?.human[s] && hud.sides[s].prompt && !hud.intro)
@@ -583,6 +597,8 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
           )}
           <span className="num">{t('possession')} {hud?.poss ?? 50}% · {t('shots')} {hud?.stats.shots[0] ?? 0}-{hud?.stats.shots[1] ?? 0}</span>
           <button title="C" onClick={() => changeCam(1)}>🎥 {t('lv.cam.' + camMode)}</button>
+          {touch && !watch && <button className={'lv-padbtn' + (showPad ? ' on' : '')} onClick={() => setPadOn(!showPad)} aria-pressed={showPad} data-tip={t('touch.padTip')}>✋ {t('touch.pad')}</button>}
+          {touch && !document.fullscreenElement && <button className="lv-fsbtn" onClick={() => void enterGameScreen()} data-tip={t('touch.fullTip')}>⛶</button>}
           <button onClick={() => { if (!eng) return; if (eng.paused) resume(); else eng.pause('menu') }}>{hud?.paused ? t('resume') : t('pause')}</button>
           <ConfirmButton label={t('mp.leave')} confirm={t('mp.leaveConfirm')} onConfirm={onLeave} />
         </div>
@@ -594,7 +610,7 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         {hud?.intro && eng && <Intro eng={eng} setup={setup} onStart={() => eng.endIntro()} />}
         {hud && eng && hud.celebPick != null && !watch && !hud.paused && <CelebPicker eng={eng} g={glyphs[hud.celebPick]} duo={duo} side={hud.celebPick} />}
         {tut && hud && eng && !hud.intro && !watch && !done && !hud.paused && hud.phase !== 'replay' && <Tutorial eng={eng} hud={hud} g={glyphs[0]} onClose={endTutorial} />}
-        {showKeys && !watch && hud && !hud.intro && hud.sides[0].ctx !== 'none' && (
+        {showKeys && !watch && !showPad && hud && !hud.intro && hud.sides[0].ctx !== 'none' && (
           <div className="keys lv-keys">
             <CtlList group={hud.sides[0].ctx} g={glyphs[0]} max={hud.sides[0].ctx === 'att' ? 8 : 9} />
             {duo && hud.human[1] && hud.sides[1].ctx !== 'none' && <><i className="p2">P2</i><CtlList group={hud.sides[1].ctx} g={glyphs[1]} max={6} /></>}
@@ -605,7 +621,7 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         {hud?.banner && <div className={'banner' + (hud.phase === 'goal' ? ' lv-goal' : '')}>{hud.banner}</div>}
         {!hud?.paused && prompts.map(s => (
           <div key={s} className={'setpiece lv-prompt p' + (s + 1) + (prompts.length > 1 ? ' two' : '')}>
-            {duo && <b>P{s + 1} </b>}{t('lv.p.' + hud!.sides[s].prompt, glyphParams(glyphs[s], hud!.sides[s].ctx === 'def'))}
+            {duo && <b>P{s + 1} </b>}{t('lv.p.' + hud!.sides[s].prompt, params(s))}
           </div>
         ))}
         {!hud?.paused && !watch && hud?.sides[0].injured && <div className="lv-injury">✚ {t('lv.hud.injured', { name: hud.sides[0].injured })}</div>}
@@ -632,7 +648,11 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
             </div>
           </div>
         )}
+        {showPad && hud && !hud.intro && !menuOpen && subsFor == null && (
+          <MatchTouch hub={hubRef.current} side={0} ctxOf={s => engRef.current?.contextOf(s) ?? 'att'} def={hud.sides[0].ctx === 'def'} />
+        )}
         {done && eng && <PostMatch eng={eng} setup={setup} done={done} cam={camMode} saving={saving} onSave={() => { if (saving) return; setSaving(true); onEnd(done, liveSummary(eng)) }} />}
+        {rotate && <RotateHint onLeave={onLeave} />}
       </div>
     </>
   )

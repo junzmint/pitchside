@@ -9,6 +9,7 @@ import { useSettings } from '../../settings'
 import { Badge, Hint, Icon, Modal, Seg, TabBar, Title } from '../../ui'
 import { errText, useI18n } from '../../i18n'
 import { PlayLive, type Assign } from './PlayLive'
+import { enterGameScreen } from '../../match/touch'
 import { QrCode, addResult, loadRecord, winnerOf, type QuickMode, type QuickRecord } from './bits'
 
 // Quick match: any two clubs of the world (or Legends XIs of the famous clubs), one player against
@@ -89,6 +90,7 @@ export function QuickMatch({ user, startMode }: { user: User; startMode?: QuickM
   const pickMode = (m: QuickMode) => { setMode(m); setAssign(defaultAssign(m, listPads())) }
 
   async function start() {
+    void enterGameScreen() // phones and tablets: full screen and landscape, while this is still a tap
     if (!H || !A) return
     setStage('loading')
     setErr('')

@@ -1,0 +1,82 @@
+/* Phones and tablets (main session, 2026-11-05): touch controls in matches, the rotate screen,
+   a bottom tab bar on phones, and safe areas for notched screens. */
+
+/* ---------------------------------------------------------------- the on-screen pad over the pitch */
+.lv-touch { position: absolute; left: 0; right: 0; bottom: 0; height: 56%; z-index: 6; pointer-events: none; }
+.lv-touch.off { display: none; }
+.lv-touch .touchpad { position: absolute; inset: 0; height: 100%; max-height: none; min-height: 0; background: none; border: 0; pointer-events: none;
+  padding: 0 max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+.lv-touch .tp-stickzone, .lv-touch .tp-buttons { pointer-events: auto; }
+.lv-touch .tp-stickzone { max-width: 46%; }
+.lv-touch .tp-buttons { margin-left: auto; align-content: end; padding-bottom: 6px; }
+.lv-touch .tp-btn { background-color: rgba(0, 0, 0, 0.32); backdrop-filter: blur(2px); }
+.lv-touch .tp-hint { opacity: 0.75; }
+@media (max-height: 430px) {
+  .lv-touch .tp-buttons { grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 6px; padding: 4px 6px; }
+  .lv-touch .tp-btn { font-size: 11px; }
+}
+.mbar .lv-padbtn.on { border-color: var(--cyan, #38e1ff); color: var(--cyan, #38e1ff); }
+.mbar .lv-fsbtn { font-size: 16px; padding-inline: 10px; }
+
+/* ---------------------------------------------------------------- "turn your phone" */
+.rotatehint { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; color: var(--ink); background: radial-gradient(ellipse at 50% 40%, #13202c, #05090d 70%); }
+.rotatehint b { font-family: var(--display); font-size: 26px; font-style: italic; text-transform: uppercase; line-height: 1.2; }
+.rotatehint span { color: var(--muted); max-width: 320px; line-height: 1.45; }
+.rh-phone { width: 64px; height: 108px; border: 4px solid var(--hot, #ffd23f); border-radius: 14px; position: relative; margin-bottom: 6px;
+  animation: rh-turn 2.2s ease-in-out infinite; box-shadow: 0 0 24px rgba(255, 210, 63, 0.35); }
+.rh-phone i { position: absolute; left: 50%; bottom: 6px; width: 14px; height: 4px; margin-left: -7px; border-radius: 2px; background: var(--hot, #ffd23f); }
+@keyframes rh-turn { 0%, 20% { transform: rotate(0deg); } 55%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+
+/* ---------------------------------------------------------------- the match bar on a phone held sideways */
+@media (orientation: landscape) and (max-height: 500px) {
+  .mbar { gap: 6px; padding: 4px max(8px, env(safe-area-inset-left)); font-size: 12px; }
+  .mbar > span.num, .mbar .lv-sig, .mbar > span:has(> b) { display: none; }
+  .mbar button { padding: 4px 8px; font-size: 12px; }
+}
+
+/* ---------------------------------------------------------------- phones and upright tablets: a bottom tab bar like a mobile game */
+@media (max-width: 900px) {
+  body { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .rail { position: sticky; top: 0; z-index: 30; padding: 8px max(12px, env(safe-area-inset-left)) 8px max(12px, env(safe-area-inset-right)); gap: 6px 10px; }
+  .rail .crest .badge { width: 40px !important; height: 40px !important; }
+  .rail .crest b { font-size: 16px; }
+  .rail .crest small { display: none; }
+  .rail .seasonbox { padding: 5px 8px; }
+  .rail .seasonbox .eyebrow { display: none; }
+  .rail .seasonbox b { font-size: 14px; }
+  .rail .seasonbox .seasonbar { margin-top: 3px; }
+  .rail .meta > span:first-child { display: none; }
+  .rail .money { font-size: 19px; }
+  .rail nav.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0;
+    padding: 4px max(2px, env(safe-area-inset-left)) calc(4px + env(safe-area-inset-bottom)) max(2px, env(safe-area-inset-right));
+    background: rgba(5, 9, 14, 0.96); backdrop-filter: blur(10px); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45); }
+  .rail .tabs button { min-height: 56px; padding: 6px 1px 4px; gap: 3px; font-size: 10px; line-height: 1.1; background: none; letter-spacing: 0; }
+  .rail .tabs button .ti { width: 23px; height: 23px; }
+  .rail .tabs button .tl { white-space: normal; overflow-wrap: anywhere; hyphens: auto; }
+  .rail .tabs button[aria-current="true"] { color: var(--hot, #ffd23f); background: linear-gradient(180deg, rgba(255, 210, 63, 0.14), transparent); }
+  .rail .tabs button[aria-current="true"]::before { top: 0; bottom: auto; height: 3px; }
+  .rail .tabs .dot { top: 3px; right: 50%; margin-right: -20px; }
+  /* the HUD's numbers scroll sideways instead of stacking */
+  .hud-stats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .hud-stats::-webkit-scrollbar { display: none; }
+  .hud .stat { flex: 0 0 auto; }
+  /* sub-pages of a section: one row of chips that scrolls */
+  nav.subtabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  nav.subtabs::-webkit-scrollbar { display: none; }
+  nav.subtabs > * { flex: 0 0 auto; }
+  /* toasts sit above the tab bar */
+  .toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
+
+/* tablets held upright: roomier tab bar */
+@media (min-width: 641px) and (max-width: 900px) {
+  .rail .tabs button { min-height: 62px; font-size: 12px; }
+  .rail .tabs button .ti { width: 26px; height: 26px; }
+  .rail .crest .badge { width: 48px !important; height: 48px !important; }
+  .rail .crest b { font-size: 18px; }
+}
+/* a fade at the right edge says the HUD numbers scroll */
+@media (max-width: 900px) {
+  .hud-stats { -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); padding-right: 24px; }
+}

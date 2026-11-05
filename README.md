@@ -98,6 +98,13 @@ What else to know:
 - Each challenge shows the buttons it needs for your keyboard or controller.
 - Best scores stay on the device. In a career, a gold medal earns +1 TP, at most once every 3 matchdays.
 
+### Phones and tablets
+
+- **Menus**: on a phone, and on a tablet held upright, the sections sit in a tab bar at the bottom of the screen like a mobile game, with a slim club header at the top; the HUD numbers scroll sideways.
+- **Live matches by touch**: on a touch screen a pad appears over the pitch: a stick on the left (touch anywhere in the left half) and buttons on the right (Pass, Shoot, Through ball, Lob, Sprint, Skill; in defence they become Switch, Tackle, Slide and Press). The ✋ button in the match bar shows or hides it, and it steps aside by itself when you use a controller. Prompts and the tutorial name the touch buttons.
+- **Landscape**: held upright, the match pauses behind a "turn your screen" card and carries on when you turn the device. Starting a match asks for full screen in landscape where the browser allows it (Android, iPad); the ⛶ button asks again.
+- **Add to Home Screen**: the game has an app icon and opens full screen from the home screen (on an iPhone, Safari → Share → Add to Home Screen gives the full screen).
+
 ### One career, one world
 
 Every career is a separate world: its own clubs, players, legends, fixtures, transfer market, news and history. A career is
