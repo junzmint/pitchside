@@ -13,16 +13,19 @@ import { useI18n } from '../i18n'
 // and the celebration buttons after a goal.
 
 // ------------------------------------------------------------------------------------------------ walk-out
+/** Seconds the walk-out stays up before kick-off (any button or a tap starts the match sooner). */
+const INTRO_S = 5
+
 export function Intro({ eng, setup, onStart }: { eng: Engine; setup: MatchSetup; onStart: () => void }) {
   const { t } = useI18n()
   const stage = useStageLabel()
   const startRef = useRef(onStart)
   startRef.current = onStart
-  const [left, setLeft] = useState(7)
+  const [left, setLeft] = useState(INTRO_S)
   useEffect(() => {
     const t0 = performance.now()
     const iv = window.setInterval(() => {
-      const l = 7 - (performance.now() - t0) / 1000
+      const l = INTRO_S - (performance.now() - t0) / 1000
       setLeft(l)
       if (l <= 0) { window.clearInterval(iv); startRef.current() }
     }, 100)
@@ -66,7 +69,7 @@ export function Intro({ eng, setup, onStart }: { eng: Engine; setup: MatchSetup;
       <div className="lv-intro-notes">{notes.map((n, i) => <span key={i}><Icon name={n.icon} size={15} /> {n.text}</span>)}</div>
       <div className="lv-intro-go">
         <span>{t('lv.intro.start')}</span>
-        <i style={{ width: `${Math.max(0, Math.min(100, (left / 7) * 100))}%` }} />
+        <i style={{ width: `${Math.max(0, Math.min(100, (left / INTRO_S) * 100))}%` }} />
       </div>
       </div>
     </div>

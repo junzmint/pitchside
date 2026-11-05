@@ -379,7 +379,7 @@ function StrengthBars({ H, A }: { H: SideSetup; A: SideSetup }) {
     <div className="vsx-bars">
       <span className="eyebrow"><Icon name="strength" size={13} /> {t('mc.compare')}</span>
       {rows.map(([k, label, hv, av, f], i) => (
-        <div key={k} className="vsx-bar" style={{ ['--d' as string]: `${0.35 + i * 0.06}s` } as React.CSSProperties}>
+        <div key={k} className="vsx-bar" style={{ ['--d' as string]: `${0.05 + i * 0.03}s` } as React.CSSProperties}>
           <b className={'num' + (hv > av ? ' up' : '')}>{hv}</b>
           <i className="l"><em style={{ width: f(hv) + '%' }} /></i>
           <span data-tip={k === 'fit' ? t('fit.title') : undefined}>{label}</span>

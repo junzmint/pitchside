@@ -4,12 +4,15 @@ services:
   db:
     image: postgres:16-alpine
     shm_size: 256mb # Postgres' parallel workers share memory through /dev/shm (Docker's default 64 MB is too small)
+    # The game's database is small and read on every request: room to keep all of it in memory, and no parallel
+    # query workers (starting one costs more than the small queries they would split)
+    command: postgres -c shared_buffers=256MB -c effective_cache_size=1GB -c max_parallel_workers_per_gather=0
     environment:
       POSTGRES_USER: pitch
       POSTGRES_PASSWORD: pitch
       POSTGRES_DB: pitchside
     ports:
-      - "55432:5432"
+      - "127.0.0.1:55432:5432" # this computer only
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,10 +26,10 @@ services:
     environment:
       DATABASE_URL: postgres://pitch:pitch@db:5432/pitchside?sslmode=disable
       PORT: "8095"
-      LAN_IP: ${LAN_IP:-} # set by `make up`: the address other devices on the Wi-Fi open for LAN play
+      LAN_IP: ${LAN_IP:-} # set by `make up-lan`: the address other devices on the Wi-Fi open for LAN play
       AUTO_SEED: "1" # load backend/seed.json demo data the first time the database is empty
     ports:
-      - "8095:8095"
+      - "127.0.0.1:8095:8095" # this computer only (the web container reaches the API over Docker's own network)
     depends_on:
       db:
         condition: service_healthy
@@ -34,7 +37,8 @@ services:
   web:
     build: ./frontend
     ports:
-      - "5195:80"
+      # this computer only; `make up-lan` sets WEB_BIND=0.0.0.0 to open the game to devices on the same Wi-Fi
+      - "${WEB_BIND:-127.0.0.1}:5195:80"
     depends_on:
       - api
 

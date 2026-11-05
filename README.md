@@ -17,6 +17,8 @@ make up          # or: docker compose up -d --build
 
 Open **http://localhost:5195**. The first build takes a few minutes.
 
+`make up` keeps the game on this computer: other devices on the network can't reach it. To play with a phone, a tablet or a second laptop over Wi-Fi, start it with `make up-lan` instead.
+
 On first start with an empty database the server loads the **demo data** from [`backend/seed.json`](backend/seed.json):
 
 | Account | Careers |
@@ -37,8 +39,10 @@ These accounts are for local testing only: change or remove them before putting 
 ### Useful commands
 
 ```bash
-make up          # build and start everything      → http://localhost:5195
+make up          # build and start everything      → http://localhost:5195 (this computer only)
+make up-lan      # the same, open to devices on the same Wi-Fi (Wi-Fi 2-player, phones, tablets)
 make down        # stop
+make vacuum      # compact the database if the game gets slow after many seasons (a few seconds, while nobody plays)
 make seed        # load seed.json again (users that already exist are skipped)
 make reset       # stop and WIPE the database (demo data comes back on the next `make up`)
 make logs        # API logs
@@ -52,14 +56,16 @@ make logs        # API logs
 | API      | 8095  | Go |
 | Postgres | 55432 | user/pass/db: `pitch` / `pitch` / `pitchside` |
 
-If one of these ports is taken on your machine, change the left-hand side of `ports:` in `docker-compose.yml`.
+All three listen on 127.0.0.1 only, so nothing is reachable from other machines. `make up-lan` opens the web port (5195) to the network; the API and the database stay on this computer.
+
+If one of these ports is taken on your machine, change the port number before the container port in `ports:` in `docker-compose.yml` (for example `127.0.0.1:5196:80`).
 
 ### Development (live reload)
 
 ```bash
 make db          # Postgres only
 make api         # Go backend (port 8095); needs Go 1.24+
-make web         # Vite dev server (port 5195), proxies /api to 8095; needs Node 20+
+make web         # Vite dev server (port 5195, this computer only; WEB_BIND=0.0.0.0 make web opens it to the Wi-Fi), proxies /api to 8095; needs Node 20+
 make seed-local  # load demo data into the dev database
 ```
 
@@ -78,8 +84,8 @@ The title screen's **Play now** card (also at the bottom of the Match Centre in 
 - Nothing touches your careers; your record (wins, draws, losses) is kept on the device.
 
 **Two players over Wi-Fi**
-1. On the computer running `make up` (the host), open **Play now → 2 players over Wi-Fi** and pick two teams.
-2. A room code, an address like `http://192.168.1.20:5195/join` and a QR code appear. `make up` finds the Wi-Fi address itself (`LAN_IP`).
+1. On the computer running `make up-lan` (the host), open **Play now → 2 players over Wi-Fi** and pick two teams. (Plain `make up` keeps the game on this computer, so other devices can't join.)
+2. A room code, an address like `http://192.168.1.20:5195/join` and a QR code appear. `make up-lan` finds the Wi-Fi address itself (`LAN_IP`).
 3. On a phone, tablet or second laptop on the same Wi-Fi, scan the QR code or open the address and enter the code. No account is needed; the login page also has a "Join a 2-player Wi-Fi match" link.
 4. Press **Kick off**. The guest is player 2, using on-screen touch buttons, a controller or the keyboard.
 
@@ -100,6 +106,7 @@ What else to know:
 
 ### Phones and tablets
 
+- **Opening it**: start the game with `make up-lan`, then on the phone or tablet (same Wi-Fi) open `http://<the computer's Wi-Fi address>:5195`.
 - **Menus**: on a phone, and on a tablet held upright, the sections sit in a tab bar at the bottom of the screen like a mobile game, with a slim club header at the top; the HUD numbers scroll sideways.
 - **Live matches by touch**: on a touch screen a pad appears over the pitch: a stick on the left (touch anywhere in the left half) and buttons on the right (Pass, Shoot, Through ball, Lob, Sprint, Skill; in defence they become Switch, Tackle, Slide and Press). The ✋ button in the match bar shows or hides it, and it steps aside by itself when you use a controller. Prompts and the tutorial name the touch buttons.
 - **Landscape**: held upright, the match pauses behind a "turn your screen" card and carries on when you turn the device. Starting a match asks for full screen in landscape where the browser allows it (Android, iPad); the ⛶ button asks again.
@@ -113,7 +120,8 @@ tied to one club for good — to manage another club, start a new career.
 ### Troubleshooting
 
 - **`error getting credentials` during `make up`**: the Docker credential helper can't be reached (often a locked keychain). Open Docker Desktop and sign in (or sign out and back in), then try again.
-- **Another device can't connect for LAN play**: both devices must be on the same network; check the address shown in the lobby (run `make up` again if your Wi-Fi address changed) and allow incoming connections in the macOS firewall.
+- **Another device can't connect for LAN play**: start the game with `make up-lan` (plain `make up` keeps it on this computer only); both devices must be on the same network; check the address shown in the lobby (run `make up-lan` again if your Wi-Fi address changed) and allow incoming connections in the macOS firewall.
+- **The game gets slower after many seasons, or after deleting many careers**: run `make vacuum` while nobody is playing. It compacts the database tables (a few seconds).
 - **Career creation is slow**: the first career on a fresh database takes a few seconds while the planner statistics warm up; later ones take about 2 s.
 
 ## Gameplay

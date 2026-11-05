@@ -117,6 +117,16 @@ func (s *Store) Migrate(ctx context.Context) error {
 	// medical stream (medical.go): the medical file of every career (injuries, wear, cases, decisions)
 	migrations = append(migrations, `CREATE TABLE IF NOT EXISTS medical (career_id INT PRIMARY KEY REFERENCES careers(id) ON DELETE CASCADE,
 		data JSONB NOT NULL DEFAULT '{}', updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`)
+	// speed: seasonApps (growth.go) counts a club's games this season without scanning every career's stats.
+	// The tables rewritten every matchday keep room on each page, so an update stays on its page (no new
+	// index entries) and dead rows are cleared sooner: the tables stay small and quick to read.
+	migrations = append(migrations,
+		`CREATE INDEX IF NOT EXISTS stats_club ON player_stats(club_id, season)`,
+		`ALTER TABLE players SET (fillfactor = 80, autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.05)`,
+		`ALTER TABLE player_stats SET (fillfactor = 85, autovacuum_vacuum_scale_factor = 0.05)`,
+		`ALTER TABLE clubs SET (fillfactor = 70, autovacuum_vacuum_scale_factor = 0.05)`,
+		`ALTER TABLE fixtures SET (fillfactor = 90, autovacuum_vacuum_scale_factor = 0.05)`,
+	)
 	// clubs that shared a short name with a neighbour (data_divisions.go uniqueShorts) get their new one
 	for _, f := range ShortFixes() {
 		q := func(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }

@@ -2,6 +2,7 @@ package game
 
 import (
 	"math/rand"
+	"sync"
 )
 
 // ---------------------------------------------------------------- coach perks
@@ -23,22 +24,37 @@ var rolePerks = map[string][]string{
 var AllPerks = []string{"motivator", "tactician", "big_match", "negotiator", "finishing", "set_piece", "youth_dev",
 	"organiser", "recovery", "injury_prevention", "veteran_care", "shot_stopper", "quick_heal", "talent_eye", "diagnostician", "surgeon"}
 
+// perkCache keeps every answer of perksFor: seeding a math/rand source is slow and every world load asks
+// for the perks of every coach in the country, so working them out each time cost a quarter of a request.
+var perkCache sync.Map // perkKey → []string
+
+type perkKey struct {
+	id, nameLen int
+	role        string
+	two         bool
+}
+
 func perksFor(c *Coach) []string {
 	opts := rolePerks[c.Role]
 	if len(opts) == 0 || c.ID == 0 {
 		return []string{}
 	}
-	r := rand.New(rand.NewSource(int64(c.ID)*7919 + int64(len(c.Name))*31))
 	n := 1
 	if c.Skill >= 15 {
 		n = 2
 	}
+	key := perkKey{c.ID, len(c.Name), c.Role, n == 2}
+	if v, ok := perkCache.Load(key); ok {
+		return append([]string{}, v.([]string)...)
+	}
+	r := rand.New(rand.NewSource(int64(c.ID)*7919 + int64(len(c.Name))*31))
 	idx := r.Perm(len(opts))
 	out := []string{}
 	for i := 0; i < n && i < len(idx); i++ {
 		out = append(out, opts[idx[i]])
 	}
-	return out
+	perkCache.Store(key, out)
+	return append([]string{}, out...)
 }
 
 // Perks is the set of perks a club's staff brings.

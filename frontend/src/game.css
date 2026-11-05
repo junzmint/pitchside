@@ -70,7 +70,7 @@ h3 { color: #b9cde0; font-style: italic; letter-spacing: 0.12em; }
 .panel > h3:first-child, .panel > .row:first-child h3 { padding-left: 10px; border-left: 3px solid var(--club); }
 .modal { background: rgba(2, 6, 10, 0.72); backdrop-filter: blur(4px); }
 .overlay { background: rgba(2, 6, 10, 0.72); backdrop-filter: blur(3px); }
-.card { animation: pop-in 0.22s ease-out; }
+.card { animation: pop-in 0.16s ease-out; }
 @keyframes pop-in { from { transform: translateY(8px) scale(0.985); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------------------------------------------------------------- buttons: parallelograms */
@@ -149,7 +149,7 @@ input[type="checkbox"] { accent-color: var(--hot); }
 @media (max-width: 700px) { .hud .next { margin-left: 0; width: 100%; padding: 4px 8px; } }
 
 /* page enter animation */
-.page { display: flex; flex-direction: column; gap: 18px; animation: page-in 0.28s ease-out; min-width: 0; }
+.page { display: flex; flex-direction: column; gap: 18px; animation: page-in 0.18s ease-out; min-width: 0; }
 @keyframes page-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 
 /* ---------------------------------------------------------------- home hub */
@@ -354,13 +354,13 @@ h3.ttl .ico { color: var(--cyan); }
 .pcard:active, .navtile:active, .savecard:active { transform: translateY(-1px) scale(0.99); }
 
 /* staggered entrance for card grids */
-.cards > *, .kpis > *, .hub > * { animation: card-in 0.36s cubic-bezier(.2, .8, .2, 1) both; }
-.cards > :nth-child(2), .kpis > :nth-child(2), .hub > :nth-child(2) { animation-delay: 0.03s; }
-.cards > :nth-child(3), .kpis > :nth-child(3), .hub > :nth-child(3) { animation-delay: 0.06s; }
-.cards > :nth-child(4), .kpis > :nth-child(4), .hub > :nth-child(4) { animation-delay: 0.09s; }
-.cards > :nth-child(5), .kpis > :nth-child(5), .hub > :nth-child(5) { animation-delay: 0.12s; }
-.cards > :nth-child(6), .hub > :nth-child(6) { animation-delay: 0.15s; }
-.cards > :nth-child(n+7), .hub > :nth-child(n+7) { animation-delay: 0.18s; }
+.cards > *, .kpis > *, .hub > * { animation: card-in 0.22s cubic-bezier(.2, .8, .2, 1) both; }
+.cards > :nth-child(2), .kpis > :nth-child(2), .hub > :nth-child(2) { animation-delay: 0.02s; }
+.cards > :nth-child(3), .kpis > :nth-child(3), .hub > :nth-child(3) { animation-delay: 0.04s; }
+.cards > :nth-child(4), .kpis > :nth-child(4), .hub > :nth-child(4) { animation-delay: 0.06s; }
+.cards > :nth-child(5), .kpis > :nth-child(5), .hub > :nth-child(5) { animation-delay: 0.08s; }
+.cards > :nth-child(6), .hub > :nth-child(6) { animation-delay: 0.1s; }
+.cards > :nth-child(n+7), .hub > :nth-child(n+7) { animation-delay: 0.1s; }
 @keyframes card-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* ---------------------------------------------------------------- player cards */
@@ -560,7 +560,7 @@ details.helpbox.earn { padding: 0; }
 .ledger-line > span .ico { color: var(--muted); }
 .ledger-line.pos > span .ico { color: var(--good); } .ledger-line.neg > span .ico { color: var(--bad); }
 .ledger-line .bar { height: 10px; }
-.ledger-line .bar i { transform-origin: left; animation: grow 0.6s cubic-bezier(.2, .8, .2, 1) both; }
+.ledger-line .bar i { transform-origin: left; animation: grow 0.4s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes grow { from { transform: scaleX(0); } to { transform: none; } }
 .ledger-total span { display: inline-flex; align-items: center; gap: 6px; }
 .txlist { display: grid; gap: 2px; max-height: 460px; overflow: auto; padding-right: 4px; }
@@ -922,8 +922,8 @@ small.wrap, span.wrap { display: block; }
 }
 .vsx-bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .vsx-bg i { position: absolute; inset: 0; }
-.vsx-bg .h { background: linear-gradient(100deg, color-mix(in srgb, var(--hc) 50%, transparent), color-mix(in srgb, var(--hc) 10%, transparent) 46%); clip-path: polygon(0 0, 56% 0, 44% 100%, 0 100%); animation: vsx-wipe-l 0.5s cubic-bezier(.2, .8, .2, 1) both; }
-.vsx-bg .a { background: linear-gradient(260deg, color-mix(in srgb, var(--ac) 50%, transparent), color-mix(in srgb, var(--ac) 10%, transparent) 46%); clip-path: polygon(56% 0, 100% 0, 100% 100%, 44% 100%); animation: vsx-wipe-r 0.5s cubic-bezier(.2, .8, .2, 1) both; }
+.vsx-bg .h { background: linear-gradient(100deg, color-mix(in srgb, var(--hc) 50%, transparent), color-mix(in srgb, var(--hc) 10%, transparent) 46%); clip-path: polygon(0 0, 56% 0, 44% 100%, 0 100%); animation: vsx-wipe-l 0.3s cubic-bezier(.2, .8, .2, 1) both; }
+.vsx-bg .a { background: linear-gradient(260deg, color-mix(in srgb, var(--ac) 50%, transparent), color-mix(in srgb, var(--ac) 10%, transparent) 46%); clip-path: polygon(56% 0, 100% 0, 100% 100%, 44% 100%); animation: vsx-wipe-r 0.3s cubic-bezier(.2, .8, .2, 1) both; }
 .vsx-bg .rays {
   background: radial-gradient(ellipse 34% 46% at 50% 22%, rgba(255, 230, 160, 0.2), transparent 70%),
     repeating-conic-gradient(from 0deg at 50% 22%, rgba(255, 255, 255, 0.05) 0 5deg, transparent 5deg 16deg);
@@ -948,12 +948,12 @@ small.wrap, span.wrap { display: block; }
 .vsx-crest { width: var(--crest); height: var(--crest); display: grid; place-items: center; }
 .vsx-crest .badge { width: 100% !important; height: 100% !important; }
 .vsx-crest .crest-svg { width: 100%; height: 100%; }
-.vsx-side.home .vsx-crest { animation: vsx-in-l 0.65s 0.05s cubic-bezier(.2, .9, .25, 1.15) both; }
-.vsx-side.away .vsx-crest { animation: vsx-in-r 0.65s 0.05s cubic-bezier(.2, .9, .25, 1.15) both; }
+.vsx-side.home .vsx-crest { animation: vsx-in-l 0.35s cubic-bezier(.2, .9, .25, 1.15) both; }
+.vsx-side.away .vsx-crest { animation: vsx-in-r 0.35s cubic-bezier(.2, .9, .25, 1.15) both; }
 @keyframes vsx-in-l { from { transform: translateX(-90px) rotate(-12deg) scale(0.7); opacity: 0; } }
 @keyframes vsx-in-r { from { transform: translateX(90px) rotate(12deg) scale(0.7); opacity: 0; } }
 .vsx-name { font-family: var(--display); font-size: clamp(21px, 2.5vw, 34px); font-weight: 800; font-style: italic; text-transform: uppercase; line-height: 1.15;
-  padding: 0.22em 0.12em 0; overflow-wrap: anywhere; text-wrap: balance; text-shadow: 0 3px 14px rgba(0, 0, 0, 0.6); animation: card-in 0.4s 0.2s both; }
+  padding: 0.22em 0.12em 0; overflow-wrap: anywhere; text-wrap: balance; text-shadow: 0 3px 14px rgba(0, 0, 0, 0.6); animation: card-in 0.25s 0.05s both; }
 .vsx-tag { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .vsx-crest { position: relative; }
 .vsx-you { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); z-index: 1; white-space: nowrap; font-style: normal; display: inline-flex; align-items: center; gap: 4px;
@@ -966,13 +966,13 @@ small.wrap, span.wrap { display: block; }
 .vsx-mid { position: absolute; left: 50%; top: calc(var(--crest) / 2); transform: translate(-50%, -50%); pointer-events: none; z-index: 1; }
 .vsx-vs { display: block; font-family: var(--display); font-size: clamp(50px, 6.6vw, 92px); font-weight: 800; font-style: italic; line-height: 1.05; padding: 0.06em 0.2em 0.06em 0.06em;
   background: linear-gradient(180deg, #fff8d6 12%, var(--hot) 55%, #d48a00); -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 0 20px rgba(255, 210, 63, 0.5)) drop-shadow(0 4px 0 rgba(0, 0, 0, 0.55)); animation: vsx-slam 0.5s 0.3s cubic-bezier(.2, 1.5, .4, 1) both; }
+  filter: drop-shadow(0 0 20px rgba(255, 210, 63, 0.5)) drop-shadow(0 4px 0 rgba(0, 0, 0, 0.55)); animation: vsx-slam 0.3s 0.06s cubic-bezier(.2, 1.5, .4, 1) both; }
 @keyframes vsx-slam { from { transform: scale(2.6); opacity: 0; } 55% { opacity: 1; } }
 
-.vsx-odds { display: grid; gap: 6px; width: min(100%, 760px); justify-self: center; animation: card-in 0.4s 0.35s both; cursor: help; }
+.vsx-odds { display: grid; gap: 6px; width: min(100%, 760px); justify-self: center; animation: card-in 0.2s both; cursor: help; }
 .vsx-odds > .eyebrow { justify-self: center; display: inline-flex; gap: 6px; align-items: center; }
 .vsx-oddsbar { display: flex; height: 26px; gap: 3px; padding-inline: 6px; }
-.vsx-oddsbar i { display: grid; place-items: center; min-width: 4px; transform: skewX(-14deg); animation: vsx-grow 0.7s 0.45s cubic-bezier(.2, .8, .2, 1) both; }
+.vsx-oddsbar i { display: grid; place-items: center; min-width: 4px; transform: skewX(-14deg); animation: vsx-grow 0.35s 0.05s cubic-bezier(.2, .8, .2, 1) both; }
 .vsx-oddsbar i b { transform: skewX(14deg); font-family: var(--display); font-style: italic; font-size: 15px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
 .vsx-oddsbar .h { background: linear-gradient(90deg, color-mix(in srgb, var(--hc) 60%, #000), var(--hc)); box-shadow: 0 0 16px color-mix(in srgb, var(--hc) 45%, transparent); }
 .vsx-oddsbar .d { background: rgba(255, 255, 255, 0.2); }
@@ -993,8 +993,8 @@ small.wrap, span.wrap { display: block; }
 .vsx-pc { --tier: #b07a52; --tier2: #6b4126; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 10px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--tier) 22%, rgba(10, 16, 24, 0.86)), rgba(10, 16, 24, 0.72));
   border: 1px solid color-mix(in srgb, var(--tier) 45%, transparent); clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
-  animation: card-in 0.4s 0.45s both; }
-.vsx-keys .vsx-pc:nth-child(3) { animation-delay: 0.52s; } .vsx-keys .vsx-pc:nth-child(4) { animation-delay: 0.59s; }
+  animation: card-in 0.22s 0.04s both; }
+.vsx-keys .vsx-pc:nth-child(3) { animation-delay: 0.07s; } .vsx-keys .vsx-pc:nth-child(4) { animation-delay: 0.1s; }
 .vsx-keys.away .vsx-pc { grid-template-columns: minmax(0, 1fr) auto; text-align: right; background: linear-gradient(270deg, color-mix(in srgb, var(--tier) 22%, rgba(10, 16, 24, 0.86)), rgba(10, 16, 24, 0.72));
   clip-path: polygon(0 10px, 10px 0, 100% 0, 100% 100%, 0 100%); }
 .vsx-keys.away .vsx-pc-ovr { order: 2; }
@@ -1019,18 +1019,18 @@ small.wrap, span.wrap { display: block; }
 .vsx-bar > b.up { color: #fff; text-shadow: 0 0 10px rgba(255, 255, 255, 0.35); }
 .vsx-bar i { display: flex; height: 9px; background: rgba(255, 255, 255, 0.07); transform: skewX(-18deg); }
 .vsx-bar i.l { justify-content: flex-end; }
-.vsx-bar i em { display: block; height: 100%; transform-origin: right; animation: vsx-bar 0.6s var(--d, 0.4s) cubic-bezier(.2, .8, .2, 1) both; }
+.vsx-bar i em { display: block; height: 100%; transform-origin: right; animation: vsx-bar 0.35s var(--d, 0.05s) cubic-bezier(.2, .8, .2, 1) both; }
 .vsx-bar i.l em { background: linear-gradient(90deg, color-mix(in srgb, var(--hc) 45%, transparent), var(--hc)); box-shadow: 0 0 10px color-mix(in srgb, var(--hc) 50%, transparent); }
 .vsx-bar i.r em { transform-origin: left; background: linear-gradient(90deg, var(--ac), color-mix(in srgb, var(--ac) 45%, transparent)); box-shadow: 0 0 10px color-mix(in srgb, var(--ac) 50%, transparent); }
 @keyframes vsx-bar { from { transform: scaleX(0); } }
 
 .vsx-hot { justify-self: center; display: inline-flex; gap: 6px; align-items: center; }
-.vsx-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; animation: card-in 0.4s 0.55s both; }
+.vsx-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; animation: card-in 0.2s both; }
 .vsx-actions button { min-height: 64px; padding: 10px 24px; gap: 12px; text-align: left; justify-content: flex-start; }
 .vsx-actions button > span { display: grid; gap: 1px; }
 .vsx-actions button b { font-family: var(--display); font-size: 19px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.15; }
 .vsx-actions button small { font-family: var(--body); font-size: 12px; font-weight: 500; font-style: normal; text-transform: none; letter-spacing: 0; opacity: 0.82; }
-.vsx-go { min-width: min(100%, 320px); padding-inline: 30px !important; animation: vsx-pulse 2.4s 1.4s ease-in-out infinite; }
+.vsx-go { min-width: min(100%, 320px); padding-inline: 30px !important; animation: vsx-pulse 2.4s 0.8s ease-in-out infinite; }
 .vsx-go b { font-size: 24px !important; }
 @keyframes vsx-pulse { 50% { box-shadow: 0 6px 34px rgba(255, 210, 63, 0.6), 0 0 0 4px rgba(255, 210, 63, 0.16); } }
 .vsx-alt { background: rgba(4, 10, 16, 0.66) !important; border-radius: 0 !important; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); }
@@ -1160,7 +1160,7 @@ body.padnav :is(button.primary, .tabs button, .subtabs button, .modetabs button,
 
 /* page transitions: rise in, and a light streak runs across the top (both stay inside the page box) */
 /* no fill-mode: a finished transform animation would keep trapping fixed-position overlays (day report) inside the page */
-.page { position: relative; animation: page-in2 0.32s cubic-bezier(.2, .8, .2, 1); }
+.page { position: relative; animation: page-in2 0.2s cubic-bezier(.2, .8, .2, 1); }
 @keyframes page-in2 { from { opacity: 0; transform: translateY(12px) scale(0.995); } to { opacity: 1; transform: none; } }
 .page::before { content: ""; position: absolute; left: 0; right: 0; top: -10px; height: 2px; pointer-events: none; z-index: 2; transform-origin: left center;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--hot) 70%, transparent) 70%, #fff); opacity: 0; animation: page-sweep 0.6s ease-out both; }
