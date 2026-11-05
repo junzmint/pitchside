@@ -100,7 +100,8 @@ func (s *Store) SetTicket(ctx context.Context, careerID int, price string) error
 const LoanWeeks = 20
 const LoanInterest = 0.08
 
-// LoanOption: bigger loans run longer and cost more interest. A bank lends up to 3M per reputation point.
+// LoanOption: bigger loans run longer at a lower rate (the bank's terms for a big borrower). A bank lends up
+// to 3M per reputation point, so only a big club gets the cheapest money.
 type LoanOption struct {
 	Amount int64   `json:"amount"`
 	Weeks  int     `json:"weeks"`
@@ -110,8 +111,8 @@ type LoanOption struct {
 }
 
 var loanTable = []LoanOption{
-	{Amount: 10 * M, Weeks: 20, Rate: 0.08}, {Amount: 25 * M, Weeks: 30, Rate: 0.08}, {Amount: 50 * M, Weeks: 40, Rate: 0.09},
-	{Amount: 100 * M, Weeks: 54, Rate: 0.10}, {Amount: 150 * M, Weeks: 80, Rate: 0.12}, {Amount: 200 * M, Weeks: 108, Rate: 0.14},
+	{Amount: 10 * M, Weeks: 20, Rate: 0.10}, {Amount: 25 * M, Weeks: 30, Rate: 0.09}, {Amount: 50 * M, Weeks: 40, Rate: 0.08},
+	{Amount: 100 * M, Weeks: 54, Rate: 0.07}, {Amount: 150 * M, Weeks: 80, Rate: 0.06}, {Amount: 200 * M, Weeks: 108, Rate: 0.05},
 }
 
 var LoanAmounts = []int64{10 * M, 25 * M, 50 * M, 100 * M, 150 * M, 200 * M}
