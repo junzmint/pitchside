@@ -665,6 +665,7 @@ type CareerState struct {
 	ExploreView any                 `json:"exploreView"` // explore.go
 	MedicalView any                 `json:"medicalView"` // medical_api.go: decisions waiting in the medical room
 	StaffView   any                 `json:"staffView"`   // staff_room.go: open decision cards (badges, inbox)
+	Alerts      []Alert             `json:"alerts"`      // alerts.go: what needs your attention
 	Career      *Career             `json:"career"`
 	LeagueName  string              `json:"leagueName"`
 	Division    int                 `json:"division"`
@@ -737,6 +738,7 @@ func (s *Store) State(ctx context.Context, careerID int) (*CareerState, error) {
 		st.ExploreView = w.exploreView()
 		st.MedicalView = w.medicalBadge()
 		st.StaffView = w.staffBadge()
+		st.Alerts = w.alerts()
 		sh := w.sheet(club.ID)
 		st.Rating, st.Chemistry, st.CoachFit = sh.Rating(), sh.Chem, sh.Fit
 		redact(st.Squad, club.ID, coachSkill(st.Coaches, "scout"))

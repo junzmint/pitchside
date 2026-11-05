@@ -401,7 +401,8 @@ type DayReport struct {
 	Budget      int64          `json:"budget"`
 	Quests      []string       `json:"quests"` // kinds completed today
 	SeasonEnd   *SeasonEnd     `json:"seasonEnd,omitempty"`
-	Fans        *FanReport     `json:"fans,omitempty"` // club_fans.go: the supporters' mood after today
+	Fans        *FanReport     `json:"fans,omitempty"`   // club_fans.go: the supporters' mood after today
+	Alerts      []Alert        `json:"alerts,omitempty"` // alerts.go: what needs your attention after today
 }
 
 type matchOutcome struct {
@@ -848,6 +849,7 @@ func (w *world) advance(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepor
 		return err
 	}
 	rep.Budget = user.Budget
+	rep.Alerts = w.alerts()
 	if err := saveClub(ctx, q, user); err != nil {
 		return err
 	}

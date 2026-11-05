@@ -148,6 +148,7 @@ export interface Sponsor {
 }
 
 export interface CareerState {
+  alerts?: Alert[]
   eventsView?: unknown
   exploreView?: unknown
   hotBonus: HotBonus | null
@@ -211,6 +212,7 @@ export interface MatchSetup { fixture: FixtureView; home: SideSetup; away: SideS
   derby?: boolean }
 
 export interface DayReport {
+  alerts?: Alert[]
   day: number
   comp: Comp
   stage: string
@@ -329,3 +331,18 @@ export interface CareerSummary {
 }
 
 export interface User { id: number; username: string }
+
+/** Something that needs the manager (backend alerts.go). */
+export interface Alert {
+  key: string
+  level: 'bad' | 'warn' | 'info'
+  kind?: 'player' | 'coach'
+  id?: number
+  name?: string
+  role?: string
+  n?: number
+  amount?: number
+  names?: string[]
+  action: 'bonus' | 'renew' | 'talks' | 'staff' | 'medical' | 'squad' | 'finance'
+  ready?: boolean
+}

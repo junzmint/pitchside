@@ -10,6 +10,7 @@ import { EventsInbox, eventsCount } from './EventsInbox'
 import { ClubInbox } from './club/ClubInbox'
 import { clubWaiting } from '../api_club'
 import { staffCount } from '../api_staff'
+import { AlertsPanel, inboxAlerts } from './Alerts'
 import { StaffInbox } from './staff/Decisions'
 
 /** How many things in the inbox are waiting for an answer. */
@@ -56,6 +57,7 @@ export default function Inbox({ ctx }: { ctx: Ctx }) {
     <>
       <PageHead icon="inbox" eyebrow={t('inbox.eyebrow', { n })} title={t('tab.inbox')} />
       {n === 0 && <section className="panel"><Empty icon="inbox">{t('inbox.empty')}</Empty></section>}
+      <AlertsPanel ctx={ctx} alerts={inboxAlerts(st.alerts)} max={5} />
 
       <IconPickPanel ctx={ctx} />
       <EventsInbox ctx={ctx} />

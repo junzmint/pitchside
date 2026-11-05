@@ -1355,3 +1355,19 @@ button.pressopt:hover:not(:disabled) { transform: translateY(-2px); border-color
 .ctnego { margin: 4px 0 2px; }
 .ctnego .demand { border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-radius: 12px; padding: 12px 14px; background: color-mix(in srgb, var(--warn) 6%, transparent); }
 .ctnegobtn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+
+/* "needs your attention" (pages/Alerts.tsx) */
+.panel.alerts { display: flex; flex-direction: column; gap: 8px; border-left: 3px solid var(--warn); }
+.panel.alerts .ttl { margin: 0; display: flex; align-items: center; gap: 8px; }
+.panel.alerts .ttl svg { color: var(--warn); }
+.panel.alerts ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.panel.alerts li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); line-height: 1.4; }
+.panel.alerts li .al-text { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.panel.alerts li .al-ico { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(255, 255, 255, 0.06); }
+.panel.alerts li.al-bad { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); background: color-mix(in srgb, var(--bad) 9%, transparent); }
+.panel.alerts li.al-bad .al-ico { color: var(--bad); }
+.panel.alerts li.al-warn .al-ico { color: var(--warn); }
+.panel.alerts li.al-info .al-ico { color: var(--cyan, #38e1ff); }
+.panel.alerts .al-more { align-self: flex-start; }
+@media (max-width: 640px) { .panel.alerts li { grid-template-columns: auto 1fr; } .panel.alerts li button { grid-column: 1 / -1; justify-self: start; } }

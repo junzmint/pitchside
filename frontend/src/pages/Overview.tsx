@@ -7,6 +7,7 @@ import type { Tab } from '../App'
 import { useI18n } from '../i18n'
 import { ClubHubTop, ClubHubTiles } from './club/ClubHub'
 import { StageTicker } from './stage/Ticker'
+import { AlertsPanel } from './Alerts'
 import { StadiumArt } from '../stadium'
 
 const COMP_OF: Record<string, IconName> = { league: 'league', cup: 'cup', cl: 'continental', friendly: 'sponsor' }
@@ -47,6 +48,7 @@ export default function Overview({ ctx }: { ctx: Ctx }) {
     <>
       <PageHead icon="home" badge={<Badge short={club.short} color={club.color} color2={club.color2} size={64} />} eyebrow={<>{t('seasonN', { n: st.career.season })} · {offseason ? t('offseason') : t('dayOf', { d: st.career.day, n: st.seasonDays })}</>} title={t('tab.overview')} />
 
+      <AlertsPanel ctx={ctx} alerts={st.alerts} />
       <div className="hub">
         <ClubHubTop ctx={ctx} />{/* club stream: Deadline Day banner, a new legend's shirt number */}
         {/* next match */}

@@ -21,6 +21,7 @@ import { refusalText } from './Demands'
 import { happeningText, happeningTone } from './EventsInbox'
 import { feedText } from './Explore'
 import { Badge, Bar, ConfirmButton, Icon, Ovr, PosTag, Seg, useStageLabel, Hint } from '../ui'
+import { alertText } from './Alerts'
 import { errText, useI18n } from '../i18n'
 
 type Stage = 'pre' | 'live' | 'saving' | 'report'
@@ -937,6 +938,7 @@ export function Report({ r, clubId, onClose, live }: { r: DayReport; clubId: num
     ]],
     ['lv.rep.fans', happen('fans')],
     ['lv.rep.awards', happen('awards')],
+    ['al.titleShort', (r.alerts ?? []).filter(a => a.level !== 'info').slice(0, 5).map((a, i) => <span key={'al' + i} style={tone(a.level === 'bad' ? 'bad' : 'warn')}>⚠ {alertText(t, a)}</span>)],
     ['lv.rep.club', [...happen('club'), r.iconPick ? <span key="icon" style={tone('good')}>★ {t('icon.opened')}</span> : null]],
     ['lv.rep.players', [
       r.demands?.length ? <i key="dh">{t('rep.demands')}</i> : null,
