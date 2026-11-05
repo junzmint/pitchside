@@ -1,7 +1,7 @@
 /* styles of the "explore" work stream (loaded after game.css) */
 
 .explore, .celebrate {
-  --r-common: #9aa7b4; --r-rare: #38e1ff; --r-epic: #b46bff; --r-legendary: #ffd23f; --r-golden: #ffb800;
+  --r-common: #9aa7b4; --r-rare: #38e1ff; --r-epic: #b46bff; --r-legendary: #bff4ff; /* the top find, "Kim cương": diamond ice, apart from rare cyan and golden */ --r-golden: #ffb800;
   --t-bronze: #d08a4e; --t-silver: #cfd9e6; --t-gold: #ffd23f; --t-platinum: #9ff3ff;
 }
 .explore .small { font-size: 13px; }
@@ -76,7 +76,7 @@
 .ex-rar { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 6px;
   color: #0b0f14; background: var(--rc, var(--r-common)); width: max-content; }
 .ex-rar.r-common { --rc: var(--r-common); } .ex-rar.r-rare { --rc: var(--r-rare); } .ex-rar.r-epic { --rc: var(--r-epic); color: #fff; }
-.ex-rar.r-legendary { --rc: var(--r-legendary); } .ex-rar.r-golden { background: linear-gradient(90deg, #ffb800, #fff6c2, #ffb800); background-size: 200% 100%; animation: ex-shine 2s linear infinite; }
+.ex-rar.r-legendary { --rc: var(--r-legendary); background: linear-gradient(100deg, #e9fcff, #9feaff 45%, #e9fcff); } .ex-rar.r-golden { background: linear-gradient(90deg, #ffb800, #fff6c2, #ffb800); background-size: 200% 100%; animation: ex-shine 2s linear infinite; }
 
 .ex-finds { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .ex-find { position: relative; display: grid; gap: 8px; align-content: start; padding: 12px; border-radius: 14px; overflow: hidden;
