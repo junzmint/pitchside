@@ -165,7 +165,12 @@ export default function Finance({ ctx }: { ctx: Ctx }) {
               <b>{t('dev.' + fc.kind)}</b>
               <div className="row spread"><Pips n={fc.level} max={fc.max} big /><span className="lvl num">{t('dev.level', { n: fc.level, m: fc.max })}</span></div>
               <Hint text={t('dev.' + fc.kind + '.does', { n: fc.level })} />
-              {fc.level > 1 && <span className={'flag ' + (fc.wear === 1 ? 'bad' : 'warn')} style={{ whiteSpace: 'normal' }}><Icon name="hourglass" size={12} /> {fc.wear > 0 ? t('dev.wear', { n: fc.wear }) : t('dev.wearSoon')}</span>}
+              {fc.level > 1 && (fc.until ?? 0) > 0 && (() => {
+                // how long the level holds: calm while there is time, a warning in its last season
+                const left = (fc.until ?? 0) - ctx.st.career.season
+                const tone = left >= 2 ? 'good' : left === 1 ? 'warn' : 'bad'
+                return <span className={'flag ' + tone} style={{ whiteSpace: 'normal' }}><Icon name="hourglass" size={12} /> {left <= 0 ? t('dev.holdsLast') : t('dev.holds', { n: fc.level, s: fc.until ?? 0 })}</span>
+              })()}
               {fc.next > 0
                 ? <ConfirmButton className="primary small" label={<><Icon name="up" size={14} /> {t('dev.upgrade', { v: money(fc.next) })}</>} confirm={t('confirm')} disabled={fc.next > f.budget}
                     onConfirm={() => act(() => api.upgradeFacility(ctx.id, fc.kind), t('dev.upgraded'))} />
@@ -175,7 +180,6 @@ export default function Finance({ ctx }: { ctx: Ctx }) {
                   confirm={t('dev.renovateConfirm', { n: 3 })} disabled={(fc.renew ?? 0) > f.budget}
                   onConfirm={() => act(() => api.renovateFacility(ctx.id, fc.kind), t('dev.renovated', { n: 3 }))} />
               )}
-              {fc.level > 1 && !(fc.renew ?? 0) && <span className="muted" style={{ fontSize: 12 }}>{t('dev.renovatedRecently')}</span>}
             </div>
           ))}
         </div>

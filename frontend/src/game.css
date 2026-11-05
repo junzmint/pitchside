@@ -835,7 +835,8 @@ small.wrap, span.wrap { display: block; }
 .save-id .muted { font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .save-go { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--hot); color: var(--hot-ink); box-shadow: 0 0 16px rgba(255, 210, 63, 0.4); opacity: 0.85; transition: transform 0.15s, opacity 0.15s; }
 .savecard:hover .save-go, .savecard:focus-visible .save-go { transform: scale(1.1); opacity: 1; }
-.save-del { position: absolute; right: 8px; top: 8px; padding: 3px 6px !important; }
+.save-del { position: absolute; right: 8px; top: 8px; z-index: 2; display: flex; gap: 4px; }
+.save-del button { padding: 3px 8px !important; min-height: 0; line-height: 1.4; white-space: nowrap; }
 .savecard > span.row { position: absolute; right: 8px; top: 8px; }
 .savecard.newsave { grid-template-columns: auto 1fr; border-style: dashed; border-color: rgba(255, 210, 63, 0.4); background: rgba(255, 210, 63, 0.04); text-align: left; justify-content: start; }
 .savecard.newsave b { font-family: var(--display); font-size: 20px; font-style: italic; text-transform: uppercase; color: var(--hot); }

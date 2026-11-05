@@ -53,7 +53,10 @@ export default function Saves({ user, onOpen, onLogout }: { user: User; onOpen: 
                     <span className="muted num">{s.ended ? <b className="overtag"><Icon name="lock" size={13} /> {t('over.tag')}</b> : <><Icon name="budget" size={13} /> {money(s.budget)}</>} · <Icon name="clock" size={13} /> {new Date(s.updatedAt).toLocaleDateString()}</span>
                   </div>
                   <span className="save-go" aria-hidden="true"><Icon name="playNow" size={20} /></span>
-                  <ConfirmButton className="danger small save-del" label={<Icon name="trash" size={15} title={t('delete')} />} confirm={t('delete')} onConfirm={async () => { await api.deleteCareer(s.id); load() }} />
+                  {/* the corner holds the button and, when asked, "Delete" and "Cancel" side by side */}
+                  <span className="save-del" onClick={e => e.stopPropagation()}>
+                    <ConfirmButton className="danger small" label={<Icon name="trash" size={15} title={t('delete')} />} confirm={t('delete')} onConfirm={async () => { await api.deleteCareer(s.id); load() }} />
+                  </span>
                 </div>
               ))}
               <button className="savecard newsave" onClick={() => setCreating(true)}>

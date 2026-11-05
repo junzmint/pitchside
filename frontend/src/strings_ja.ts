@@ -827,7 +827,7 @@ export const ja: Record<string, string> = {
   'err.no_sponsor': 'この枠にスポンサーはいません。',
   'err.no_card': '待機中のカードはありません。',
   'err.no_takeover': '買収オファーはありません。',
-  'dev.wear': '{n}シーズン後にレベルが下がります（強化か改修で防げます）', 'dev.renovate': '改修 · {v}', 'dev.renovateConfirm': '改修してあと{n}シーズン現在のレベルを保ちますか？', 'dev.renovated': '改修しました：あと{n}シーズンレベルを保ちます', 'dev.renovatedRecently': '最近新しくしたばかりで、まだ改修は不要です。',
+  'dev.wear': '{n}シーズン後にレベルが下がります（強化か改修で防げます）', 'dev.renovate': '改修 · {v}', 'dev.holds': 'シーズン{s}の終わりまでレベル{n}を維持', 'dev.holdsLast': '改修か強化をしないと、今シーズン末にレベルが下がります', 'dev.renovateConfirm': '改修してあと{n}シーズン現在のレベルを保ちますか？', 'dev.renovated': '改修しました：あと{n}シーズンレベルを保ちます', 'dev.renovatedRecently': '最近新しくしたばかりで、まだ改修は不要です。',
   'dev.wearSoon': '今シーズン終了時から劣化が始まります',
   'com.facility_worn': '{name}のレベルが下がりました：再投資が必要です',
   'ln.help2': '銀行は評判に応じて融資します。融資額が大きいほど金利は低く（10%から5%まで）、返済期間は長くなります。融資は一度に1件までです。',

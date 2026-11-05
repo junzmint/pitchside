@@ -307,7 +307,7 @@ export interface FinanceView {
   entries: { day: number; kind: string; amount: number }[]
   wages: number
   staff: number
-  facilities: { kind: 'stadium' | 'training' | 'academy' | 'medical'; level: number; max: number; next: number; wear: number; renew?: number }[]
+  facilities: { kind: 'stadium' | 'training' | 'academy' | 'medical'; level: number; max: number; next: number; wear: number; renew?: number; until?: number }[]
   upkeep: number
   ticket: 'low' | 'normal' | 'high'
   loan: Loan | null

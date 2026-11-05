@@ -28,8 +28,9 @@ type Commercial struct {
 
 var FacilityKinds = []string{"stadium", "training", "academy", "medical"}
 
-// facilityWear: every facility above level 1 slips one level after one to three seasons unless it is
-// upgraded again (an upgrade resets the clock).
+// facilityWear (at every season's end): a facility above level 1 slips one level when its clock runs out,
+// RenovateSeasons seasons after it was built, upgraded or renovated (all three set the clock), and the level
+// below it gets a full clock of its own.
 func (w *world) facilityWear(r *rand.Rand, rep *DayReport) {
 	cm := &w.career.Commercial
 	if cm.Wear == nil {
@@ -43,7 +44,7 @@ func (w *world) facilityWear(r *rand.Rand, rep *DayReport) {
 			continue
 		}
 		if cm.Wear[k] <= 0 {
-			cm.Wear[k] = 1 + r.Intn(3)
+			cm.Wear[k] = RenovateSeasons // a facility from before the clock (a new career's own) starts one
 			continue
 		}
 		cm.Wear[k]--
@@ -51,7 +52,7 @@ func (w *world) facilityWear(r *rand.Rand, rep *DayReport) {
 			*lvl--
 			rep.Commercial = append(rep.Commercial, ComEvent{Key: "facility_worn", Name: k})
 			if *lvl > 1 {
-				cm.Wear[k] = 1 + r.Intn(3)
+				cm.Wear[k] = RenovateSeasons
 			} else {
 				delete(cm.Wear, k)
 			}

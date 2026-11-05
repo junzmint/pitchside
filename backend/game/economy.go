@@ -217,6 +217,22 @@ type FacilityView struct {
 	Next  int64  `json:"next"`  // cost of the next level, 0 at max
 	Wear  int    `json:"wear"`  // seasons left before it slips a level (0: not running)
 	Renew int64  `json:"renew"` // renovation: keeps the level RenovateSeasons more seasons (0: not needed now)
+	Until int    `json:"until"` // the season it holds this level until (its end); 0 at level 1
+}
+
+// facilityUntil: the season a facility holds its level until (its end), from the seasons left on its clock,
+// which runs down at every season's end (facilityWear): upgraded in season 2, it holds until the end of
+// season 4. A facility without a clock yet gets a full one at the next season's end.
+func facilityUntil(season, day, wear int) int {
+	left := wear
+	if left <= 0 {
+		left = RenovateSeasons + 1
+	}
+	until := season + left - 1
+	if day > len(Calendar) {
+		until++ // this season's end has passed already: the next one is the first to count
+	}
+	return until
 }
 
 func (s *Store) Finance(ctx context.Context, careerID int) (*FinanceView, error) {
@@ -239,8 +255,11 @@ func (s *Store) Finance(ctx context.Context, careerID int) (*FinanceView, error)
 		if lvl < MaxFacility {
 			fv.Next = facilityCosts[k][lvl-1]
 		}
-		if lvl > 1 && fv.Wear < RenovateSeasons {
-			fv.Renew = RenovateCost(k, lvl)
+		if lvl > 1 {
+			fv.Until = facilityUntil(c.Season, c.Day, fv.Wear)
+			if fv.Wear > 0 && fv.Wear < RenovateSeasons {
+				fv.Renew = RenovateCost(k, lvl)
+			}
 		}
 		v.Facilities = append(v.Facilities, fv)
 	}

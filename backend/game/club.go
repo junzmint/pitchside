@@ -67,7 +67,7 @@ func (s *Store) UpgradeFacility(ctx context.Context, careerID int, kind string) 
 		if c.Commercial.Wear == nil {
 			c.Commercial.Wear = map[string]int{}
 		}
-		c.Commercial.Wear[kind] = 1 + newRand().Intn(3) // brand new: lasts one to three seasons
+		c.Commercial.Wear[kind] = RenovateSeasons // a new level holds this season and the next two (upgraded in season 2: until the end of season 4)
 		if err := addFinance(ctx, q, c, "facility", -cost, kind); err != nil {
 			return err
 		}
@@ -111,7 +111,7 @@ func (s *Store) RenovateFacility(ctx context.Context, careerID int, kind string)
 		if *lvl < 2 {
 			return userErr("renovate_base", "A level-1 facility never wears")
 		}
-		if c.Commercial.Wear[kind] >= RenovateSeasons {
+		if w := c.Commercial.Wear[kind]; w == 0 || w >= RenovateSeasons {
 			return userErr("renovate_fresh", "It was renewed recently")
 		}
 		cost := RenovateCost(kind, *lvl)
