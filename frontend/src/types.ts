@@ -255,6 +255,8 @@ export interface Template {
   pace: number; shooting: number; passing: number; dribbling: number; defending: number; physical: number; goalkeeping: number
   potential: number; signed: boolean; overall: number; value: number; onMarket: boolean
   version: string; clubId: number | null; clubName: string
+  /** where the card plays: a legend version's role in his era ("RW", "ST"…), anyone else's from his numbers */
+  role: string
 }
 
 export interface MarketView { players: Player[]; coaches: Coach[]; templates: Template[]; legends: Template[]; budget: number; squad: number }

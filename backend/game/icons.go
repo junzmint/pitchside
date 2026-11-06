@@ -305,11 +305,7 @@ func (s *Store) SyncLegendCards(ctx context.Context) error {
 var legendVersionIndex = sync.OnceValue(func() map[[2]string]LegendVersion {
 	m := map[[2]string]LegendVersion{}
 	for _, lv := range LegendVersions {
-		label := lv.Label
-		if lv.Club != "" {
-			label = lv.Club + " " + lv.Label
-		}
-		m[[2]string{lv.Name, label}] = lv
+		m[[2]string{lv.Name, lv.VersionLabel()}] = lv
 	}
 	return m
 })
@@ -438,4 +434,59 @@ func roleChanges(ps []*Player) string {
 		parts = append(parts, fmt.Sprintf("%s ×%d (%s)", n, count[n], strings.Join(ms, ", ")))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// Legends the data once listed under made-up names (a club's name glued on, two people fused into one).
+// legendRenames: the same person under his own parody name now; his cards keep every number. (Thiago Silvá
+// could also be a generated regen's name, Thiago Silva, who then counted as the legend's modern self.)
+var legendRenames = map[string]string{
+	"Thiago Silvá":         "Thiago Silvaa",
+	"Xabi Prieto-Real":     "Xabi Prietto",
+	"Moussa Dembelé-Spurs": "Mousa Dembelé",
+	"Eden Dzeko-Viola":     "Edin Džekko",
+}
+
+// legendGone: made-up people replaced by real players (a second Bale by David Ginolá, a second Rodri by
+// Fernandinho Rozza, a made-up Fiorentina stopper by Rui Costta, a fusion of Agüerro and Torress by Diego Costta).
+var legendGone = []string{"Gareth Bailey-Spurs", "Sergio Busquette-Rodri", "Alessandro Del Fiorenzo", "Kun Torres-Atleti"}
+
+// RenameLegends brings saves in line with those names; it runs before SyncLegendCards, which then adds the real
+// players who replaced the made-up ones. A renamed person's cards, and the players made from them, take his new
+// name. A made-up person's cards that were never signed leave the catalogue, with any market listing of them; a
+// card on offer in an icon pick still open stays until the pick is over (a later start removes it), and a signed
+// card stays as it is. Idempotent.
+func (s *Store) RenameLegends(ctx context.Context) error {
+	return s.tx(ctx, func(q pgx.Tx) error {
+		for old, name := range legendRenames {
+			cards, err := q.Exec(ctx, `UPDATE templates SET name=$2 WHERE kind='legend' AND name=$1`, old, name)
+			if err != nil {
+				return err
+			}
+			players, err := q.Exec(ctx, `UPDATE players SET name=$2 WHERE tag='legend' AND name=$1`, old, name)
+			if err != nil {
+				return err
+			}
+			if cards.RowsAffected()+players.RowsAffected() > 0 {
+				log.Printf("legend names: %s is now %s (%d card(s), %d player(s))", old, name, cards.RowsAffected(), players.RowsAffected())
+			}
+		}
+		listed, err := q.Exec(ctx, `DELETE FROM players p USING templates t WHERE p.template_id=t.id AND t.kind='legend'
+			AND t.name = ANY($1) AND NOT t.signed AND p.club_id IS NULL AND NOT p.retired`, legendGone)
+		if err != nil {
+			return err
+		}
+		cards, err := q.Exec(ctx, `DELETE FROM templates t WHERE t.kind='legend' AND t.name = ANY($1) AND NOT t.signed
+			AND NOT EXISTS (SELECT 1 FROM players p WHERE p.template_id=t.id)
+			AND NOT EXISTS (SELECT 1 FROM careers c WHERE jsonb_path_exists(c.icon_pick, '$.options[*] ? (@.templateId == $id)',
+				jsonb_build_object('id', t.id)) AND NOT COALESCE((c.icon_pick->>'done')::boolean, false)
+				AND (c.icon_pick->>'season')::int = c.season AND c.day <= (c.icon_pick->>'until')::int)`, legendGone)
+		if err != nil {
+			return err
+		}
+		if cards.RowsAffected()+listed.RowsAffected() > 0 {
+			log.Printf("legend names: %d card(s) of made-up legends left the catalogue (%d market listing(s))",
+				cards.RowsAffected(), listed.RowsAffected())
+		}
+		return nil
+	})
 }

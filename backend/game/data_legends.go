@@ -9,7 +9,7 @@ import (
 
 // Legends: fictional parody names. Each line is
 //
-//	name | nation | position[/role] | style | peak rating | peak year | birth year | club:year, club:year…
+//	name | nation | position[/role] | style | peak rating | peak year | birth year | club:year[:role], club:year…
 //
 // Every club era becomes a card (age and rating follow a career curve), plus one "Icon" card at
 // the peak. About 300 legends → roughly 1,000 cards.
@@ -17,20 +17,22 @@ import (
 // The role after the position is where his real-life self played at his peak (a full-back is "DF/RB", a
 // holding midfielder "MF/DM", a winger "FW/LW"): one of NaturalRole's roles, in that position's group. A card
 // always plays that role (legendRole) and his attributes are built for it (legendStar). Without a role ("DF")
-// his attributes decide, as for anyone else.
+// his attributes decide, as for anyone else. An era names its own role when he played elsewhere then, in the
+// same group ("Torino Zebras:2019:ST": Ronalda led the line at Juventus, "Milano Rossoneri:2005:CB": Maldinni
+// moved inside); the Icon card plays the main role.
 const legendData = `
-Lionel Messo|AR|FW/RW|goat|95|2012|1987|FC Barcelano:2006,FC Barcelano:2011,FC Barcelano:2015,Paris Lumière:2022,Miami Rosa:2024
-Cristiano Ronalda|PT|FW/LW|siu|94|2014|1985|Sporting Lisboa:2003,Manchester Reds:2008,Real Madrix:2014,Torino Zebras:2019,Riyadh Nassr:2024
+Lionel Messo|AR|FW/RW|goat|95|2012|1987|FC Barcelano:2006,FC Barcelano:2011:ST,FC Barcelano:2015,Paris Lumière:2022,Miami Rosa:2024:ST
+Cristiano Ronalda|PT|FW/LW|siu|94|2014|1985|Sporting Lisboa:2003:RW,Manchester Reds:2008:RW,Real Madrix:2014,Torino Zebras:2019:ST,Riyadh Nassr:2024:ST
 Ronaldo Fenômeno|BR|FW/ST|speed|94|1998|1976|Eindhoven Boeren:1995,FC Barcelano:1997,Milano Nerazzurri:1998,Real Madrix:2003,Milano Rossoneri:2007
 Ronaldinyo Gaúcho|BR|FW/LW|dribbler|93|2005|1980|Paris Lumière:2002,FC Barcelano:2005,Milano Rossoneri:2009
 Zinedine Zidann|FR|MF/AM|playmaker|92|2001|1972|Bordeaux:1995,Torino Zebras:1998,Real Madrix:2002
-Thierry Henri|FR|FW/ST|speed|93|2004|1977|Monaco Rouge:1997,North London Gunners:2004,FC Barcelano:2009,New York Bulls:2012
+Thierry Henri|FR|FW/ST|speed|93|2004|1977|Monaco Rouge:1997:LW,North London Gunners:2004,FC Barcelano:2009:LW,New York Bulls:2012
 Dennis Bergkampf|NL|FW/ST|playmaker|90|1998|1969|Amsterdam Ajacied:1992,Milano Nerazzurri:1994,North London Gunners:1998
 Patrick Viera|FR|MF/DM|engine|90|2003|1976|Milano Rossoneri:1996,North London Gunners:2003,Milano Nerazzurri:2008
-Paolo Maldinni|IT|DF/LB|wall|92|1994|1968|Milano Rossoneri:1990,Milano Rossoneri:1994,Milano Rossoneri:2005
+Paolo Maldinni|IT|DF/LB|wall|92|1994|1968|Milano Rossoneri:1990,Milano Rossoneri:1994,Milano Rossoneri:2005:CB
 Franco Baresy|IT|DF/CB|wall|91|1990|1960|Milano Rossoneri:1989,Milano Rossoneri:1994
 Alessandro Nestá|IT|DF/CB|wall|90|2003|1976|Aquile Roma:2000,Milano Rossoneri:2004
-Andrea Pirlou|IT|MF/DM|playmaker|90|2007|1979|Milano Nerazzurri:1999,Milano Rossoneri:2007,Torino Zebras:2013,New York Bulls:2016
+Andrea Pirlou|IT|MF/DM|playmaker|90|2007|1979|Milano Nerazzurri:1999:AM,Milano Rossoneri:2007,Torino Zebras:2013,New York Bulls:2016
 Kaká Leitão|BR|MF/AM|dribbler|92|2007|1982|São Paulo Tricolor:2002,Milano Rossoneri:2007,Real Madrix:2010,Orlando Lions:2015
 Andriy Shevchenkko|UA|FW/ST|finisher|91|2004|1976|Kyiv Dynamo:1998,Milano Rossoneri:2004,West London Blues:2007
 Clarence Seedorph|NL|MF/CM|engine|88|2003|1976|Amsterdam Ajacied:1995,Real Madrix:1998,Milano Rossoneri:2007
@@ -46,14 +48,14 @@ Franz Beckenbaur|DE|DF/CB|playmaker|93|1974|1945|FC Bavaria:1972,FC Bavaria:1975
 Gerd Müllar|DE|FW/ST|finisher|93|1972|1945|FC Bavaria:1970,FC Bavaria:1974
 Lothar Matthäos|DE|MF/CM|engine|91|1990|1961|Gladbach Foals:1983,FC Bavaria:1988,Milano Nerazzurri:1990
 Jürgen Klinsmanne|DE|FW/ST|finisher|89|1994|1964|Stuttgart Swabians:1988,Milano Nerazzurri:1990,North London Lilywhites:1995
-Michael Ballak|DE|MF/CM|engine|89|2004|1976|Leverkusen Werkself:2002,FC Bavaria:2004,West London Blues:2008
+Michael Ballak|DE|MF/CM|engine|89|2004|1976|Leverkusen Werkself:2002:AM,FC Bavaria:2004,West London Blues:2008
 Oliver Kahnn|DE|GK|keeper|92|2001|1969|FC Bavaria:2001,FC Bavaria:2006
 Manuel Neuere|DE|GK|keeper|93|2014|1986|Gelsenkirchen Blau:2010,FC Bavaria:2014,FC Bavaria:2020
-Philipp Lahmm|DE|DF/RB|wall|90|2013|1983|Stuttgart Swabians:2004,FC Bavaria:2013
-Bastian Schweinstiga|DE|MF/CM|engine|90|2013|1984|FC Bavaria:2008,FC Bavaria:2013,Manchester Reds:2016
+Philipp Lahmm|DE|DF/RB|wall|90|2013|1983|Stuttgart Swabians:2004:LB,FC Bavaria:2013
+Bastian Schweinstiga|DE|MF/CM|engine|90|2013|1984|FC Bavaria:2008:LM,FC Bavaria:2013,Manchester Reds:2016
 Franck Riberi|FR|FW/LW|dribbler|90|2013|1983|Marseille Bleu:2006,FC Bavaria:2013,Firenze Viola:2020
-Arjen Robbin|NL|FW/RW|dribbler|90|2013|1984|Eindhoven Boeren:2003,West London Blues:2005,Real Madrix:2008,FC Bavaria:2013
-Thomas Müllerr|DE|FW/RW|finisher|88|2014|1989|FC Bavaria:2010,FC Bavaria:2014,FC Bavaria:2020
+Arjen Robbin|NL|FW/RW|dribbler|90|2013|1984|Eindhoven Boeren:2003:LW,West London Blues:2005:LW,Real Madrix:2008,FC Bavaria:2013
+Thomas Müllerr|DE|FW/RW|finisher|88|2014|1989|FC Bavaria:2010,FC Bavaria:2014,FC Bavaria:2020:ST
 Miroslav Klosé|DE|FW/ST|finisher|87|2006|1978|Kaiserslautern Rot:2002,Bremen Werder:2006,FC Bavaria:2008,Aquile Roma:2012
 Marco Royce|DE|FW/LW|speed|89|2016|1989|Gladbach Foals:2011,Dortmund Yellows:2016,Dortmund Yellows:2021
 Mats Hummelz|DE|DF/CB|wall|89|2014|1988|Dortmund Yellows:2012,FC Bavaria:2017
@@ -64,22 +66,22 @@ Carles Puyoll|ES|DF/CB|wall|90|2009|1978|FC Barcelano:2005,FC Barcelano:2009
 Sergio Busquetts|ES|MF/DM|engine|89|2014|1988|FC Barcelano:2011,FC Barcelano:2016,Miami Rosa:2023
 Gerard Piquét|ES|DF/CB|wall|89|2015|1987|Manchester Reds:2008,FC Barcelano:2015
 Dani Alvés|BR|DF/RB|speed|89|2011|1983|Sevila FC:2007,FC Barcelano:2011,Torino Zebras:2017
-Samuel Eto'oh|CM|FW/ST|finisher|91|2009|1981|FC Barcelano:2006,Milano Nerazzurri:2010
+Samuel Eto'oh|CM|FW/ST|finisher|91|2009|1981|FC Barcelano:2006,Milano Nerazzurri:2010:RW
 Rivaldinho Ferreira|BR|FW/LW|dribbler|92|1999|1972|FC Barcelano:1999,Milano Rossoneri:2003
 Luís Figu|PT|FW/RW|dribbler|91|2000|1972|Sporting Lisboa:1994,FC Barcelano:1998,Real Madrix:2001,Milano Nerazzurri:2007
 Raúl Gonzales|ES|FW/ST|finisher|90|2001|1977|Real Madrix:1997,Real Madrix:2001,Gelsenkirchen Blau:2011
 Iker Casillias|ES|GK|keeper|91|2008|1981|Real Madrix:2002,Real Madrix:2008,Porto Dragões:2016
 Fernando Hierrro|ES|DF/CB|wall|89|1999|1968|Real Madrix:1995,Real Madrix:2001
 Roberto Carloss|BR|DF/LB|speed|90|2002|1973|Milano Nerazzurri:1996,Real Madrix:2002
-Sergio Ramoz|ES|DF/CB|wall|91|2017|1986|Sevila FC:2004,Real Madrix:2012,Real Madrix:2017,Paris Lumière:2022
+Sergio Ramoz|ES|DF/CB|wall|91|2017|1986|Sevila FC:2004:RB,Real Madrix:2012,Real Madrix:2017,Paris Lumière:2022
 Luka Modrik|HR|MF/CM|playmaker|91|2018|1985|North London Lilywhites:2010,Real Madrix:2018,Real Madrix:2024
 Karim Benzena|FR|FW/ST|finisher|91|2022|1987|Lumière:2007,Real Madrix:2012,Real Madrix:2022
-Toni Kroós|DE|MF/CM|playmaker|90|2017|1990|FC Bavaria:2013,Real Madrix:2017,Real Madrix:2024
-Gareth Baile|WA|FW/RW|speed|89|2014|1989|North London Lilywhites:2012,Real Madrix:2014
+Toni Kroós|DE|MF/CM|playmaker|90|2017|1990|FC Bavaria:2013:AM,Real Madrix:2017,Real Madrix:2024
+Gareth Baile|WA|FW/RW|speed|89|2014|1989|North London Lilywhites:2012:LW,Real Madrix:2014
 Marcelo Vieirra|BR|DF/LB|dribbler|88|2016|1988|Real Madrix:2012,Real Madrix:2017
-David Beckhem|EN|MF/RM|playmaker|88|1999|1975|Manchester Reds:1999,Real Madrix:2004,Los Angeles Galaxia:2009,Milano Rossoneri:2009
-Paul Scholez|EN|MF/CM|playmaker|89|2003|1974|Manchester Reds:1999,Manchester Reds:2003,Manchester Reds:2011
-Ryan Giggz|WA|MF/LM|dribbler|88|1999|1973|Manchester Reds:1994,Manchester Reds:1999,Manchester Reds:2008
+David Beckhem|EN|MF/RM|playmaker|88|1999|1975|Manchester Reds:1999,Real Madrix:2004:CM,Los Angeles Galaxia:2009:CM,Milano Rossoneri:2009
+Paul Scholez|EN|MF/CM|playmaker|89|2003|1974|Manchester Reds:1999,Manchester Reds:2003:AM,Manchester Reds:2011:DM
+Ryan Giggz|WA|MF/LM|dribbler|88|1999|1973|Manchester Reds:1994,Manchester Reds:1999,Manchester Reds:2008:CM
 Roy Keene|IE|MF/CM|engine|90|1999|1971|Manchester Reds:1994,Manchester Reds:1999
 Eric Cantonna|FR|FW/ST|playmaker|90|1996|1966|Marseille Bleu:1990,Manchester Reds:1996
 Peter Schmeikel|DK|GK|keeper|91|1998|1963|Manchester Reds:1994,Manchester Reds:1999
@@ -88,43 +90,43 @@ Nemanja Vidik|RS|DF/CB|wall|89|2009|1981|Manchester Reds:2009
 Wayne Rooni|EN|FW/ST|finisher|90|2011|1985|Tyneside Magpies:2004,Manchester Reds:2008,Manchester Reds:2011,Washington United:2018
 Ruud van Nistelroy|NL|FW/ST|finisher|90|2003|1976|Eindhoven Boeren:2000,Manchester Reds:2003,Real Madrix:2007
 Edwin van der Saar|NL|GK|keeper|90|2008|1970|Amsterdam Ajacied:1995,Torino Zebras:2000,Manchester Reds:2008
-Steven Gerrardo|EN|MF/CM|engine|91|2005|1980|Mersey Red:2001,Mersey Red:2005,Mersey Red:2009,Los Angeles Galaxia:2015
+Steven Gerrardo|EN|MF/CM|engine|91|2005|1980|Mersey Red:2001,Mersey Red:2005,Mersey Red:2009:AM,Los Angeles Galaxia:2015:DM
 Kenny Dalgleesh|SC|FW/ST|playmaker|90|1983|1951|Glasgow Hoops:1976,Mersey Red:1983
 Fernando Torress|ES|FW/ST|speed|90|2008|1984|Atlético Madrix:2006,Mersey Red:2008,West London Blues:2012,Milano Rossoneri:2015
 Luis Suárezz|UY|FW/ST|finisher|92|2016|1987|Amsterdam Ajacied:2010,Mersey Red:2014,FC Barcelano:2016,Atlético Madrix:2021
 Xabi Alonzo|ES|MF/DM|playmaker|89|2010|1981|Real Sociedá:2003,Mersey Red:2006,Real Madrix:2010,FC Bavaria:2015
 Jamie Carraghar|EN|DF/CB|wall|86|2005|1978|Mersey Red:2005
 Michael Owenn|EN|FW/ST|speed|90|2001|1979|Mersey Red:1998,Mersey Red:2001,Real Madrix:2005,Tyneside Magpies:2007
-Sadio Manné|SN|FW/LW|speed|90|2019|1992|Southampton Saints:2015,Mersey Red:2019,FC Bavaria:2023
+Sadio Manné|SN|FW/LW|speed|90|2019|1992|Southampton Saints:2015,Mersey Red:2019,FC Bavaria:2023:ST
 Frank Lampardo|EN|MF/CM|engine|90|2008|1978|West London Blues:2005,West London Blues:2008,Manchester Sky:2015
 John Terri|EN|DF/CB|wall|90|2006|1980|West London Blues:2005,West London Blues:2012
 Didier Drogbah|CI|FW/ST|finisher|90|2010|1978|Marseille Bleu:2004,West London Blues:2010,West London Blues:2012,İstanbul Aslanlar:2013
 Petr Čechh|CZ|GK|keeper|90|2006|1982|West London Blues:2006,North London Gunners:2016
 Eden Hazzard|BE|FW/LW|dribbler|91|2018|1991|Lille Nord:2012,West London Blues:2015,West London Blues:2018,Real Madrix:2020
-N'Golo Kantey|FR|MF/DM|engine|89|2017|1991|Leicester Foxes:2016,West London Blues:2017
+N'Golo Kantey|FR|MF/DM|engine|89|2017|1991|Leicester Foxes:2016:CM,West London Blues:2017
 Claude Makelelé|FR|MF/DM|engine|88|2004|1973|Real Madrix:2002,West London Blues:2005
 Gianfranco Zolla|IT|FW/ST|playmaker|89|1997|1966|Neapolis SSC:1990,West London Blues:1998
 Ashley Kolle|EN|DF/LB|speed|88|2004|1980|North London Gunners:2004,West London Blues:2010
 Tony Adamms|EN|DF/CB|wall|88|1998|1966|North London Gunners:1991,North London Gunners:1998
 Robert Pirés|FR|FW/LW|dribbler|88|2002|1973|Marseille Bleu:1998,North London Gunners:2002,Yellow Submarine CF:2007
-Cesc Fàbregass|ES|MF/CM|playmaker|89|2010|1987|North London Gunners:2008,FC Barcelano:2012,West London Blues:2015
+Cesc Fàbregass|ES|MF/CM|playmaker|89|2010|1987|North London Gunners:2008,FC Barcelano:2012:AM,West London Blues:2015
 Robin van Persí|NL|FW/ST|finisher|90|2012|1983|North London Gunners:2012,Manchester Reds:2013,İstanbul Kanaryalar:2016
 Ian Wrightt|EN|FW/ST|finisher|87|1995|1963|North London Gunners:1995
 Alan Shearr|EN|FW/ST|finisher|90|1995|1970|Blackburn Rovers:1995,Tyneside Magpies:1997,Tyneside Magpies:2002
 Harry Kain|EN|FW/ST|finisher|92|2023|1993|North London Lilywhites:2018,North London Lilywhites:2021,FC Bavaria:2024
-Gareth Bailey-Spurs|WA|FW/LW|speed|87|2013|1989|North London Lilywhites:2013
+David Ginolá|FR|FW/LW|dribbler|88|1996|1967|Paris Lumière:1994,Tyneside Magpies:1996,North London Lilywhites:1999
 Son Heung-mín|KR|FW/LW|speed|89|2021|1992|Hamburg Rauten:2012,Leverkusen Werkself:2014,North London Lilywhites:2021
 Ledley Kingg|EN|DF/CB|wall|86|2006|1980|North London Lilywhites:2006
 Kevin De Bruyna|BE|MF/AM|playmaker|92|2020|1991|Wolfsburg Wolves:2015,Manchester Sky:2020,Manchester Sky:2024
 Sergio Agüerro|AR|FW/ST|finisher|91|2014|1988|Atlético Madrix:2009,Manchester Sky:2014,Manchester Sky:2019
-David Silvá|ES|MF/AM|playmaker|89|2012|1986|Valencya CF:2009,Manchester Sky:2012,Manchester Sky:2018,Real Sociedá:2021
+David Silvá|ES|MF/AM|playmaker|89|2012|1986|Valencya CF:2009:LM,Manchester Sky:2012,Manchester Sky:2018:CM,Real Sociedá:2021
 Vincent Kompanny|BE|DF/CB|wall|89|2012|1986|Hamburg Rauten:2008,Manchester Sky:2012
-Yaya Touré|CI|MF/CM|engine|89|2014|1983|FC Barcelano:2009,Manchester Sky:2014
-Sergio Busquette-Rodri|ES|MF/DM|engine|88|2023|1996|Atlético Madrix:2019,Manchester Sky:2023
+Yaya Touré|CI|MF/CM|engine|89|2014|1983|FC Barcelano:2009:DM,Manchester Sky:2014
+Fernandinho Rozza|BR|MF/DM|engine|87|2018|1985|Manchester Sky:2014,Manchester Sky:2018
 Paul Pogbá|FR|MF/CM|engine|88|2016|1993|Torino Zebras:2015,Manchester Reds:2018
 Gianluigi Buffoni|IT|GK|keeper|92|2006|1978|Parma Gialli:1999,Torino Zebras:2006,Torino Zebras:2017
 Fabio Cannavarro|IT|DF/CB|wall|91|2006|1973|Parma Gialli:1998,Torino Zebras:2006,Real Madrix:2007
-Alessandro Del Pierro|IT|FW/ST|dribbler|90|1998|1974|Torino Zebras:1996,Torino Zebras:2002,Torino Zebras:2008
+Alessandro Del Pierro|IT|FW/ST|dribbler|90|1998|1974|Torino Zebras:1996:LW,Torino Zebras:2002,Torino Zebras:2008
 Pavel Nedvedd|CZ|MF/LM|engine|91|2003|1972|Aquile Roma:1999,Torino Zebras:2003
 David Trezeguét|FR|FW/ST|finisher|88|2002|1977|Monaco Rouge:1998,Torino Zebras:2002
 Giorgio Chiellinni|IT|DF/CB|wall|89|2015|1984|Torino Zebras:2012,Torino Zebras:2015
@@ -139,7 +141,7 @@ Wesley Sneijdar|NL|MF/AM|playmaker|90|2010|1984|Amsterdam Ajacied:2006,Real Madr
 Zlatan Ibrahimovix|SE|FW/ST|finisher|91|2012|1981|Amsterdam Ajacied:2003,Torino Zebras:2005,Milano Nerazzurri:2008,FC Barcelano:2010,Milano Rossoneri:2011,Paris Lumière:2014,Manchester Reds:2017,Los Angeles Galaxia:2019
 Hernán Crespó|AR|FW/ST|finisher|89|2001|1975|Parma Gialli:1999,Aquile Roma:2001,West London Blues:2004
 Juan Sebastián Verón|AR|MF/CM|playmaker|89|2000|1975|Aquile Roma:2000,Manchester Reds:2002
-Alessandro Del Fiorenzo|IT|DF/CB|wall|85|2001|1975|Firenze Viola:2001
+Rui Costta|PT|MF/AM|playmaker|89|1999|1972|Lisboa Águias:1994,Firenze Viola:1999,Milano Rossoneri:2003
 Marek Hamšíkk|SK|MF/CM|playmaker|87|2016|1987|Neapolis SSC:2013,Neapolis SSC:2016
 Edinson Cavanni|UY|FW/ST|finisher|89|2013|1987|Neapolis SSC:2012,Paris Lumière:2017,Manchester Reds:2021
 Lorenzo Insignié|IT|FW/LW|dribbler|87|2019|1991|Neapolis SSC:2019
@@ -149,7 +151,7 @@ Romário Faria|BR|FW/ST|finisher|92|1994|1966|Eindhoven Boeren:1990,FC Barcelano
 Bebeto Oliveira|BR|FW/ST|finisher|88|1993|1964|La Coruña Blanquiazul:1993
 Cafú Evangelista|BR|DF/RB|engine|90|2002|1970|Roma Lupi:2001,Milano Rossoneri:2004
 Lúcio Ferreira|BR|DF/CB|wall|88|2010|1978|Leverkusen Werkself:2002,FC Bavaria:2006,Milano Nerazzurri:2010
-Thiago Silvá|BR|DF/CB|wall|90|2014|1984|Milano Rossoneri:2011,Paris Lumière:2014,West London Blues:2021
+Thiago Silvaa|BR|DF/CB|wall|90|2014|1984|Milano Rossoneri:2011,Paris Lumière:2014,West London Blues:2021
 Neymer Jr|BR|FW/LW|dribbler|92|2017|1992|Santos Praia:2012,FC Barcelano:2015,Paris Lumière:2018
 Adriano Imperador|BR|FW/ST|finisher|89|2005|1982|Parma Gialli:2003,Milano Nerazzurri:2005
 Juninho Pernambucano|BR|MF/CM|playmaker|88|2005|1975|Lumière:2005
@@ -172,11 +174,11 @@ Ian Rushh|WA|FW/ST|finisher|90|1984|1961|Mersey Red:1984
 Mohamed Salha|EG|FW/RW|speed|91|2022|1992|Basel Rot:2013,West London Blues:2014,Roma Lupi:2017,Mersey Red:2022
 Virgil van Dyck|NL|DF/CB|wall|91|2019|1991|Glasgow Hoops:2014,Mersey Red:2019,Mersey Red:2024
 Alisson Beckar|BR|GK|keeper|90|2020|1992|Roma Lupi:2018,Mersey Red:2020
-Antoine Griezmon|FR|FW/ST|playmaker|89|2018|1991|Real Sociedá:2013,Atlético Madrix:2018,FC Barcelano:2020
+Antoine Griezmon|FR|FW/ST|playmaker|89|2018|1991|Real Sociedá:2013:LW,Atlético Madrix:2018,FC Barcelano:2020:LW
 Jan Oblac|SI|GK|keeper|91|2018|1993|Atlético Madrix:2016,Atlético Madrix:2021
 Diego Godínn|UY|DF/CB|wall|88|2014|1986|Atlético Madrix:2014
 Diego Forlánn|UY|FW/ST|finisher|88|2010|1979|Manchester Reds:2003,Yellow Submarine CF:2005,Atlético Madrix:2010
-Kun Torres-Atleti|ES|MF/CM|engine|85|2014|1986|Atlético Madrix:2014
+Diego Costta|ES|FW/ST|finisher|88|2014|1988|Atlético Madrix:2014,West London Blues:2017
 David Villah|ES|FW/ST|finisher|90|2010|1981|Valencya CF:2008,FC Barcelano:2011,Atlético Madrix:2014,New York Bulls:2016
 Gaizka Mendietta|ES|MF/CM|engine|88|2000|1974|Valencya CF:2000,Aquile Roma:2002
 Santiago Cañizarres|ES|GK|keeper|87|2001|1969|Valencya CF:2001
@@ -184,11 +186,11 @@ Jesús Navaz|ES|FW/RW|speed|86|2010|1985|Sevila FC:2010,Manchester Sky:2014
 Frédéric Kanoutté|ML|FW/ST|finisher|87|2007|1977|North London Lilywhites:2004,Sevila FC:2007
 Aritz Adurizz|ES|FW/ST|finisher|86|2016|1981|Athletic Bilbo:2016
 Julen Guerrerro|ES|MF/AM|playmaker|86|1995|1974|Athletic Bilbo:1995
-Xabi Prieto-Real|ES|MF/AM|playmaker|84|2010|1983|Real Sociedá:2010
+Xabi Prietto|ES|MF/AM|playmaker|84|2010|1983|Real Sociedá:2010
 Marcos Sennaa|ES|MF/DM|engine|86|2008|1976|Yellow Submarine CF:2008
 Juan Román Riquelmé|AR|MF/AM|playmaker|90|2006|1978|La Boca Xeneize:2000,FC Barcelano:2002,Yellow Submarine CF:2006
 Erling Halland|NO|FW/ST|finisher|93|2024|2000|Salzburg Bullen:2019,Dortmund Yellows:2021,Manchester Sky:2024
-Kylian Mbapé|FR|FW/LW|speed|93|2023|1998|Monaco Rouge:2017,Paris Lumière:2020,Paris Lumière:2023,Real Madrix:2025
+Kylian Mbapé|FR|FW/LW|speed|93|2023|1998|Monaco Rouge:2017:ST,Paris Lumière:2020,Paris Lumière:2023,Real Madrix:2025:ST
 Jude Bellinghum|EN|MF/AM|engine|90|2024|2003|Birmingham Blues:2020,Dortmund Yellows:2022,Real Madrix:2024
 Florian Wirtts|DE|MF/AM|playmaker|90|2025|2003|Leverkusen Werkself:2024,Mersey Red:2025
 Pedrí González|ES|MF/CM|playmaker|89|2025|2002|Las Palmas Amarillo:2019,FC Barcelano:2025
@@ -225,8 +227,8 @@ Granit Xhakka|CH|MF/CM|engine|86|2024|1992|Gladbach Foals:2015,North London Gunn
 Jamal Musiale|DE|MF/AM|dribbler|89|2025|2003|FC Bavaria:2023,FC Bavaria:2025
 Marcus Rashfort|EN|FW/LW|speed|86|2023|1997|Manchester Reds:2023
 Wilfried Zahá|CI|FW/LW|dribbler|84|2019|1992|Crystal Eagles:2019,İstanbul Aslanlar:2024
-Moussa Dembelé-Spurs|BE|MF/CM|dribbler|85|2015|1987|North London Lilywhites:2015
-Eden Dzeko-Viola|BA|FW/ST|finisher|87|2017|1986|Wolfsburg Wolves:2009,Manchester Sky:2012,Roma Lupi:2017,Milano Nerazzurri:2022
+Mousa Dembelé|BE|MF/CM|dribbler|85|2015|1987|North London Lilywhites:2015
+Edin Džekko|BA|FW/ST|finisher|87|2017|1986|Wolfsburg Wolves:2009,Manchester Sky:2012,Roma Lupi:2017,Milano Nerazzurri:2022
 Víctor Valdéss|ES|GK|keeper|86|2011|1982|FC Barcelano:2006,FC Barcelano:2011
 Ronald Koemann|NL|DF/CB|playmaker|88|1992|1963|Eindhoven Boeren:1988,FC Barcelano:1992
 Jaap Stamm|NL|DF/CB|wall|88|2000|1972|Eindhoven Boeren:1997,Manchester Reds:2000,Aquile Roma:2003,Milano Rossoneri:2005
@@ -321,6 +323,14 @@ Andoni Zubizarretta|ES|GK|keeper|86|1992|1961|FC Barcelano:1992,Valencya CF:1996
 
 func roundHalf(v float64) float64 { return math.Round(v*2) / 2 }
 
+// VersionLabel: the version as a card stores it: "Real Madrix '14", or "Icon".
+func (lv LegendVersion) VersionLabel() string {
+	if lv.Club != "" {
+		return lv.Club + " " + lv.Label
+	}
+	return lv.Label
+}
+
 // LegendVersions are generated from legendData: one card per club era plus an "Icon" card.
 var LegendVersions = buildLegendVersions()
 
@@ -337,9 +347,13 @@ func buildLegendVersions() []LegendVersion {
 		born, _ := strconv.Atoi(f[6])
 		peakAge := peakYear - born
 		for _, era := range strings.Split(f[7], ",") {
-			cy := strings.SplitN(era, ":", 2)
-			if len(cy) != 2 {
+			cy := strings.SplitN(era, ":", 3) // club:year, or club:year:role when he played elsewhere in that era
+			if len(cy) < 2 {
 				continue
+			}
+			eraRole := role
+			if len(cy) == 3 && roleInPosition(cy[2], pos) {
+				eraRole = cy[2]
 			}
 			year, _ := strconv.Atoi(cy[1])
 			age := year - born
@@ -350,7 +364,7 @@ func buildLegendVersions() []LegendVersion {
 			if age < peakAge {
 				pot = max(pot, int(peak))
 			}
-			out = append(out, LegendVersion{Name: f[0], Nation: f[1], Pos: pos, Role: role, Club: cy[0],
+			out = append(out, LegendVersion{Name: f[0], Nation: f[1], Pos: pos, Role: eraRole, Club: cy[0],
 				Label: "'" + cy[1][2:], Age: age, Ovr: ovr, Pot: pot, Style: f[3]})
 		}
 		icon := math.Min(97, peak+1)
@@ -360,11 +374,11 @@ func buildLegendVersions() []LegendVersion {
 	return out
 }
 
-// legendRoles: each legend's person (foldName) → the role the data gives him.
+// legendRoles: each legend's person (foldName) → his main role in the data (his Icon card's).
 var legendRoles = sync.OnceValue(func() map[string]string {
 	m := map[string]string{}
 	for _, lv := range LegendVersions {
-		if lv.Role != "" {
+		if lv.Role != "" && lv.Club == "" {
 			m[foldName(lv.Name)] = lv.Role
 		}
 	}
@@ -377,6 +391,9 @@ var legendRoles = sync.OnceValue(func() map[string]string {
 func legendRole(p *Player) string {
 	if p.Tag != "legend" {
 		return ""
+	}
+	if lv, ok := legendVersionIndex()[[2]string{p.Name, p.Version}]; ok && roleInPosition(lv.Role, p.Position) {
+		return lv.Role // the role of his era: "Torino Zebras '19", Ronalda up front
 	}
 	if r := legendRoles()[legendPerson(p.Name)]; roleInPosition(r, p.Position) {
 		return r

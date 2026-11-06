@@ -616,6 +616,8 @@ input[type="range"][style*="--fill"]:focus-visible { outline: 2px solid var(--cy
 .lg-head b { font-family: var(--display); font-size: 20px; font-style: italic; text-transform: uppercase; line-height: 1.15; overflow-wrap: anywhere; }
 .bigovr.small > b { width: 46px; height: 52px; font-size: 26px; padding-bottom: 7px; }
 .lgver .ver { display: inline-flex; align-items: center; gap: 4px; }
+/* the era's role leads the age and price line */
+.lgver .lgmeta { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .homelegends > .row b .ico, .homechip .ico { color: var(--hot); }
 
 /* deal & sell dialogs */

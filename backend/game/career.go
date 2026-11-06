@@ -322,10 +322,7 @@ func insertLegendCards(ctx context.Context, q pgx.Tx, r *rand.Rand, careerID int
 	for _, lv := range versions {
 		p := legendStar(r, lv, lv.Pot) // built for the role he played (data_legends.go)
 		var cid *int
-		label := lv.Label
-		if lv.Club != "" {
-			label = lv.Club + " " + lv.Label
-		}
+		label := lv.VersionLabel()
 		if clubID, ok := byName[lv.Club]; ok {
 			cid = &clubID
 		}

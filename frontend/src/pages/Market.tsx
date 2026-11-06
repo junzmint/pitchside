@@ -208,6 +208,11 @@ function PlayerTable({ players, action, badge, clubOf }: {
 
 // ---------------------------------------------------------------- legend catalogue
 
+/** a legend's main role: his Icon card's (each era card shows its own) */
+function mainRole(cards: Template[]) {
+  return (cards.find(c => c.version === 'Icon') ?? cards[0])?.role || undefined
+}
+
 function Legends({ m, ctx }: { m: MarketView; ctx: Ctx }) {
   const { t } = useI18n()
   const [pos, setPos] = useState<Pos | 'ALL'>('ALL')
@@ -227,7 +232,7 @@ function Legends({ m, ctx }: { m: MarketView; ctx: Ctx }) {
   for (const l of m.legends ?? []) {
     if (mine && l.clubId !== clubId) continue
     if (pos !== 'ALL' && l.position !== pos) continue
-    if (needle && !l.name.toLowerCase().includes(needle) && !l.version.toLowerCase().includes(needle)) continue
+    if (needle && !l.name.toLowerCase().includes(needle) && !l.version.toLowerCase().includes(needle) && l.role?.toLowerCase() !== needle) continue
     if (onlyMarket && !l.onMarket) continue
     byName.set(l.name, [...(byName.get(l.name) ?? []), l])
   }
@@ -247,7 +252,7 @@ function Legends({ m, ctx }: { m: MarketView; ctx: Ctx }) {
             {homeOnMarket.length > 0 && <span className="row" style={{ color: 'var(--good)', fontSize: 13, gap: 6 }}><Icon name="star" size={14} /> {t('lg.homeOnMarket', { names: homeOnMarket.map(l => l.name).join(', ') })}</span>}
             <div className="homenames">{[...homeNames.entries()].map(([name, cards]) => (
               <span key={name} className={'chip' + (cards.some(c => c.signed) ? ' special' : '')} data-tip={cards.map(c => `${c.version} · ${c.overall}`).join('\n')}>
-                {name} <small className="muted">{t('pos.' + cards[0].position)}</small>
+                {name} <small className="muted">{mainRole(cards) || t('pos.' + cards[0].position)}</small>
               </span>
             ))}</div>
           </>
@@ -270,13 +275,13 @@ function Legends({ m, ctx }: { m: MarketView; ctx: Ctx }) {
             <div key={name} className={'legendcard t-' + tierOf(best)}>
               <div className="lg-head">
                 <span className={'bigovr small t-' + tierOf(best)}><b className="num">{best}</b></span>
-                <div><b>{name}</b><span className="muted">{t('nation.' + cards[0].nation)} · <PosTag p={cards[0].position} /></span></div>
+                <div><b>{name}</b><span className="muted">{t('nation.' + cards[0].nation)} · <PosTag p={cards[0].position} role={mainRole(cards)} /></span></div>
               </div>
               {cards.map(c => (
                 <div key={c.id} className="lgver">
                   <span className="ver"><Icon name="star" size={12} /> {c.version}{c.clubId === clubId && <b className="homechip" data-tip={t('icon.home')}> <Icon name="home" size={12} /></b>}</span>
                   <Ovr v={c.overall} />
-                  <span className="muted num">{c.age} {t('yrs')} · {money(c.value)}</span>
+                  <span className="muted num lgmeta">{c.role && <PosTag p={c.position} role={c.role} />} {c.age} {t('yrs')} · {money(c.value)}</span>
                   <span className={'chip' + (c.onMarket ? ' special' : '')}>{c.signed ? <><Icon name="check" size={12} /> {t('cu.signed')}</> : c.onMarket ? <><Icon name="buy" size={12} /> {t('cu.onMarket')}</> : <><Icon name="hourglass" size={12} /> {t('cu.waiting')}</>}</span>
                 </div>
               ))}

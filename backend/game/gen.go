@@ -195,7 +195,7 @@ func shapeToRole(p *Player, role string, target float64) {
 // plays that role (legendRole).
 func legendStar(r *rand.Rand, lv LegendVersion, pot int) *Player {
 	p := MakeStar(r, StarDef{Name: lv.Name, Nation: lv.Nation, Age: lv.Age, Pos: lv.Pos, Ovr: lv.Ovr, Pot: pot, Style: lv.Style})
-	p.Tag = "legend"
+	p.Tag, p.Version = "legend", lv.VersionLabel() // the card knows his era (and so his role, legendRole)
 	if roleInPosition(lv.Role, lv.Pos) {
 		shapeToRole(p, lv.Role, lv.Ovr)
 		p.Potential = int(math.Max(float64(pot), math.Round(OverallAs(p, p.Position))))

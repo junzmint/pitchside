@@ -43,6 +43,7 @@ type Template struct {
 	Overall     int     `json:"overall"`
 	Value       int64   `json:"value"`
 	OnMarket    bool    `json:"onMarket"`
+	Role        string  `json:"role"` // where the card plays: his era's role for a legend (legendRole), else his numbers
 }
 
 func (t *Template) toPlayer() *Player {
@@ -367,6 +368,9 @@ func (s *Store) Market(ctx context.Context, careerID int) (*MarketView, error) {
 	}
 	if err := floorTemplates(ctx, s.DB, careerID, lg); err != nil { // legend_versions.go: what he sees is what he gets
 		return nil, err
+	}
+	for _, t := range append(append([]*Template{}, ts...), lg...) {
+		t.Role = t.toPlayer().Role
 	}
 	var n int
 	if err := s.DB.QueryRow(ctx, `SELECT count(*) FROM players WHERE club_id=$1`, club.ID).Scan(&n); err != nil {

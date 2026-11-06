@@ -49,7 +49,11 @@ func main() {
 	if err := store.Migrate(ctx); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
-	// saves created before new legends were added get their cards too
+	// legends once listed under made-up names take their real names, or make way for real players…
+	if err := store.RenameLegends(ctx); err != nil {
+		log.Printf("legend names: %v", err)
+	}
+	// …and saves created before new legends were added get their cards too
 	if err := store.SyncLegendCards(ctx); err != nil {
 		log.Printf("legend sync: %v", err)
 	}

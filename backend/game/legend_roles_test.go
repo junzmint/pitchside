@@ -48,13 +48,18 @@ func TestLegendRolesKnown(t *testing.T) {
 		"Thomas Müllerr":         "RW",
 		"Hristo Stoichkof":       "LW",
 	}
-	for name, role := range want {
+	for name, main := range want {
 		for _, p := range legendCards(t, name, 25) {
+			lv := legendVersionIndex()[[2]string{p.Name, p.Version}]
+			if lv.Club == "" && lv.Role != main {
+				t.Fatalf("%s's Icon: %s, want %s", name, lv.Role, main)
+			}
+			role := lv.Role                  // his era's (the main role unless the data names another for that era)
 			for _, id := range []int{1, 2} { // odd ids are right-sided, even ones left-sided for anyone else
 				p.ID = id
 				p.Fill()
 				if p.Role != role || NaturalRole(p) != role {
-					t.Fatalf("%s (age %d, id %d): role %s, want %s", name, p.Age, id, p.Role, role)
+					t.Fatalf("%s %s (age %d, id %d): role %s, want %s", name, p.Version, p.Age, id, p.Role, role)
 				}
 			}
 			if !fitsLine(p, role) {
@@ -63,7 +68,7 @@ func TestLegendRolesKnown(t *testing.T) {
 			}
 			tp := &Template{ID: 7, Kind: "legend", Name: p.Name, Nation: p.Nation, Age: p.Age, Position: p.Position, Pace: p.Pace,
 				Shooting: p.Shooting, Passing: p.Passing, Dribbling: p.Dribbling, Defending: p.Defending, Physical: p.Physical,
-				Goalkeeping: p.Goalkeeping, Potential: p.Potential, Version: "Icon"}
+				Goalkeeping: p.Goalkeeping, Potential: p.Potential, Version: p.Version}
 			if got := tp.toPlayer().Role; got != role {
 				t.Fatalf("%s on the market: role %s, want %s", name, got, role)
 			}
@@ -83,6 +88,7 @@ func TestLegendRolesKnown(t *testing.T) {
 // card's, and his potential the data's (a young version keeps his peak).
 func TestLegendRolesMatchData(t *testing.T) {
 	raw := map[string]string{}
+	eraRole := map[[2]string]string{} // (name, version) → the role the data names for that era
 	for _, line := range strings.Split(strings.TrimSpace(legendData), "\n") {
 		f := strings.Split(line, "|")
 		if len(f) != 8 {
@@ -96,13 +102,25 @@ func TestLegendRolesMatchData(t *testing.T) {
 			t.Errorf("%s: %q is not a %s role (DF: CB/LB/RB, MF: DM/CM/AM/LM/RM, FW: LW/RW/ST)", f[0], role, pos)
 		}
 		raw[f[0]] = role
+		for _, era := range strings.Split(f[7], ",") {
+			if c := strings.Split(era, ":"); len(c) == 3 {
+				if !roleInPosition(c[2], pos) || c[2] == role {
+					t.Errorf("%s %s: %q is no other %s role", f[0], era, c[2], pos)
+				}
+				eraRole[[2]string{f[0], c[0] + " '" + c[1][2:]}] = c[2]
+			}
+		}
 	}
 	if len(raw) < 250 {
 		t.Fatalf("only %d legends read", len(raw))
 	}
 	for _, lv := range LegendVersions {
-		if lv.Role != raw[lv.Name] || strings.Contains(lv.Pos, "/") {
-			t.Fatalf("%s: parsed as %s/%s, data says %s", lv.Name, lv.Pos, lv.Role, raw[lv.Name])
+		want := raw[lv.Name]
+		if r, ok := eraRole[[2]string{lv.Name, lv.VersionLabel()}]; ok {
+			want = r
+		}
+		if lv.Role != want || strings.Contains(lv.Pos, "/") {
+			t.Fatalf("%s %s: parsed as %s/%s, data says %s", lv.Name, lv.VersionLabel(), lv.Pos, lv.Role, want)
 		}
 		for s := int64(0); s < 8; s++ {
 			p := legendStar(rand.New(rand.NewSource(s*104729+int64(lv.Age))), lv, lv.Pot)
@@ -259,5 +277,47 @@ func TestLegendsXIRoles(t *testing.T) {
 	}
 	if !trent {
 		t.Error("Trent is not in the Mersey Red Legends XI at right-back")
+	}
+}
+
+// Each version plays where his real-life self played in that era (the user: "mỗi phiên bản có vị trí khác
+// nhau"): Ronalda on the right at Sporting and United, on the left at Real, up front at Juventus; a card already
+// signed follows its era's role whatever its numbers, and the Legends screen gets it with every card.
+func TestLegendEraRoles(t *testing.T) {
+	want := map[[2]string]string{
+		{"Cristiano Ronalda", "Sporting Lisboa '03"}: "RW", {"Cristiano Ronalda", "Manchester Reds '08"}: "RW",
+		{"Cristiano Ronalda", "Real Madrix '14"}: "LW", {"Cristiano Ronalda", "Torino Zebras '19"}: "ST",
+		{"Cristiano Ronalda", "Icon"}:        "LW",
+		{"Lionel Messo", "FC Barcelano '11"}: "ST", {"Lionel Messo", "FC Barcelano '15"}: "RW", {"Lionel Messo", "Icon"}: "RW",
+		{"Thierry Henri", "Monaco Rouge '97"}: "LW", {"Thierry Henri", "North London Gunners '04"}: "ST",
+		{"Thierry Henri", "FC Barcelano '09"}:      "LW",
+		{"Paolo Maldinni", "Milano Rossoneri '94"}: "LB", {"Paolo Maldinni", "Milano Rossoneri '05"}: "CB",
+		{"Sergio Ramoz", "Sevila FC '04"}: "RB", {"Sergio Ramoz", "Real Madrix '17"}: "CB",
+		{"Steven Gerrardo", "Mersey Red '09"}: "AM", {"David Beckhem", "Real Madrix '04"}: "CM",
+	}
+	for k, role := range want {
+		lv, ok := legendVersionIndex()[k]
+		if !ok {
+			t.Fatalf("no version %v", k)
+		}
+		if lv.Role != role {
+			t.Errorf("%s %s: %s, want %s", k[0], k[1], lv.Role, role)
+		}
+		card := legendStar(rand.New(rand.NewSource(3)), lv, lv.Pot)
+		if card.Version != k[1] || card.Role != role || !fitsLine(card, role) {
+			t.Errorf("%s %s built as %q: role %s, numbers read as %s", k[0], k[1], card.Version, card.Role, attrRole(card))
+		}
+		// signed before the data had era roles: the label follows the era, the numbers stay
+		old := &Player{ID: 9, Name: k[0], Tag: "legend", Version: k[1], Position: lv.Pos, Pace: 80, Shooting: 80, Passing: 80,
+			Dribbling: 80, Defending: 80, Physical: 80, Goalkeeping: 20}
+		if old.Fill(); old.Role != role {
+			t.Errorf("signed %s %s: %s, want %s", k[0], k[1], old.Role, role)
+		}
+		tp := &Template{ID: 7, Kind: "legend", Name: card.Name, Nation: card.Nation, Age: card.Age, Position: card.Position,
+			Pace: card.Pace, Shooting: card.Shooting, Passing: card.Passing, Dribbling: card.Dribbling, Defending: card.Defending,
+			Physical: card.Physical, Goalkeeping: card.Goalkeeping, Potential: card.Potential, Version: k[1]}
+		if got := tp.toPlayer().Role; got != role {
+			t.Errorf("%s %s in the catalogue: %s, want %s", k[0], k[1], got, role)
+		}
 	}
 }
