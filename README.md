@@ -267,7 +267,7 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
 ### The live match
 
 **Modes** (pre-match screen):
-- **Play**: you against the computer. Both sides start from the balance of strength the quick simulation uses; on normal nothing else tilts the match, so your own play makes the difference. Easy weakens the computer's side, hard makes it stronger.
+- **Play**: you against the computer. Both sides start from the balance of strength the quick simulation uses; on normal nothing else tilts the match, so your own play makes the difference. Hard makes the computer's side stronger. Career matches have no Easy: the result counts, so playing it can't be easier than simulating it (a saved Easy setting plays as Normal). Easy is still there in quick matches.
 - **Watch**: the computer plays both sides at full length, as strong as the quick simulation has them (form, morale, fitness, home advantage), so you win, draw and lose about as often as its odds say. Difficulty plays no part. Shorter matches end level a little more often (fewer goals), longer ones a little less, and a squad can still do slightly better or worse than the odds because the live engine sees players and play styles in its own way. You can pause, run at 1×/2×/4×, take control or simulate the rest.
 - **2 players**: two controllers, or keyboard + controller. Press Options/☰ on a pad to claim P1 or P2.
 
@@ -298,8 +298,8 @@ Other options:
 
 **Help for beginners**:
 - Pass assist, shot assist and auto-switch are on by default on easy and normal; change them before kick-off or in the pause menu.
-- Your first live match starts with a six-step tutorial. Skip it, or replay it from the pause menu.
-- Difficulty only changes the computer's side: easy is relaxed, hard is a real fight.
+- Your first live match starts with a six-step tutorial. Skip it, or replay it from the pause menu. The match plays as usual meanwhile (the result counts).
+- Difficulty only changes the computer's side: easy (quick matches only) is relaxed, hard is a real fight.
 
 **Rules**:
 - Fouls are given for late or mistimed tackles and tackles from behind (a missed challenge on a quick dribbler is often one, and a clumsy one in the box gives a penalty).

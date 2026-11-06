@@ -458,7 +458,7 @@ export class Engine {
   rp: { frames: FrameState[]; i: number; goalAt: number } | null = null
   homeTeam: Side
   assist: Assists
-  /** the tutorial is running: the computer plays the easy way until it ends */
+  /** the tutorial is on screen (the match plays as usual: a career result counts, so it softens nothing) */
   tutorial = false
   acts: HumanActs = { moved: 0, passes: 0, through: 0, shots: 0, tackles: 0, switches: 0 }
   ai: [AiPreset, AiPreset] = [{ ...DIFF.normal }, { ...DIFF.normal }]
@@ -766,14 +766,14 @@ export class Engine {
     this.ctrl[side] = b.owner?.team === side ? b.owner : this.bestDefender(side, null)
   }
   /** Team 0 (the user's club) always plays the helper preset; team 1 the difficulty preset unless a person has it. */
-  /** Start or stop the tutorial (the computer side plays like on easy meanwhile). */
-  setTutorial(on: boolean) { this.tutorial = on; this.refreshAI() }
+  /** Start or stop the tutorial. */
+  setTutorial(on: boolean) { this.tutorial = on }
   private refreshAI() {
     // nobody has played (watching): both sides even, whatever the difficulty; against a person the computer's side
     // plays the difficulty preset, a person's own side the helper one (kept while the computer stands in for them)
     const watched = !this.played[0] && !this.played[1]
     for (const t of [0, 1] as Side[]) {
-      const base = watched ? DIFF.normal : t === 1 && !this.played[1] ? DIFF[this.tutorial ? 'easy' : this.opts.difficulty] : HELP[this.opts.difficulty]
+      const base = watched ? DIFF.normal : t === 1 && !this.played[1] ? DIFF[this.opts.difficulty] : HELP[this.opts.difficulty]
       const { q, chem } = this.aiQ[t]
       this.ai[t] = {
         ...base,

@@ -6,8 +6,8 @@ import { touchParams } from './touch'
 import { useI18n } from '../i18n'
 
 // First-match tutorial: six small steps, each waiting for the action before moving on. It sits at the top of the
-// pitch while the match plays (the computer plays the easy way meanwhile), can be skipped, and comes back from
-// the pause menu. "Seen" is remembered in localStorage.
+// pitch while the match plays as usual (a career result counts: the other side doesn't ease off), can be skipped,
+// and comes back from the pause menu. "Seen" is remembered in localStorage.
 
 const KEY = 'pitchside.tutorial'
 export function tutorialSeen(): boolean { try { return localStorage.getItem(KEY) === 'done' } catch { return false } }
@@ -64,7 +64,6 @@ export function Tutorial({ eng, hud, g, onClose }: { eng: Engine; hud: HudState;
           <b className="lv-tut-step">{state === 'good' ? `✓ ${t('lv.tut.good')}` : t('lv.tut.' + step.k + '.t')}</b>
           <span className="lv-tut-text">{t('lv.tut.' + step.k, g === 'touch' ? touchParams(t, def) : glyphParams(g, def))}</span>
           {waiting && <small className="lv-tut-wait">{t(step.ctx === 'att' ? 'lv.tut.waitAtt' : 'lv.tut.waitDef')}</small>}
-          {i === 0 && state === 'do' && <small className="lv-tut-wait">{t('lv.tut.soft')}</small>}
         </>
       )}
     </div>

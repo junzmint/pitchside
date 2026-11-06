@@ -84,6 +84,9 @@ function AssistToggles({ value, onChange }: { value: Assists; onChange: (a: Assi
     </div>
   )
 }
+/** Career matches have no easy level: the result counts, so playing it can't be easier than simulating it (easy
+ *  stays for quick matches). A saved easy setting plays a career match on normal. */
+const careerDiff = (d: Difficulty): Difficulty => (d === 'easy' ? 'normal' : d)
 const setPref = (k: string, v: boolean) => { try { localStorage.setItem(k, v ? '1' : '0') } catch { /* ignore */ } }
 
 /** Players a substitution tip was already shown for (once for being tired, once for being hurt), kept for the
@@ -118,8 +121,8 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
   const [stage, setStage] = useState<Stage>('pre')
   const [mode, setMode] = useState<PlayMode>(initialMode)
   const [len, setLen] = useState(() => String(settings.matchLength))
-  const [diff, setDiff] = useState<Difficulty>(settings.difficulty)
-  const [assists, setAssists] = useState<Assists>(() => loadAssists(settings.difficulty))
+  const [diff, setDiff] = useState<Difficulty>(() => careerDiff(settings.difficulty))
+  const [assists, setAssists] = useState<Assists>(() => loadAssists(careerDiff(settings.difficulty)))
   useEffect(() => { setAssists(loadAssists(diff)) }, [diff])
   const [cam, setCam] = useState<CamMode>(() => initialCam(settings.camera))
   const [replays, setReplays] = useState(() => pref('pitchside.replays', true))
@@ -138,7 +141,7 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
         const m = sn.mode ?? 'play'
         setSnap(sn)
         setLen(String(sn.halfSeconds))
-        setDiff(sn.difficulty)
+        setDiff(careerDiff(sn.difficulty))
         setMode(m)
         setAssign(defaultAssign(m, listPads()))
         setStage('live') // continue straight away
@@ -210,7 +213,8 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
                 <Seg value={mode} options={[['play', t('lv.pre.play')], ['watch', t('lv.pre.watch')], ['duo', t('lv.pre.duo')]]} onChange={pickMode} />
               </div>
               <div className="row spread"><b>{t('mp.length')}</b><Seg value={len} options={[['90', t('mp.min', { n: 3 })], ['150', t('mp.min', { n: 5 })], ['240', t('mp.min', { n: 8 })]]} onChange={setLen} /></div>
-              <div className="row spread"><b>{t('mp.difficulty')}</b><Seg value={diff} options={[['easy', t('mp.easy')], ['normal', t('mp.normal')], ['hard', t('mp.hard')]]} onChange={setDiff} /></div>
+              <div className="row spread"><b data-tip={t('mp.noEasy')}>{t('mp.difficulty')}</b><Seg value={diff} options={[['normal', t('mp.normal')], ['hard', t('mp.hard')]]} onChange={setDiff} /></div>
+              {settings.difficulty === 'easy' && <Hint text={t('mp.noEasy')} />}
               {mode !== 'watch' && <div className="row spread"><b>{t('lv.as.title')}</b><AssistToggles value={assists} onChange={a => { setAssists(a); saveAssists(diff, a) }} /></div>}
               <div className="row spread"><b>{t('lv.pre.camera')}</b><Seg value={cam} options={CAMS.map(c => [c, t('lv.cam.' + c)] as [CamMode, string])} onChange={c => { setCam(c); saveCam(c) }} /></div>
               <label className="row lv-check"><input type="checkbox" checked={replays} onChange={e => setReplays(e.target.checked)} /> {t('lv.pre.replays')}</label>
