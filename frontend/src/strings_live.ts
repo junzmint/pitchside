@@ -6,7 +6,7 @@ export const liveStrings: { vi: Record<string, string>; en: Record<string, strin
     // pre-match
     'lv.pre.mode': 'Chế độ', 'lv.pre.play': 'Tự đá', 'lv.pre.watch': 'Xem máy đá', 'lv.pre.duo': '2 người chơi',
     'lv.pre.camera': 'Góc máy', 'lv.pre.replays': 'Chiếu lại bàn thắng', 'lv.pre.startWatch': 'Xem trận', 'lv.pre.startDuo': 'Đá 2 người',
-    'lv.pre.watchNote': 'Máy điều khiển cả hai đội theo chiến thuật của từng đội. Có thể tạm dừng, tua nhanh 2×/4×, đổi góc máy, bỏ qua tới cuối trận hoặc nhảy vào điều khiển đội mình bất cứ lúc nào. Kết quả vẫn được tính.',
+    'lv.pre.watchNote': 'Máy điều khiển cả hai đội theo chiến thuật của từng đội, với đúng tương quan sức mạnh mà mô phỏng nhanh dùng (phong độ, tinh thần, lợi thế sân nhà), nên bạn thắng, hoà, thua thường xuyên đúng như tỉ lệ của mô phỏng; độ khó không ảnh hưởng. Có thể tạm dừng, tua nhanh 2×/4×, đổi góc máy, bỏ qua tới cuối trận hoặc nhảy vào điều khiển đội mình bất cứ lúc nào. Kết quả vẫn được tính.',
     'lv.pre.knockoutNote': 'Trận loại trực tiếp: hòa sau 90 phút sẽ đá hiệp phụ (2 hiệp ngắn), rồi luân lưu 11 m.',
     'lv.cam.tv': 'Truyền hình 3D', 'lv.cam.broadcast': 'Theo bóng', 'lv.cam.close': 'Cận cảnh', 'lv.cam.wide': 'Toàn sân',
     'lv.lobby.hint': 'Mỗi người bấm Options (PS) / ☰ Menu (Xbox) trên tay cầm của mình để vào chỗ; bấm lại để đổi bên. Tay cầm Bluetooth cũng dùng được như tay cắm dây.',
@@ -156,7 +156,7 @@ export const liveStrings: { vi: Record<string, string>; en: Record<string, strin
   en: {
     'lv.pre.mode': 'Mode', 'lv.pre.play': 'Play', 'lv.pre.watch': 'Watch', 'lv.pre.duo': '2 players',
     'lv.pre.camera': 'Camera', 'lv.pre.replays': 'Goal replays', 'lv.pre.startWatch': 'Watch the match', 'lv.pre.startDuo': 'Play 2 players',
-    'lv.pre.watchNote': 'The computer plays both teams with their own tactics. Pause, speed up to 2×/4×, switch cameras, skip to the end or take control of your team at any moment. The result counts.',
+    'lv.pre.watchNote': 'The computer plays both teams with their own tactics and with the balance of strength the quick simulation uses (form, morale, home advantage), so you win, draw and lose as often as its odds say; difficulty plays no part. Pause, speed up to 2×/4×, switch cameras, skip to the end or take control of your team at any moment. The result counts.',
     'lv.pre.knockoutNote': 'Knockout tie: level after 90 minutes means extra time (two short halves), then a penalty shoot-out.',
     'lv.cam.tv': 'TV (3D)', 'lv.cam.broadcast': 'Follow', 'lv.cam.close': 'Close', 'lv.cam.wide': 'Tactical',
     'lv.lobby.hint': 'Each player presses Options (PS) / ☰ Menu (Xbox) on their own controller to take a seat; press again to swap sides. Bluetooth controllers work just like wired ones.',
@@ -295,7 +295,7 @@ export const liveStrings: { vi: Record<string, string>; en: Record<string, strin
   ja: {
     'lv.pre.mode': 'モード', 'lv.pre.play': 'プレー', 'lv.pre.watch': '観戦', 'lv.pre.duo': '2人対戦',
     'lv.pre.camera': 'カメラ', 'lv.pre.replays': 'ゴールのリプレイ', 'lv.pre.startWatch': '観戦する', 'lv.pre.startDuo': '2人で対戦',
-    'lv.pre.watchNote': 'CPUが両チームをそれぞれの戦術で操作します。一時停止、2倍/4倍速、カメラ切替、試合終了までスキップ、いつでも自チームの操作に切り替え可能。結果は記録されます。',
+    'lv.pre.watchNote': 'CPUが両チームをそれぞれの戦術で、クイックシミュレーションと同じ戦力差（調子、士気、ホームの利）で操作するため、勝ち・引き分け・負けの確率はシミュレーションの予想どおりです。難易度は影響しません。一時停止、2倍/4倍速、カメラ切替、試合終了までスキップ、いつでも自チームの操作に切り替え可能。結果は記録されます。',
     'lv.pre.knockoutNote': 'ノックアウト戦：90分で同点なら延長戦（短い前後半）、その後PK戦。',
     'lv.cam.tv': 'TV (3D)', 'lv.cam.broadcast': '追従', 'lv.cam.close': 'アップ', 'lv.cam.wide': '全体',
     'lv.lobby.hint': '各プレイヤーは自分のコントローラーの Options（PS）/ ☰ メニュー（Xbox）を押して席に着きます。もう一度押すと入れ替え。Bluetooth接続のコントローラーも有線と同じく使えます。',

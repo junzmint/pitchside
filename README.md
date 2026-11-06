@@ -267,8 +267,8 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
 ### The live match
 
 **Modes** (pre-match screen):
-- **Play**: you against the computer.
-- **Watch**: the computer plays both sides at full length. You can pause, run at 1×/2×/4×, take control or simulate the rest.
+- **Play**: you against the computer. Both sides start from the balance of strength the quick simulation uses; on normal nothing else tilts the match, so your own play makes the difference. Easy weakens the computer's side, hard makes it stronger.
+- **Watch**: the computer plays both sides at full length, as strong as the quick simulation has them (form, morale, fitness, home advantage), so you win, draw and lose about as often as its odds say. Difficulty plays no part. Shorter matches end level a little more often (fewer goals), longer ones a little less, and a squad can still do slightly better or worse than the odds because the live engine sees players and play styles in its own way. You can pause, run at 1×/2×/4×, take control or simulate the rest.
 - **2 players**: two controllers, or keyboard + controller. Press Options/☰ on a pad to claim P1 or P2.
 
 **Looking away**: the match keeps running when you switch to another tab, another window or another desktop; only the pause button (or the menu) stops it.

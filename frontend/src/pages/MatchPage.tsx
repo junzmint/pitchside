@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Ctx } from '../App'
 import { api, money } from '../api'
 import type { DayReport, MatchSetup } from '../types'
-import { Engine, defaultAssists, takeSnapshot, type Assists, type Difficulty, type EngineEvent, type HudState, type MatchOutcome, type Side, chooseKits, kitSetOf, type KitChoice, type KitSet } from '../match/engine'
+import { Engine, defaultAssists, edgeFromOdds, takeSnapshot, type Assists, type Difficulty, type EngineEvent, type HudState, type MatchOutcome, type Side, chooseKits, kitSetOf, type KitChoice, type KitSet } from '../match/engine'
 import { KitSVG } from '../kit'
 import { MatchTouch, RotateHint, enterGameScreen, isTouchDevice, leaveGameScreen, touchParams, usePortrait } from '../match/touch'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type Snapshot } from '../match/snapshot'
@@ -425,6 +425,8 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     const eng = new Engine(setup, {
       halfSeconds, difficulty, snapshot, replays, onEvent, t: (k, p) => tRef.current(k, p), assists, kitPick: [kitPick, 'auto'],
       humans: mode0 === 'watch' ? [false, false] : [true, twoP && assign[1].length > 0],
+      // the two sides as strong as the quick simulation has them, so watching turns out like simulating
+      edge: setup.odds ? edgeFromOdds(setup.odds, setup.userIsHome, halfSeconds) : undefined,
     }, o => setDone(o))
     engRef.current = eng
     if (!snapshot) eng.beginIntro()

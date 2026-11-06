@@ -107,6 +107,9 @@ export interface EngineOpts {
   assists?: Assists
   /** the kit each team wears [team 0, team 1]; default auto (home kit unless it clashes) */
   kitPick?: [KitChoice, KitChoice]
+  /** The edge in attribute points team 0 plays with over team 1 (see edgeFromOdds): set from the quick simulation's
+   *  own odds, so a watched match turns out like a simulated one. Without it the engine weighs the two XIs itself. */
+  edge?: number
 }
 
 /** Beginner help: pass assist (aim at the best open teammate the stick points to), shot assist (keep the aim inside
@@ -319,11 +322,33 @@ const DIFF: Record<Difficulty, AiPreset> = {
   normal: { decide: 0.42, tackleRate: 1.3, err: 1, shot: 1, gk: 0.95, press: 0, boost: 0 },
   hard: { decide: 0.28, tackleRate: 1.95, err: 0.78, shot: 0.84, gk: 1.08, press: 1, boost: 4 },
 }
-/** A person's own team (the teammates the computer moves for you): a little help on easy, never a handicap. */
+/** A person's own team (the teammates the computer moves for you): a little help on easy, otherwise just like the
+ *  computer's side on normal (no hidden edge: only the person makes the difference). */
 const HELP: Record<Difficulty, AiPreset> = {
   easy: { decide: 0.42, tackleRate: 1.7, err: 0.9, shot: 1, gk: 1.08, press: 0, boost: 2 },
-  normal: { decide: 0.42, tackleRate: 1.35, err: 1, shot: 1, gk: 1, press: 0, boost: 0 },
-  hard: { decide: 0.42, tackleRate: 1.3, err: 1, shot: 1, gk: 0.98, press: 0, boost: 0 },
+  normal: { decide: 0.42, tackleRate: 1.3, err: 1, shot: 1, gk: 0.95, press: 0, boost: 0 }, // = DIFF.normal: even
+  hard: { decide: 0.42, tackleRate: 1.3, err: 1, shot: 1, gk: 0.95, press: 0, boost: 0 },
+}
+/** By match length (seconds per half): CPU against CPU with team 0 ahead by E attribute points wins minus loses about
+ *  tanh((E + lean) / scale) of its matches, measured over real fixtures. lean: what team 0 (your club) gets on top of
+ *  its attributes on average (its squad's make-up, kicking off), taken back off the edge. */
+const EDGE_FIT: { half: number; scale: number; lean: number }[] = [
+  { half: 90, scale: 22, lean: 0.9 },
+  { half: 150, scale: 16, lean: 1.2 },
+  { half: 240, scale: 14, lean: 1.2 },
+]
+/**
+ * The edge (team 0 over team 1, in attribute points) under which the live match wins, draws and loses as often as the
+ * quick simulation's odds say (they already hold form, morale, fitness, home advantage and the rest).
+ */
+export function edgeFromOdds(odds: { home: number; draw: number; away: number }, userIsHome: boolean, halfSeconds: number): number {
+  const w = (userIsHome ? odds.home : odds.away) / 100, l = (userIsHome ? odds.away : odds.home) / 100
+  const x = clamp(w - l, -0.96, 0.96)
+  const i = EDGE_FIT.findIndex(f => halfSeconds <= f.half)
+  const hi = EDGE_FIT[i < 0 ? EDGE_FIT.length - 1 : i], lo = EDGE_FIT[i <= 0 ? (i < 0 ? EDGE_FIT.length - 1 : 0) : i - 1]
+  const k = hi.half === lo.half ? 0 : clamp((halfSeconds - lo.half) / (hi.half - lo.half), 0, 1)
+  const scale = lo.scale + (hi.scale - lo.scale) * k, lean = lo.lean + (hi.lean - lo.lean) * k
+  return Math.atanh(x) * scale - lean
 }
 /** Share of the gap in average rating the weaker XI makes up: the better team still wins most, the other one still plays. */
 const PARITY = 0.4
@@ -400,6 +425,8 @@ export class Engine {
   paused = false
   pauseReason: PauseReason = ''
   human: [boolean, boolean]
+  /** a person has played this side at some point (the computer standing in for one who looked away doesn't count) */
+  played: [boolean, boolean] = [false, false]
   ctrl: [MP | null, MP | null] = [null, null]
   ctl: [Ctl, Ctl] = [new Ctl(), new Ctl()]
   cam = { x: L / 2, y: CY }
@@ -409,7 +436,9 @@ export class Engine {
   pensResult: [number, number] | null = null
   weather: Statics['weather'] = ''
   derby = false
-  fast = false // "skip to end": no celebrations, replays or slow motion
+  /** "skip to end": no celebrations, replays, slow motion or commentary. Dead balls keep their time (the players
+   *  take their places as in a watched match), so a skipped match turns out like a watched one. */
+  fast = false
   replays: boolean
   bench: [Player[], Player[]] = [[], []]
   subs: SubMade[] = []
@@ -489,14 +518,25 @@ export class Engine {
     // the weaker XI raises its game (so an underdog still attacks), and difficulty shifts the computer's side only
     const gap = this.avgRating[0] - this.avgRating[1]
     const parity = [gap < 0 ? -gap * PARITY : 0, gap > 0 ? gap * PARITY : 0]
-    const diffBoost = [this.human[1] ? 0 : HELP[opts.difficulty].boost, this.human[1] ? 0 : DIFF[opts.difficulty].boost]
+    // head coach, chemistry, coach fit and leaders lift every player
+    const lift = [user, cpu].map(side => {
+      const leaders = Math.min(2, side.starters.filter(Boolean).filter(p => p.traits?.includes('leader')).length)
+      return (side.headCoach ?? 10) * 0.16 + ((side.chemistry?.team ?? 50) - 50) / 14 + ((side.coachFit?.score ?? 50) - 50) / 18 + leaders * 0.6
+    })
+    let boosts = [lift[0] + parity[0], lift[1] + parity[1]]
+    const edge = opts.edge ?? NaN, edged = Number.isFinite(edge)
+    if (edged) {
+      // the quick simulation's edge (form, morale, home advantage and all): the same lift on average, and between
+      // the two XIs exactly the edge it has in mind
+      const mean = (lift[0] + lift[1]) / 2, d = (edge - gap) / 2
+      boosts = [mean + d, mean - d]
+    }
+    // difficulty shifts the computer's side only when it plays against a person (watching, both sides are even)
+    this.played = [this.human[0], this.human[1]]
+    const vsCpu = this.human[0] && !this.human[1]
+    const diffBoost = [vsCpu ? HELP[opts.difficulty].boost : 0, vsCpu ? DIFF[opts.difficulty].boost : 0]
     ;[user, cpu].forEach((side, t) => {
-      // head coach, chemistry, coach fit and leaders lift every player; big-game players rise in cups
-      const starters = side.starters.filter(Boolean)
-      const leaders = Math.min(2, starters.filter(p => p.traits?.includes('leader')).length)
-      const boost = (side.headCoach ?? 10) * 0.16 + ((side.chemistry?.team ?? 50) - 50) / 14 + ((side.coachFit?.score ?? 50) - 50) / 18 + leaders * 0.6
-        + parity[t] + diffBoost[t]
-      this.boosts[t] = boost
+      // (and big-game players rise in cups, below)
       const perks = new Set(side.perks ?? [])
       const ex: Partial<Attr7> = {}
       const addEx = (k: AttrKey, v: number) => { ex[k] = (ex[k] ?? 0) + v }
@@ -507,9 +547,16 @@ export class Engine {
       if (perks.has('motivator')) for (const k of ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical', 'goalkeeping'] as const) addEx(k, 0.8)
       if (perks.has('big_match') && this.bigGame) for (const k of ['shooting', 'passing', 'dribbling', 'defending'] as const) addEx(k, 1.5)
       this.extras[t] = ex
+      const bigOf = (p: Player) => (this.bigGame && p.traits?.includes('big_game') ? 2 : 0)
+      // with the simulation's edge, perks and big-game players (already in its odds) move points between attributes
+      // and players without adding to the edge
+      const spread = edged ? Object.values(ex).reduce((a, v) => a + (v ?? 0), 0) / 7
+        + side.starters.reduce((a, p) => a + (p ? bigOf(p) : 0), 0) / Math.max(1, side.starters.filter(Boolean).length) : 0
+      const boost = boosts[t] + diffBoost[t] - spread
+      this.boosts[t] = boost
       side.starters.forEach((p, i) => {
         if (!p) return
-        const m = new MP(t as Side, i, side.roles[i] ?? p.position, p, boost + (this.bigGame && p.traits?.includes('big_game') ? 2 : 0), ex)
+        const m = new MP(t as Side, i, side.roles[i] ?? p.position, p, boost + bigOf(p), ex)
         this.players.push(m)
         this.teams[t].push(m)
       })
@@ -517,6 +564,11 @@ export class Engine {
     // the computer's reactions and accuracy scale with the quality and chemistry of its own XI;
     // difficulty only shifts that baseline, and only for the side the computer plays against a person
     this.aiQ = [user, cpu].map((side, t) => ({ q: clamp((this.avgRating[t] - 60) / 30, 0, 1), chem: (side.chemistry?.team ?? 50) / 100 })) as Engine['aiQ']
+    if (edged) {
+      // the edge holds the whole difference between the sides, their quality and chemistry included: both think alike
+      const q = (this.aiQ[0].q + this.aiQ[1].q) / 2, chem = (this.aiQ[0].chem + this.aiQ[1].chem) / 2
+      this.aiQ = [{ q, chem }, { q, chem }]
+    }
     this.refreshAI()
     this.statics_ = this.buildStatics()
     for (const p of this.players) this.pstat(p)
@@ -704,6 +756,7 @@ export class Engine {
   setHuman(side: Side, on: boolean) {
     if (this.human[side] === on) return
     this.human[side] = on
+    if (on) this.played[side] = true
     this.refreshAI()
     const c = this.ctl[side]
     c.reset()
@@ -716,8 +769,11 @@ export class Engine {
   /** Start or stop the tutorial (the computer side plays like on easy meanwhile). */
   setTutorial(on: boolean) { this.tutorial = on; this.refreshAI() }
   private refreshAI() {
+    // nobody has played (watching): both sides even, whatever the difficulty; against a person the computer's side
+    // plays the difficulty preset, a person's own side the helper one (kept while the computer stands in for them)
+    const watched = !this.played[0] && !this.played[1]
     for (const t of [0, 1] as Side[]) {
-      const base = t === 1 && !this.human[1] ? DIFF[this.tutorial ? 'easy' : this.opts.difficulty] : HELP[this.opts.difficulty]
+      const base = watched ? DIFF.normal : t === 1 && !this.played[1] ? DIFF[this.tutorial ? 'easy' : this.opts.difficulty] : HELP[this.opts.difficulty]
       const { q, chem } = this.aiQ[t]
       this.ai[t] = {
         ...base,
@@ -812,7 +868,7 @@ export class Engine {
     this.restartKind = 'kickoff'
     this.restartTeam = t
     this.setTaker = taker
-    this.phaseT = this.fast ? 0.05 : 1.2
+    this.phaseT = 1.2
     for (const s of [0, 1] as Side[]) if (this.human[s]) this.ctrl[s] = s === t ? taker : this.bestDefender(s, null)
   }
 
@@ -853,7 +909,7 @@ export class Engine {
     this.shotBy = null
     this.pending = { kind, team, x, y, indirect }
     this.phase = 'dead'
-    this.phaseT = this.fast ? 0.05 : kind === 'throw' ? 0.6 : kind === 'goalkick' ? 0.9 : kind === 'penalty' ? 1.7 : 1.0
+    this.phaseT = kind === 'throw' ? 0.6 : kind === 'goalkick' ? 0.9 : kind === 'penalty' ? 1.7 : 1.0
     for (const c of this.ctl) { c.charge = null; c.queued = null }
     if (kind === 'corner') { this.stats.corners[team]++; this.say('corner', { team: this.shorts[team] }) }
   }
@@ -975,7 +1031,7 @@ export class Engine {
       }
     }
     this.phase = 'restart'
-    this.phaseT = this.fast ? 0.05 : ({ throw: 0.9, corner: 2.0, goalkick: 1.3, free: direct ? 2.4 : 1.3, penalty: this.so ? 1.7 : 2.0, kickoff: 1.2 } as const)[kind]
+    this.phaseT = ({ throw: 0.9, corner: 2.0, goalkick: 1.3, free: direct ? 2.4 : 1.3, penalty: this.so ? 1.7 : 2.0, kickoff: 1.2 } as const)[kind]
     if (kind === 'penalty' || direct) this.emit({ k: 'hush', v: kind === 'penalty' ? 1 : 0.6 })
     if (kind === 'free') this.say('freeKick', { team: this.shorts[a] })
     // set-piece reticle for a person taking it
@@ -1126,7 +1182,7 @@ export class Engine {
     const level = this.score[0] === this.score[1]
     if (this.half === 1 || this.half === 3) {
       this.phase = 'half'
-      this.phaseT = this.fast ? 0.05 : this.half === 1 ? 3 : 2.2
+      this.phaseT = this.half === 1 ? 3 : 2.2
       this.setBanner(this.t(this.half === 1 ? 'feed.halftime' : 'lv.b.etHalf'), 3)
       this.emit({ k: 'whistle', v: 2, say: this.t('lv.tts.half') })
       return
@@ -1134,7 +1190,7 @@ export class Engine {
     if (this.half === 2 && this.setup.knockout && level) {
       this.extraTime = true
       this.phase = 'half'
-      this.phaseT = this.fast ? 0.05 : 3
+      this.phaseT = 3
       this.setBanner(this.t('lv.b.extraTime'), 3)
       this.say('extraTime')
       this.emit({ k: 'whistle', v: 2, say: this.t('lv.tts.extraTime') })
@@ -2669,7 +2725,7 @@ export class Engine {
     this.setBanner(this.t('feed.goalBanner', { who }), 3.2)
     this.lastConceded = this.opp(t)
     this.phase = 'goal'
-    this.phaseT = this.fast ? 0.05 : 3.4
+    this.phaseT = 3.4
     this.shake = 1; this.whiteFlash = 0.75; this.celebT = 1; this.celebTeam = t
     if (sh?.great && !this.fast) this.slowmo = 0.8
     for (const c of this.ctl) c.reset()
