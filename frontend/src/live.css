@@ -37,6 +37,8 @@
 .lv-prompt.two.p2 { left: 74%; max-width: 46%; }
 .lv-injury, .lv-join { position: absolute; left: 50%; transform: translateX(-50%); top: 12px; background: rgba(120, 20, 20, 0.85); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; pointer-events: none; }
 .lv-join { background: rgba(20, 70, 110, 0.85); top: 46px; }
+.lv-away { background: rgba(28, 32, 44, 0.9); top: 80px; max-width: 92%; text-align: center; }
+.lv-away b { color: #ffd76a; }
 .banner.lv-goal { font-size: clamp(28px, 5.5vw, 60px); line-height: 1.25; max-width: 92%; top: 30%; letter-spacing: 1px; animation: lv-pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both; color: #fff; text-shadow: 0 0 24px rgba(255, 225, 77, 0.8), 0 4px 20px rgba(0, 0, 0, 0.7); }
 @keyframes lv-pop { from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 

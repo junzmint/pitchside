@@ -198,6 +198,20 @@ export class InputHub {
     return out
   }
 
+  /** Only what other devices pushed (a Wi-Fi guest): all there is to read while this page is hidden, and reading the
+   *  controllers then could take one for unplugged. */
+  pollRemote(): [InputFrame | null, InputFrame | null] {
+    const out: [InputFrame | null, InputFrame | null] = [null, null]
+    for (const side of [0, 1] as const) {
+      for (const src of this.slots[side]) {
+        if (!(src instanceof RemoteSource) || src.key === 'touch') continue
+        const f = src.poll()
+        if (f) out[side] = merge(out[side], f)
+      }
+    }
+    return out
+  }
+
   /** Button glyphs for a side: the device used most recently. */
   glyphs(side: 0 | 1): Glyphs {
     let best: InputSource | null = null

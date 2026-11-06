@@ -271,6 +271,11 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
 - **Watch**: the computer plays both sides at full length. You can pause, run at 1×/2×/4×, take control or simulate the rest.
 - **2 players**: two controllers, or keyboard + controller. Press Options/☰ on a pad to claim P1 or P2.
 
+**Looking away**: the match keeps running when you switch to another tab, another window or another desktop; only the pause button (or the menu) stops it.
+- While you are away, the computer plays for your team, and a banner says so. Press any key or button, or touch the pad, to take over again.
+- If the browser froze the page (a phone in your pocket, a suspended tab), the time it missed is played through as soon as the page is back, without sound or replays.
+- The same goes for quick matches. A Wi-Fi guest keeps playing and keeps getting the picture.
+
 Other options:
 - **Match length:** 3, 5 or 8 minutes.
 - **Difficulty:** easy, normal or hard.

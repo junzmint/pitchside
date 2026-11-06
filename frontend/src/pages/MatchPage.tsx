@@ -11,6 +11,7 @@ import { listPads, rawPad, type PadInfo } from '../match/gamepad'
 import { BTN, type Glyphs } from '../match/frame'
 import { CAMS, View, type CamMode } from '../match/render'
 import { MatchAudio } from '../match/audio'
+import { AwayWatch, MatchClock, keepRunning } from '../match/loop'
 import { COMBO_ROWS, ROWS, glyph, glyphParams, type CtlGroup } from '../match/controls'
 import { PostMatch } from '../match/PostMatch'
 import { manOfTheMatch, rateMatch } from '../match/ratings'
@@ -215,6 +216,7 @@ export default function MatchPage({ ctx, onClose, initialMode = 'play' }: { ctx:
               <label className="row lv-check"><input type="checkbox" checked={replays} onChange={e => setReplays(e.target.checked)} /> {t('lv.pre.replays')}</label>
               {mode === 'duo' && <Lobby assign={assign} setAssign={setAssign} setup={setup} />}
               {mode === 'watch' ? <Hint text={t('lv.pre.watchNote')} /> : <Hint text={t('mp.aiNote')} />}
+              <Hint text={t(mode === 'watch' ? 'lv.pre.awayWatch' : 'lv.pre.awayPlay')} />
               {setup.knockout && <Hint text={t('lv.pre.knockoutNote')} />}
               {mode !== 'watch' && <ControlsCard />}
               {err && <p className="error">{err}</p>}
@@ -357,6 +359,9 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
   const speedRef = useRef(1)
   speedRef.current = speed
   const [skipping, setSkipping] = useState(false)
+  /** sides the computer plays while nobody is at this device (P1, P2), and the clock running through missed time */
+  const [awaySides, setAwaySides] = useState<[boolean, boolean]>([false, false])
+  const [catching, setCatching] = useState(false)
   const [showKeys, setShowKeys] = useState(() => pref('pitchside.keys', true))
   const [names, setNames] = useState(() => pref('pitchside.names', true))
   const namesRef = useRef(names)
@@ -410,8 +415,10 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     audio.tts = tts
     audioRef.current = audio
     let hub: InputHub | null = null
+    const clock = new MatchClock()
     const onEvent = (e: EngineEvent) => {
       if (e.k === 'cam') { changeCam(e.v ?? 1); return }
+      if (clock.quiet) return // running through time the page missed: no burst of sound
       audio.event(e)
       if (e.r && hub) for (const s of [0, 1] as const) if (e.r[s] > 0) hub.rumble(s, e.r[s], e.r[s] * 0.6, e.k === 'goal' ? 450 : 140)
     }
@@ -425,8 +432,9 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     hub = new InputHub(twoP, assign, side => eng.contextOf(side))
     hub.rumbleOn = settings.rumble
     hubRef.current = hub
+    const away = new AwayWatch(eng, hub)
     hub.onDisconnect = (side, label) => {
-      if (modeRef.current === 'watch' || eng.phase === 'end') return
+      if (modeRef.current === 'watch' || eng.phase === 'end' || away.sides[side]) return
       eng.pause('disconnect')
       setDisc({ side, label })
     }
@@ -437,17 +445,25 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     if (import.meta.env.DEV) (window as unknown as { __eng: Engine }).__eng = eng
     const cv = canvas.current!
     const ctx2 = cv.getContext('2d')!
-    let raf = 0, last = performance.now(), acc = 0, frames = 0, wasPaused = false, endFrames = 0
+    let frames = 0, wasPaused = false, endFrames = 0, hudAt = 0, savedAt = performance.now()
     let prevB = 0, prevB1 = 0
     let ffPort: MessagePort | null = null // set while "skip to end" runs
     const persist = () => { if (eng.phase !== 'end') saveSnapshot(careerId, takeSnapshot(eng, setup.fixture.id, modeRef.current)) }
     const labels = { replay: tRef.current('lv.replay'), skip: tRef.current('lv.replaySkip') }
+    const speed = () => (modeRef.current === 'watch' ? speedRef.current : 1)
+    const showAway = () => setAwaySides(a => (a[0] === away.sides[0] && a[1] === away.sides[1] ? a : [away.sides[0], away.sides[1]]))
+    /** sound, and a snapshot every few seconds: the same whether the page shows or not */
+    const tail = (now: number, dt: number) => {
+      if (eng.paused !== wasPaused) { wasPaused = eng.paused; if (wasPaused) audio.suspend(); else audio.resume() }
+      const [ex, homeAtt] = eng.excitement()
+      audio.tick(Math.min(dt, 0.1), ex, homeAtt)
+      if (now - savedAt > 3000) { savedAt = now; persist() }
+    }
     const frame = (now: number) => {
       const dpr = window.devicePixelRatio || 1
       const w = cv.clientWidth, h = cv.clientHeight
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr) }
-      const dt = Math.min(0.1, (now - last) / 1000)
-      last = now
+      const dt = clock.delta(now)
       // the set-piece camera turns the sticks with the picture (up = towards the goal); other cameras: as they are
       const view = viewRef.current
       const [r0, r1] = hub!.poll()
@@ -456,6 +472,7 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
       const watching = modeRef.current === 'watch'
       eng.setInput(0, watching ? null : f0)
       eng.setInput(1, watching ? null : f1)
+      away.check() // back at the keys or the controller: your side is yours again
       const pr0 = f0 ? f0.b & ~prevB : 0, pr1 = f1 ? f1.b & ~prevB1 : 0
       if (modeRef.current === 'watch' && f0) {
         // viewer controls on a pad: Start pause · ✚←→ camera · R1 speed · △/Y take control
@@ -471,18 +488,9 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
       if (!eng.paused) for (const [s, pr] of [[0, pr0], [1, pr1]] as const) if (pr & BTN.SELECT && tipRef.current?.side === s) acceptTipRef.current()
       prevB = f0?.b ?? 0
       prevB1 = f1?.b ?? 0
-      if (ffPort) {
-        // "skip to end" runs on its own (see skipToEnd); the picture just follows
-      } else {
-        const sp = modeRef.current === 'watch' ? speedRef.current : 1
-        acc += dt * sp
-        let n = 0
-        while (acc >= 1 / 60 && n < 8 * sp) { eng.update(1 / 60); acc -= 1 / 60; n++ }
-        if (n >= 8 * sp) acc = 0
-      }
-      if (eng.paused !== wasPaused) { wasPaused = eng.paused; if (wasPaused) audio.suspend(); else audio.resume() }
-      const [ex, homeAtt] = eng.excitement()
-      audio.tick(dt, ex, homeAtt)
+      // "skip to end" runs on its own (see skipToEnd); the picture just follows
+      if (!ffPort) clock.run(eng, dt, speed(), true, 12)
+      tail(now, dt)
       if (eng.phase === 'end') endFrames++
       ctx2.setTransform(dpr, 0, 0, dpr, 0, 0)
       if (endFrames < 90) view.draw(ctx2, w, h, eng.frameState(), eng.statics(), now, { labels, names: namesRef.current, mini: miniRef.current, setPiece: true })
@@ -491,11 +499,21 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         setHud(eng.hud())
         setSpOn(view.setPiece)
         setGlyphs(g => { const n0 = hub!.glyphs(0), n1 = hub!.glyphs(1); return g[0] === n0 && g[1] === n1 ? g : [n0, n1] })
+        showAway()
+        setCatching(clock.catchingUp)
       }
-      if (frames % 180 === 0) persist()
-      raf = requestAnimationFrame(frame)
     }
-    raf = requestAnimationFrame(frame)
+    // no animation frames (the page is hidden, the window minimised or on another desktop): the match goes on without
+    // a picture, and nobody is at the controls
+    const idle = (now: number) => {
+      const dt = clock.delta(now)
+      eng.setInput(0, null)
+      eng.setInput(1, null)
+      if (!ffPort) clock.run(eng, dt, speed(), false, 100)
+      tail(now, dt)
+      if (now - hudAt > 250) { hudAt = now; setHud(eng.hud()); showAway() }
+    }
+    const stopLoop = keepRunning(frame, idle)
     // "Skip to end": the rest of the match runs through the engine in 40 ms slices, one after another (a message
     // channel, not the animation frame, which a hidden or background window slows to a crawl), so it takes well
     // under a second on a normal machine and the page stays responsive meanwhile
@@ -565,7 +583,8 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     }
     const ku = (e: KeyboardEvent) => { const k = gameKey(e); if (k) { hub!.kb.keyUp(k); if (!eng.paused) e.preventDefault() } }
     const wake = () => audio.wake()
-    const blur = () => { hub!.kb.clear(); if (modeRef.current !== 'watch' && eng.phase !== 'end') eng.pause('user'); persist() }
+    // looking away doesn't pause (only the pause button does): the computer plays your side until you're back
+    const blur = () => { hub!.kb.clear(); away.leave(); showAway(); persist() }
     const vis = () => { if (document.hidden) blur() }
     audio.wake()
     document.addEventListener('visibilitychange', vis)
@@ -576,7 +595,7 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     window.addEventListener('pagehide', persist)
     return () => {
       persist()
-      cancelAnimationFrame(raf)
+      stopLoop()
       if (ffPort) { ffPort.close(); ffPort = null }
       audio.close()
       window.removeEventListener('keydown', kd)
@@ -715,8 +734,12 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         {tip && hud && eng && !hud.paused && !spOn && !done && !prompts.length && (
           <SubTip tip={tip} g={glyphs[tip.side]} duo={duo} left={1 - (eng.clock - tip.at) / TIP_S} onSub={() => acceptTipRef.current()} onClose={hideTip} />
         )}
-        {!hud?.paused && duo && hud && !hud.human[1] && <div className="lv-join">{t('lv.hud.p2join')}</div>}
+        {!hud?.paused && duo && hud && !hud.human[1] && !awaySides[1] && <div className="lv-join">{t('lv.hud.p2join')}</div>}
+        {(awaySides[0] || awaySides[1]) && hud && !hud.paused && !done && (
+          <div className="lv-join lv-away">{duo && <b>{awaySides.flatMap((a, s) => (a ? [`P${s + 1}`] : [])).join(' · ')} · </b>}{t('lv.away')}</div>
+        )}
         {skipping && <div className="setpiece">{t('lv.w.skipping')}</div>}
+        {catching && !skipping && !done && <div className="setpiece">⏩ {t('lv.catchUp')}</div>}
         {menuOpen && subsFor == null && eng && (
           <PauseMenu eng={eng} hud={hud!} tab={tab} setTab={setTab} duo={duo} watch={watch} glyph={glyphs[0]} camMode={camMode} onCam={changeCam}
             onResume={resume} onSubs={s => openSubs(s, null, 'menu')} onLeave={onLeave} tts={tts} setTts={setTts} names={names} setNames={setNames} mini={mini} setMini={setMini} showKeys={showKeys} setShowKeys={setShowKeys}

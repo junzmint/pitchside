@@ -5,6 +5,7 @@ import { InputHub, type DeviceRef } from '../../match/input'
 import type { Glyphs } from '../../match/frame'
 import { CAMS, View, type CamMode } from '../../match/render'
 import { MatchAudio } from '../../match/audio'
+import { AwayWatch, MatchClock, keepRunning } from '../../match/loop'
 import { setSettings, useSettings, type Camera } from '../../settings'
 import { ConfirmButton, Icon, Seg } from '../../ui'
 import { useI18n } from '../../i18n'
@@ -52,6 +53,9 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
   lostRef.current = lost
   const [padLabel, setPadLabel] = useState('')
   const [back, setBack] = useState(false)
+  /** sides the computer plays while nobody is at this device, and the clock running through missed time */
+  const [awaySides, setAwaySides] = useState<[boolean, boolean]>([false, false])
+  const [catching, setCatching] = useState(false)
   const [, force] = useState(0)
   const tRef = useRef(t)
   tRef.current = t
@@ -78,10 +82,12 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
     audio.lang = lang
     audioRef.current = audio
     let hub: InputHub | null = null
+    const clock = new MatchClock()
     const onEvent = (e: EngineEvent) => {
       if (e.k === 'cam') { changeCam(e.v ?? 1); return }
-      audio.event(e)
       lan?.event(e)
+      if (clock.quiet) return // running through time the page missed: no burst of sound
+      audio.event(e)
       if (e.r && hub) for (const s of [0, 1] as const) if (e.r[s] > 0) hub.rumble(s, e.r[s], e.r[s] * 0.6, e.k === 'goal' ? 450 : 140)
     }
     const p2 = mode === 'duo' ? assign[1].length > 0 : mode === 'lan' ? !!lan?.guest : false
@@ -92,8 +98,10 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
     hub = new InputHub(mode === 'duo', mode === 'duo' ? assign : [[{ kind: 'kb' }], []], side => eng.contextOf(side))
     hub.rumbleOn = settings.rumble
     hubRef.current = hub
+    // a Wi-Fi guest plays on his own device: only this device's sides go to the computer while nobody is here
+    const gone = new AwayWatch(eng, hub, s => !(mode === 'lan' && s === 1))
     hub.onDisconnect = (side, label) => {
-      if (eng.phase === 'end') return
+      if (eng.phase === 'end' || gone.sides[side]) return
       eng.pause('disconnect')
       setPadLabel(`P${side + 1} · ${label}`)
       setLost('pad')
@@ -123,14 +131,19 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
     if (import.meta.env.DEV) (window as unknown as { __eng: Engine }).__eng = eng
     const cv = canvas.current!
     const ctx2 = cv.getContext('2d')!
-    let raf = 0, last = performance.now(), acc = 0, frames = 0, wasPaused = false
+    let frames = 0, wasPaused = false, hudAt = 0
     const labels = { replay: tRef.current('lv.replay'), skip: tRef.current('lv.replaySkip') }
+    const showAway = () => setAwaySides(a => (a[0] === gone.sides[0] && a[1] === gone.sides[1] ? a : [gone.sides[0], gone.sides[1]]))
+    const tail = (dt: number) => {
+      if (eng.paused !== wasPaused) { wasPaused = eng.paused; if (wasPaused) audio.suspend(); else audio.resume() }
+      const [ex, homeAtt] = eng.excitement()
+      audio.tick(Math.min(dt, 0.1), ex, homeAtt)
+    }
     const frame = (now: number) => {
       const dpr = window.devicePixelRatio || 1
       const w = cv.clientWidth, h = cv.clientHeight
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr) }
-      const dt = Math.min(0.1, (now - last) / 1000)
-      last = now
+      const dt = clock.delta(now)
       // the set-piece camera turns the sticks with the picture (up = towards the goal); a Wi-Fi guest's are turned on
       // his own device
       const [p0, p1] = hub!.poll()
@@ -138,15 +151,9 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
       const f0 = v.stick(p0), f1 = mode === 'lan' ? p1 : v.stick(p1)
       eng.setInput(0, f0)
       eng.setInput(1, f1)
-      acc += dt
-      let n = 0
-      while (acc >= 1 / 60 && n < 8) {
-        eng.update(1 / 60); acc -= 1 / 60; n++
-      }
-      if (n >= 8) acc = 0
-      if (eng.paused !== wasPaused) { wasPaused = eng.paused; if (wasPaused) audio.suspend(); else audio.resume() }
-      const [ex, homeAtt] = eng.excitement()
-      audio.tick(dt, ex, homeAtt)
+      gone.check() // back at the keys or the controller: your side is yours again
+      clock.run(eng, dt, 1, true, 12)
+      tail(dt)
       ctx2.setTransform(dpr, 0, 0, dpr, 0, 0)
       viewRef.current.draw(ctx2, w, h, eng.frameState(), eng.statics(), now, { labels, names: true, setPiece: true })
       lan?.tick(now)
@@ -154,10 +161,22 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
       if (frames % 6 === 0) {
         setHud(eng.hud())
         setGlyphs(g => { const a = hub!.glyphs(0), b = hub!.glyphs(1); return g[0] === a && g[1] === b ? g : [a, b] })
+        showAway()
+        setCatching(clock.catchingUp)
       }
-      raf = requestAnimationFrame(frame)
     }
-    raf = requestAnimationFrame(frame)
+    // no animation frames (the page is hidden, the window minimised or on another desktop): the match goes on without
+    // a picture here; a Wi-Fi guest still plays and still gets the picture
+    const idle = (now: number) => {
+      const dt = clock.delta(now)
+      eng.setInput(0, null)
+      eng.setInput(1, mode === 'lan' ? hub!.pollRemote()[1] : null)
+      clock.run(eng, dt, 1, mode === 'lan' && !!lan?.guest, 100)
+      tail(dt)
+      lan?.tick(now)
+      if (now - hudAt > 250) { hudAt = now; setHud(eng.hud()); showAway() }
+    }
+    const stopLoop = keepRunning(frame, idle, mode === 'lan' ? 16 : 50)
     const kd = (e: KeyboardEvent) => {
       audio.wake()
       const k = gameKey(e)
@@ -177,24 +196,24 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
     }
     const ku = (e: KeyboardEvent) => { const k = gameKey(e); if (k) { hub!.kb.keyUp(k); if (!eng.paused) e.preventDefault() } }
     const wake = () => audio.wake()
-    const blur = () => { hub!.kb.clear(); if (eng.phase !== 'end' && !eng.paused) eng.pause('user') }
-    // on Wi-Fi the guest keeps playing while this window merely loses focus; a hidden tab stops anyway
-    const winBlur = () => { if (mode === 'lan' && lan?.guest) hub!.kb.clear(); else blur() }
+    // looking away doesn't pause (only the pause button does): the computer plays this device's sides until you're
+    // back, and a Wi-Fi guest plays on
+    const blur = () => { hub!.kb.clear(); gone.leave(); showAway() }
     const vis = () => { if (document.hidden) blur() }
     audio.wake()
     document.addEventListener('visibilitychange', vis)
     window.addEventListener('keydown', kd)
     window.addEventListener('keyup', ku)
     window.addEventListener('pointerdown', wake)
-    window.addEventListener('blur', winBlur)
+    window.addEventListener('blur', blur)
     return () => {
-      cancelAnimationFrame(raf)
+      stopLoop()
       audio.close()
       if (lan) { lan.unbind(); lan.onGuest = () => {} }
       window.removeEventListener('keydown', kd)
       window.removeEventListener('keyup', ku)
       window.removeEventListener('pointerdown', wake)
-      window.removeEventListener('blur', winBlur)
+      window.removeEventListener('blur', blur)
       document.removeEventListener('visibilitychange', vis)
     }
   }, [setup, halfSeconds, difficulty])
@@ -265,7 +284,11 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
             {duo && <b>P{s + 1} </b>}{t('lv.p.' + hud!.sides[s].prompt, params(s))}
           </div>
         ))}
-        {!hud?.paused && mode === 'duo' && hud && !hud.human[1] && <div className="lv-join">{t('lv.hud.p2join')}</div>}
+        {!hud?.paused && mode === 'duo' && hud && !hud.human[1] && !awaySides[1] && <div className="lv-join">{t('lv.hud.p2join')}</div>}
+        {(awaySides[0] || awaySides[1]) && hud && !hud.paused && !done && (
+          <div className="lv-join lv-away">{mode === 'duo' && <b>{awaySides.flatMap((a, s) => (a ? [`P${s + 1}`] : [])).join(' · ')} · </b>}{t('lv.away')}</div>
+        )}
+        {catching && !done && <div className="setpiece">⏩ {t('lv.catchUp')}</div>}
         {back && <div className="setpiece pl-back"><WifiIcon /> {t('pl.lan.back')}</div>}
         {menuOpen && eng && (
           <PauseCard eng={eng} hud={hud!} g={glyphs[0]} camMode={camMode} onCam={changeCam} onResume={resume} onLeave={leave} showKeys={showKeys} setShowKeys={setShowKeys} />
