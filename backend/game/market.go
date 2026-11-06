@@ -217,14 +217,7 @@ func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]
 	if div < 1 || div > Divisions {
 		div = 1
 	}
-	defs := CountryClubDefs(c.League)
-	var base float64
-	n := 0
-	for i := (div - 1) * DivisionSize; i < div*DivisionSize && i < len(defs); i++ {
-		base += defs[i].Base
-		n++
-	}
-	base /= float64(n)
+	base := divisionAverage(c.League, div)
 	positions := []string{"GK", "DF", "DF", "DF", "MF", "MF", "MF", "FW", "FW"}
 	for i := 0; i < MarketSize; i++ {
 		t := base - 12 + r.Float64()*16
@@ -263,7 +256,7 @@ func refreshMarketNews(ctx context.Context, q DBTX, r *rand.Rand, c *Career) ([]
 	if err := q.QueryRow(ctx, `SELECT count(*) FROM templates WHERE career_id=$1 AND NOT signed AND market_until >= $2`, c.ID, now).Scan(&showing); err != nil {
 		return nil, err
 	}
-	n = 0
+	n := 0
 	if showing == 0 {
 		n = 1
 	}

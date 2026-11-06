@@ -333,11 +333,7 @@ func (w *world) youthTick(r *rand.Rand, rep *DayReport, played int) error {
 	es.YouthSeason = c.Season
 	user := w.byID[c.UserClubID]
 	lvl := max(1, user.Academy)
-	defs := CountryClubDefs(user.League)
-	base := 60.0
-	if i := (user.Division - 1) * DivisionSize; i >= 0 && i+DivisionSize/2 < len(defs) {
-		base = defs[i+DivisionSize/2].Base
-	}
+	base := divisionLevel(user.League, user.Division)
 	n := 3 + r.Intn(3)
 	yi := &YouthIntake{Season: c.Season, Until: c.Day + 5}
 	pk := managerPerks(es.Level)

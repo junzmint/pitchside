@@ -1414,11 +1414,7 @@ func (w *world) academy(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepor
 	if len(w.players[user.ID]) >= MaxSquad || r.Float64() > 0.035*float64(lvl) {
 		return nil
 	}
-	defs := CountryClubDefs(user.League)
-	base := 60.0
-	if i := (user.Division - 1) * DivisionSize; i >= 0 && i < len(defs) {
-		base = defs[i+DivisionSize/2].Base
-	}
+	base := divisionLevel(user.League, user.Division)
 	pos := []string{"GK", "DF", "DF", "MF", "MF", "FW", "FW"}[r.Intn(7)]
 	p := GenPlayer(r, nationsOf(user.League), pos, base-10+r.Float64()*4, 16, 17)
 	p.Potential = int(math.Min(95, float64(p.Potential)+float64(lvl*3)))

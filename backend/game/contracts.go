@@ -653,11 +653,7 @@ func (w *world) academyTopUp(ctx context.Context, q DBTX, r *rand.Rand) ([]strin
 		}
 		return []string{"DF", "MF", "MF", "FW"}[r.Intn(4)]
 	}
-	defs := CountryClubDefs(user.League)
-	base := 60.0
-	if i := (user.Division-1)*DivisionSize + DivisionSize/2; user.Division > 0 && i < len(defs) {
-		base = defs[i].Base
-	}
+	base := divisionLevel(user.League, user.Division)
 	lvl := max(1, user.Academy)
 	var names []string
 	for len(squad)+len(names) < SquadFloor {

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"math/rand"
 	"strings"
 )
@@ -12,6 +13,7 @@ import (
 const (
 	Divisions    = 3
 	DivisionSize = 20
+	LowerDivStep = 0.75 // base strength lost per place in divisions 2 and 3 (division 1's generated clubs: 0.6)
 	PromoteCount = 3
 )
 
@@ -92,17 +94,19 @@ func CountryClubDefs(code string) []ClubDef {
 		switch div {
 		case 0:
 			base = 71 - posInDiv*0.6 // D1 extras: ~71 → 64
+		// lower divisions spread like real second and third tiers (0.4 a place made them a coin toss: the champion
+		// finished on about 72 points, the table's spread was half a real one's)
 		case 1:
-			base = 66 - posInDiv*0.4 // D2: 66 → 58
+			base = 66 - posInDiv*LowerDivStep // D2: 66 → 51.8
 		default:
-			base = 60 - posInDiv*0.4 // D3: 60 → 52
+			base = 60 - posInDiv*LowerDivStep // D3: 60 → 45.8
 		}
 		k := kitColours[(i*5+int(code[0]))%len(kitColours)]
 		if c1, c2, ok := homeColours(n); ok { // the club's real colours (data_kits.go)
 			k = [2]string{c1, c2}
 		}
 		defs = append(defs, ClubDef{Name: n, Short: shortOf(n), Color: k[0], Color2: k[1], Base: base, Rep: int(base) - 4,
-			Budget: int64(base-48) * 2 * M, Formation: forms[r.Intn(len(forms))],
+			Budget: int64(max(1, math.Floor(base-48))) * 2 * M, Formation: forms[r.Intn(len(forms))], // the poorest still have 2M
 			Tactic: Tactic{Mentality: ments[r.Intn(3)], Pressing: press[r.Intn(3)], Passing: pass[r.Intn(3)], Width: "normal"}})
 		if len(defs) >= Divisions*DivisionSize {
 			break
@@ -110,6 +114,48 @@ func CountryClubDefs(code string) []ClubDef {
 	}
 	uniqueShorts(defs, len(ld.Clubs))
 	return defs
+}
+
+// preSpread: a lower-division club's base before LowerDivStep spread the lower divisions (0.4 a place).
+func preSpread(div int, pos float64) float64 {
+	if div == 1 {
+		return 66 - pos*0.4
+	}
+	return 60 - pos*0.4
+}
+
+// divisionLevel: the level of a division's mid-table club, which its youth intake and market players follow.
+// Divisions 2 and 3 keep the level they had before they were spread, so a save's intake and market stay as they
+// were; only a new career's squads spread (division 1 never changed).
+func divisionLevel(code string, div int) float64 {
+	if div < 1 || div > Divisions {
+		return 60
+	}
+	if div > 1 {
+		return preSpread(div-1, DivisionSize/2)
+	}
+	if defs := CountryClubDefs(code); DivisionSize/2 < len(defs) {
+		return defs[DivisionSize/2].Base
+	}
+	return 60
+}
+
+// divisionAverage: the mean level of a division's clubs (the same rule as divisionLevel).
+func divisionAverage(code string, div int) float64 {
+	if div > 1 && div <= Divisions {
+		sum := 0.0
+		for pos := 0; pos < DivisionSize; pos++ {
+			sum += preSpread(div-1, float64(pos))
+		}
+		return sum / DivisionSize
+	}
+	defs := CountryClubDefs(code)
+	sum, n := 0.0, 0
+	for i := 0; i < DivisionSize && i < len(defs); i++ {
+		sum += defs[i].Base
+		n++
+	}
+	return sum / float64(max(1, n))
 }
 
 // uniqueShorts gives every generated club a short name no other club in the country has

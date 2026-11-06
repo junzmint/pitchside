@@ -193,7 +193,9 @@ tied to one club for good — to manage another club, start a new career.
 
 The lineup screen marks low-chemistry positions and explains why. Chemistry affects both simulated and live matches.
 
-**Match odds**: the win / draw / loss chances on the Match Centre come from the quick simulation's own model, the one that plays the match when you simulate it: the starting elevens (attributes, positions, fitness, morale), chemistry, the coach, tactics, home advantage, the weather and the occasion (cup and continental nights, the captain, the press conference, the crowd). They update when you change the line-up, the tactics or answer the press, and the tooltip shows the expected goals. Measured over thousands of simulated matches, a side shown at 80% wins about 79% of the time, draws 14% and loses 7%; luck still counts, but less than before.
+**Match odds**: the win / draw / loss chances on the Match Centre come from the quick simulation's own model, the one that plays the match when you simulate it: the starting elevens (attributes, positions, fitness, morale), chemistry, the coach, tactics, home advantage, the weather and the occasion (cup and continental nights, the captain, the press conference, the crowd). They update when you change the line-up, the tactics or answer the press, and the tooltip shows the expected goals.
+
+**Lower divisions** spread like real second and third tiers: in a new career a club loses 0.75 of strength per place in Divisions 2 and 3 (it was 0.4, and a second-tier title race was nearly a coin toss), so a strong side finishes in the 80s and a weak one fights the drop. The poorest club still has €2M to spend. An existing save keeps its clubs, youth intakes and market levels. Measured over thousands of simulated matches, a side shown at 80% wins about 79% of the time, draws 14% and loses 7%; luck still counts, but less than before.
 
 **The computer** plays according to its formation and tactics. How well it plays depends on its players' stats and chemistry. Difficulty only shifts the baseline.
 
