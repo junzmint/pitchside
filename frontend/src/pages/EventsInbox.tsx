@@ -6,6 +6,7 @@ import { eventsApi, eventsOf, type Award, type EventReq, type EventsView, type H
 import { Abbr, Bar, ConfirmButton, Hint, Icon, Ovr, PlayerCard, PosTag, Seg, Title } from '../ui'
 import { showReveal } from '../reveal'
 import { errText, useI18n, type TFn } from '../i18n'
+import { MailTags, mailClass, whoIn } from './MailTags'
 
 // Events work stream: decisions that land in the Inbox (press conferences, playing-time talks,
 // youth intake, transfer bids, loans …). Rendered inside the Inbox page.
@@ -162,19 +163,24 @@ function TalksPanel({ ctx, ev }: { ctx: Ctx; ev: EventsView }) {
   return (
     <section className="panel stack">
       <Title icon="talk">{t('talk.title')}</Title>
-      {ev.talks.map(k => (
-        <div key={k.id} className="offer">
-          <div className="row spread"><b>{k.name} <small className="muted">· {k.role}</small> <Ovr v={k.overall} /></b>
-            <span className={'chip' + (k.until - ctx.st.career.day <= 0 ? ' bad' : '')}>{t('dem.left', { n: Math.max(0, k.until - ctx.st.career.day) })}</span></div>
+      {ev.talks.map(k => {
+        const who = whoIn(ctx.st.squad, k.playerId)
+        return (
+        <div key={k.id} className={'offer ' + mailClass(who)}>
+          <MailTags who={who} kind="talk">
+            <span className={'chip' + (k.until - ctx.st.career.day <= 0 ? ' bad' : '')}>{t('dem.left', { n: Math.max(0, k.until - ctx.st.career.day) })}</span>
+          </MailTags>
+          <b>{k.name} <small className="muted">· {k.role}</small> <Ovr v={k.overall} /></b>
           <span style={{ fontSize: 14 }}>“{t('talk.ask', { n: k.benched })}”</span>
           <div className="row">
             <button className="primary small" disabled={busy} onClick={() => act({ action: 'talk', id: k.id, choice: 'promise' }, () => t('talk.promised', { name: k.name }))}>{t('talk.promise')}</button>
             <button className="small" disabled={busy} onClick={() => act({ action: 'talk', id: k.id, choice: 'wait' }, () => t('talk.waited', { name: k.name }), true)}>{t('talk.wait')}</button>
-            <ConfirmButton className="small" label={t('talk.sell')} confirm={t('confirm')} onConfirm={() => act({ action: 'talk', id: k.id, choice: 'sell' }, () => t('talk.listed', { name: k.name }))} />
+            <ConfirmButton className="small" label={t('talk.sell')} confirm={t('talk.sellConfirm', { name: k.name })} onConfirm={() => act({ action: 'talk', id: k.id, choice: 'sell' }, () => t('talk.listed', { name: k.name }))} />
           </div>
           <span className="muted" style={{ fontSize: 12 }}>{t('talk.help')}</span>
         </div>
-      ))}
+        )
+      })}
     </section>
   )
 }
@@ -189,21 +195,27 @@ function BidsPanel({ ctx, ev }: { ctx: Ctx; ev: EventsView }) {
     <section className="panel stack">
       <Title icon="handCoins">{t('bid.title')}</Title>
       <div className="grid g2" style={{ gap: 10 }}>
-        {ev.bids.map(b => (
-          <div key={b.id} className="offer">
-            <div className="row spread"><b>{b.name} <small className="muted">· {b.role}</small> <Ovr v={b.overall} /></b>
-              <span className="chip">{t('dem.left', { n: Math.max(0, b.until - ctx.st.career.day) })}</span></div>
+        {ev.bids.map(b => {
+          const who = whoIn(ctx.st.squad, b.playerId)
+          return (
+          <div key={b.id} className={'offer ' + mailClass(who)}>
+            <MailTags who={who} kind="bid">
+              <span className="chip">{t('dem.left', { n: Math.max(0, b.until - ctx.st.career.day) })}</span>
+            </MailTags>
+            <b>{b.name} <small className="muted">· {b.role}</small> <Ovr v={b.overall} /></b>
             <span>{t('bid.from', { club: b.club })}</span>
             <span className="num"><b>{money(b.fee)}</b> <small className="muted">({t('bid.value', { v: money(b.value) })})</small></span>
             {b.listed && <span className="muted" style={{ fontSize: 12 }}>{t('bid.listed')}</span>}
             <div className="row">
-              <ConfirmButton className="primary small" label={t('bid.accept')} confirm={t('confirm')} onConfirm={() => act({ action: 'bid', id: b.id, choice: 'accept' }, r => res(r, b.name))} />
+              <ConfirmButton className="primary small" label={t('bid.accept')} confirm={t(who === 'player' ? 'bid.sellConfirm' : 'bid.sellIconConfirm', { name: b.name, v: money(b.fee) })}
+                onConfirm={() => act({ action: 'bid', id: b.id, choice: 'accept' }, r => res(r, b.name))} />
               <button className="small" disabled={busy} onClick={() => act({ action: 'bid', id: b.id, choice: 'counter' }, r => res(r, b.name), true)}>{t('bid.counter', { v: money(Math.round(b.fee * 1.2 / 10000) * 10000) })}</button>
               <button className="small" disabled={busy} onClick={() => act({ action: 'bid', id: b.id, choice: 'reject' }, r => res(r, b.name))}>{t('bid.reject')}</button>
             </div>
             <span className="muted" style={{ fontSize: 12 }}>{t('bid.counterHelp', { p: Math.round((0.45 + ev.perks.counterBonus - (b.listed ? 0.1 : 0)) * 100) })}</span>
           </div>
-        ))}
+          )
+        })}
       </div>
     </section>
   )

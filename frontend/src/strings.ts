@@ -9,6 +9,7 @@ import { ui2Strings } from './strings_ui2'
 import { medicalStrings } from './strings_medical'
 import { staffStrings } from './strings_staff'
 import { kitStrings } from './strings_kits'
+import { mailStrings } from './strings_mail'
 
 export type Lang = 'vi' | 'en' | 'ja'
 
@@ -914,6 +915,6 @@ const en: Record<string, string> = {
   'lgv.willMerge': 'Merges with {name}', 'lgv.willMergeTip': 'Signing him merges him with {name} at your club: only the legend version stays, each attribute takes the higher value +1 and his limit breaks.',
 }
 
-const ext = [liveStrings, eventsStrings, exploreStrings, stageStrings, clubStrings, ui2Strings, playStrings, medicalStrings, staffStrings, kitStrings]
+const ext = [liveStrings, eventsStrings, exploreStrings, stageStrings, clubStrings, ui2Strings, playStrings, medicalStrings, staffStrings, kitStrings, mailStrings]
 const merged = (base: Record<string, string>, l: Lang) => Object.assign({}, base, ...ext.map(e => e[l]))
 export const STRINGS: Record<Lang, Record<string, string>> = { vi: merged(vi, 'vi'), en: merged(en, 'en'), ja: merged(ja, 'ja') }

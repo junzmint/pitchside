@@ -870,6 +870,23 @@ small.wrap, span.wrap { display: block; }
 .dem-ask { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dem-ask b { font-family: var(--display); font-size: 22px; font-style: italic; color: var(--hot); }
 .demand { border-radius: 0; }
+/* inbox mail tags (pages/MailTags.tsx): who it is about, filled; what it is, outlined; the card's left edge in the who colour */
+.mailtags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.mailtags .mt-end { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.mtag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 3px; font-family: var(--display); font-size: 14.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.25; }
+.mtag.who { color: #0b1218; }
+.mtag.w-player { background: #3ee08a; }
+.mtag.w-icon { background: linear-gradient(180deg, #ffe27a, #f2b600); color: #2a1d00; box-shadow: 0 0 12px rgba(255, 210, 63, 0.5); }
+.mtag.w-coach { background: #5cb8ff; }
+.mtag.kind { --mc: #c6d4e2; color: var(--mc); border: 1px solid color-mix(in srgb, var(--mc) 55%, transparent); background: color-mix(in srgb, var(--mc) 12%, transparent); }
+.mtag.k-bid { --mc: #ff6b6f; } .mtag.k-raise { --mc: #ffc23d; } .mtag.k-renewal { --mc: #38e1ff; } .mtag.k-talk { --mc: #ff9a3d; }
+.mtag.k-retire { --mc: #b28aff; } .mtag.k-clash { --mc: #ff7a4d; } .mtag.k-camp { --mc: #3ee08a; } .mtag.k-signing { --mc: #2fd6b5; }
+.mtag.k-prospect { --mc: #7fd96b; } .mtag.k-famous { --mc: #c9a6ff; } .mtag.k-shop { --mc: #ffd23f; }
+.mail { border-left: 3px solid var(--wc); }
+.mail.w-player { --wc: #3ee08a; } .mail.w-coach { --wc: #5cb8ff; }
+.mail.w-icon { --wc: #f2b600; box-shadow: inset 80px 0 80px -80px rgba(255, 210, 63, 0.5); }
+.sr-dec > .mailtags { margin-bottom: -2px; }
+.panel.alerts .mtag { font-size: 12.5px; padding: 2px 8px 2px 7px; vertical-align: 1px; }
 .icon-head { display: flex; gap: 10px; align-items: center; }
 .icon-head > div { display: grid; gap: 2px; min-width: 0; }
 .icon-name { font-family: var(--display); font-size: 19px; font-style: italic; text-transform: uppercase; overflow-wrap: anywhere; line-height: 1.15; }

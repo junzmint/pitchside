@@ -1,0 +1,52 @@
+// UI strings of the inbox mail tags (pages/MailTags.tsx): who a mail is about and what it is.
+// Merged into STRINGS by strings.ts; keep vi, en and ja in sync.
+export const mailStrings: { vi: Record<string, string>; en: Record<string, string>; ja: Record<string, string> } = {
+  vi: {
+    // who
+    'mt.who.player': 'Cầu thủ', 'mt.who.icon': 'Icon', 'mt.who.custom': 'Icon tự tạo',
+    'mt.who.coach': 'HLV', 'mt.who.physio': 'Vật lý trị liệu', 'mt.who.doctor': 'Bác sĩ', 'mt.who.scout': 'Tuyển trạch',
+    'mt.who.player.d': 'Thư về một cầu thủ trong đội.', 'mt.who.icon.d': 'Thư về một icon (thẻ huyền thoại) của bạn: kiểm tra kỹ trước khi bấm.',
+    'mt.who.coach.d': 'Thư về một người trong ban huấn luyện, không phải cầu thủ.',
+    // what
+    'mt.bid': 'Hỏi mua', 'mt.raise': 'Đòi tăng lương', 'mt.renewal': 'Gia hạn hợp đồng', 'mt.talk': 'Xin ra sân',
+    'mt.retire': 'Muốn nghỉ hưu', 'mt.clash': 'Mâu thuẫn', 'mt.camp': 'Đề xuất tập huấn', 'mt.signing': 'Xin mua cầu thủ',
+    'mt.prospect': 'Đề cử cầu thủ trẻ', 'mt.famous': 'Muốn về CLB', 'mt.shop': 'Cửa hàng',
+    'mt.bid.d': 'CLB khác muốn mua người này của bạn. Đồng ý là mất anh ấy.',
+    'mt.raise.d': 'Muốn được tăng lương.', 'mt.renewal.d': 'Hợp đồng sắp hết: ký tiếp hoặc để anh ấy ra đi.',
+    'mt.talk.d': 'Ngồi dự bị lâu, muốn được đá chính.', 'mt.signing.d': 'HLV muốn bạn mua thêm người, không ai rời đội cả.',
+    'mt.shop.d': 'Bạn trả tiền để chiêu mộ icon về đội.',
+    // explicit confirm buttons
+    'bid.sellConfirm': 'Bán {name} · {v}', 'bid.sellIconConfirm': 'Bán icon {name} · {v}',
+    'dem.releaseConfirm': 'Thanh lý {name}', 'dem.fireConfirm': 'Cho {name} nghỉ', 'talk.sellConfirm': 'Rao bán {name}',
+  },
+  en: {
+    'mt.who.player': 'Player', 'mt.who.icon': 'Icon', 'mt.who.custom': 'Custom icon',
+    'mt.who.coach': 'Coach', 'mt.who.physio': 'Physio', 'mt.who.doctor': 'Doctor', 'mt.who.scout': 'Scout',
+    'mt.who.player.d': 'About a player in your squad.', 'mt.who.icon.d': 'About one of your icons (a legend card): look twice before you click.',
+    'mt.who.coach.d': 'About one of your staff, not a player.',
+    'mt.bid': 'Transfer bid', 'mt.raise': 'Wants a raise', 'mt.renewal': 'Contract renewal', 'mt.talk': 'Wants to play',
+    'mt.retire': 'Retiring', 'mt.clash': 'Clash', 'mt.camp': 'Training idea', 'mt.signing': 'Wants a signing',
+    'mt.prospect': 'Youth tip', 'mt.famous': 'Wants to join', 'mt.shop': 'Shop',
+    'mt.bid.d': 'Another club wants to buy him from you. Accept and he is gone.',
+    'mt.raise.d': 'He wants more money.', 'mt.renewal.d': 'His contract is ending: sign him again or let him go.',
+    'mt.talk.d': 'Tired of the bench, he wants to start.', 'mt.signing.d': 'Your coach wants you to buy someone; nobody leaves.',
+    'mt.shop.d': 'You pay to bring an icon to the club.',
+    'bid.sellConfirm': 'Sell {name} · {v}', 'bid.sellIconConfirm': 'Sell icon {name} · {v}',
+    'dem.releaseConfirm': 'Release {name}', 'dem.fireConfirm': 'Let {name} go', 'talk.sellConfirm': 'List {name} for sale',
+  },
+  ja: {
+    'mt.who.player': '選手', 'mt.who.icon': 'アイコン', 'mt.who.custom': 'カスタムアイコン',
+    'mt.who.coach': 'コーチ', 'mt.who.physio': 'フィジオ', 'mt.who.doctor': 'ドクター', 'mt.who.scout': 'スカウト',
+    'mt.who.player.d': 'チームの選手に関する知らせです。', 'mt.who.icon.d': 'あなたのアイコン（レジェンドカード）に関する知らせです。押す前によく確認してください。',
+    'mt.who.coach.d': '選手ではなく、スタッフに関する知らせです。',
+    'mt.bid': '獲得オファー', 'mt.raise': '昇給要求', 'mt.renewal': '契約更新', 'mt.talk': '出場要求',
+    'mt.retire': '引退希望', 'mt.clash': '対立', 'mt.camp': '練習の提案', 'mt.signing': '補強要望',
+    'mt.prospect': '若手の推薦', 'mt.famous': '就任希望', 'mt.shop': 'ショップ',
+    'mt.bid.d': '他クラブがこの人物の獲得を望んでいます。受諾すると放出になります。',
+    'mt.raise.d': '給料アップを求めています。', 'mt.renewal.d': '契約が切れます。再契約するか、退団させるか。',
+    'mt.talk.d': 'ベンチが続き、先発を望んでいます。', 'mt.signing.d': 'コーチが補強を求めています。誰も退団しません。',
+    'mt.shop.d': 'お金を払ってアイコンを獲得します。',
+    'bid.sellConfirm': '{name}を売却 · {v}', 'bid.sellIconConfirm': 'アイコン{name}を売却 · {v}',
+    'dem.releaseConfirm': '{name}を放出', 'dem.fireConfirm': '{name}を解任', 'talk.sellConfirm': '{name}を移籍リストへ',
+  },
+}

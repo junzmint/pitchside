@@ -5,6 +5,7 @@ import { ConfirmButton, PosTag, Icon, tierOf } from '../ui'
 import { errText, useI18n } from '../i18n'
 import { revealSigning, useFlipIn } from '../reveal'
 import { mergeText } from '../LegendBits'
+import { KindTag, WhoTag } from './MailTags'
 
 // The rare icon pick: at most once a season the shop offers three icons, at a premium, for a few matchdays.
 // The three cards flip over the first time the pick is shown; signing one plays the "icon signed" reveal.
@@ -30,7 +31,8 @@ export function IconPickPanel({ ctx }: { ctx: Ctx }) {
     <section className="panel iconpick">
       <div className="row spread">
         <h3 className="ttl" style={{ margin: 0 }}><Icon name="icon" size={16} />{t('icon.title')}</h3>
-        <span className="chip"><Icon name="hourglass" size={12} /> {t('dem.left', { n: Math.max(0, ip!.until - career.day) })}</span>
+        <span className="mailtags"><WhoTag who="icon" /><KindTag kind="shop" />
+          <span className="chip"><Icon name="hourglass" size={12} /> {t('dem.left', { n: Math.max(0, ip!.until - career.day) })}</span></span>
       </div>
       <p className="hint" style={{ margin: '4px 0 10px' }}><Icon name="info" size={14} className="i" /><span>{t('icon.help')}</span></p>
       <div className={'grid g3 cards' + (flip ? ' flipin' : '')} style={{ gap: 10 }}>

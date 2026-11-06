@@ -8,10 +8,15 @@ import { errText, useI18n } from '../../i18n'
 import type { Demand } from '../../types'
 import { Badge, ConfirmButton, Icon, Title } from '../../ui'
 import { refusalText } from '../Demands'
+import { MailTags, type MailKind } from '../MailTags'
 import { FxChips, KIND_ICON, Portrait, choiceLabel, decBody, decTitle, roleName, tn, useStaffAct } from './parts'
 
 // choices that cost money or cannot be undone ask once more
 const CONFIRM = new Set(['release', 'letgo', 'hire', 'persuade', 'book'])
+// the inbox tag of each card: another club after your coach is a bid, like one for a player
+const DEC_TAG: Record<string, MailKind> = {
+  renew: 'renewal', retire: 'retire', poach: 'bid', clash: 'clash', camp: 'camp', signing: 'signing', prospect: 'prospect', famous: 'famous',
+}
 
 export function DecisionCard({ d, ctx, after }: { d: StaffDecision; ctx: Ctx; after?: () => Promise<unknown> | void }) {
   const { t } = useI18n()
@@ -21,6 +26,7 @@ export function DecisionCard({ d, ctx, after }: { d: StaffDecision; ctx: Ctx; af
   const soon = d.left <= 1
   return (
     <article className={`sr-dec k-${d.kind}${soon ? ' urgent' : ''}`}>
+      <MailTags who="coach" role={d.role} kind={DEC_TAG[d.kind] ?? 'camp'} />
       <div className="sr-dec-head">
         <span className="sr-kind"><Icon name={KIND_ICON[d.kind] ?? 'staff'} size={18} /></span>
         <h4>{decTitle(t, d)}</h4>
@@ -80,6 +86,7 @@ export function RaiseCard({ dm, ctx, after }: { dm: Demand; ctx: Ctx; after?: ()
   }
   return (
     <article className={'sr-dec k-raise' + (left <= 1 ? ' urgent' : '')}>
+      <MailTags who="coach" role={dm.role} kind="raise" />
       <div className="sr-dec-head">
         <span className="sr-kind"><Icon name="wages" size={18} /></span>
         <h4>{t('sr.raise.t', { name: dm.name })}</h4>

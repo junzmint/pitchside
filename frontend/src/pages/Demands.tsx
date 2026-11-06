@@ -4,6 +4,7 @@ import { api, money } from '../api'
 import type { Demand } from '../types'
 import { ConfirmButton, Icon, rangeFill } from '../ui'
 import { errText, useI18n } from '../i18n'
+import { MailTags, mailClass, whoIn, type MailWho } from './MailTags'
 
 // Wage demands from players and staff: pay up, haggle, say no, or let them go (contracts have no
 // end date, so ending one costs nothing).
@@ -41,6 +42,8 @@ export function DemandCard({ d, ctx }: { d: Demand; ctx: Ctx }) {
   const cpct = Math.round(Math.max(0, Math.min(1, chance)) * 100)
   const pct = Math.round((d.ask / Math.max(1, d.current) - 1) * 100)
   const final = d.tries >= 2
+  // a coach, an icon or a squad player: the tags say which before anything is clicked
+  const who: MailWho = d.kind === 'coach' ? 'coach' : whoIn(ctx.st.squad, d.id)
   async function go(action: 'accept' | 'offer' | 'refuse') {
     setBusy(true)
     try {
@@ -66,11 +69,13 @@ export function DemandCard({ d, ctx }: { d: Demand; ctx: Ctx }) {
     } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy(false) }
   }
   return (
-    <div className="demand">
+    <div className={'demand ' + mailClass(who)}>
+      <MailTags who={who} role={d.role} kind={d.renewal ? 'renewal' : 'raise'}>
+        <span className={'chip' + (left <= 1 ? ' bad' : '')}><Icon name="hourglass" size={12} /> {t('dem.left', { n: left })}</span>
+      </MailTags>
       <div className="dem-head">
         <span className="avatar sm" aria-hidden="true">{d.name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()}<Icon name={d.kind === 'coach' ? 'staff' : 'apps'} size={10} /></span>
         <b>{d.name} <small className="muted">· {d.kind === 'coach' ? t('role.' + d.role) : d.role}</small></b>
-        <span className={'chip' + (left <= 1 ? ' bad' : '')}><Icon name="hourglass" size={12} /> {t('dem.left', { n: left })}</span>
       </div>
       <span className="muted" style={{ fontSize: 13 }}>{earlyLeft > 1 ? t('dem.reason.renewalEarly', { n: earlyLeft }) : t('dem.reason.' + d.reason)}</span>
       <div className="dem-ask num"><span className="muted">{money(d.current)}</span><Icon name="next" size={16} /><b>{money(d.ask)}</b><small className="muted">/{t('wk').trim()}</small>{pct >= 0 ? <span className="flag warn">+{pct}%</span> : <span className="flag good" data-tip={t('dem.cutTip')}>{pct}%</span>}</div>
@@ -96,7 +101,7 @@ export function DemandCard({ d, ctx }: { d: Demand; ctx: Ctx }) {
       <div className="row" style={{ gap: 6 }}>
         <button className="primary small" disabled={busy} onClick={() => go('accept')}><Icon name="check" size={14} /> {t('dem.accept', { v: money(d.ask) })}</button>
         <ConfirmButton className="small" label={t(d.renewal ? 'ct.letGo' : 'dem.refuse')} confirm={t(d.renewal ? 'ct.letGoConfirm' : d.kind === 'coach' ? 'dem.refuseCoach' : 'dem.refusePlayer')} onConfirm={() => go('refuse')} />
-        <ConfirmButton className="small danger" label={t(d.kind === 'coach' ? 'dem.fire' : 'dem.release')} confirm={t('confirm')} onConfirm={terminate} />
+        <ConfirmButton className="small danger" label={t(d.kind === 'coach' ? 'dem.fire' : 'dem.release')} confirm={t(d.kind === 'coach' ? 'dem.fireConfirm' : 'dem.releaseConfirm', { name: d.name })} onConfirm={terminate} />
       </div>
     </div>
   )

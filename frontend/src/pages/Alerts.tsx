@@ -5,6 +5,7 @@ import { staffApi } from '../api_staff'
 import type { Alert } from '../types'
 import { Icon, type IconName } from '../ui'
 import { errText, useI18n, type TFn } from '../i18n'
+import { WhoTag, whoIn, type MailWho } from './MailTags'
 
 // "Needs your attention" (backend alerts.go): unhappy coaches and players, contracts running out,
 // talks waiting for an answer, money trouble, empty staff roles, decisions waiting. Each line has a
@@ -18,6 +19,13 @@ const ICON: Record<string, IconName> = {
 
 export function alertText(t: TFn, a: Alert) {
   return t('al.' + a.key, { name: a.name ?? '', role: a.role ? t('role.' + a.role) : '', n: a.n ?? 0, v: money(a.amount ?? 0), names: (a.names ?? []).join(', ') })
+}
+
+/** Who an alert is about, for its tag: a coach, an icon or a squad player (none for money or medical ones). */
+function alertWho(a: Alert, squad: Ctx['st']['squad']): MailWho | null {
+  if (a.kind === 'coach' || a.key.startsWith('coach_') || a.key === 'role_vacant') return 'coach'
+  if (a.kind === 'player' && a.id) return whoIn(squad, a.id)
+  return a.key === 'contracts_many' || a.key === 'players_unhappy' ? 'player' : null
 }
 
 /** Alerts that matter for the Inbox: those it doesn't already show as cards of their own. */
@@ -55,10 +63,11 @@ export function AlertsPanel({ ctx, alerts, max = 6 }: { ctx: Ctx; alerts: Alert[
       <ul>
         {shown.map((a, i) => {
           const k = keyOf(a, i)
+          const who = alertWho(a, ctx.st.squad)
           return (
             <li key={k} className={'al-' + a.level}>
               <span className="al-ico"><Icon name={ICON[a.key] ?? 'info'} size={16} /></span>
-              <span className="al-text">{alertText(t, a)}</span>
+              <span className="al-text">{who && <><WhoTag who={who} role={a.role} />{' '}</>}{alertText(t, a)}</span>
               <button className={'small' + (a.level === 'bad' ? ' primary' : '')} disabled={busy === k} onClick={() => run(a, k)}>{label(a)}</button>
             </li>
           )
