@@ -1,0 +1,40 @@
+// UI strings of "bring on first" (pages/BringOn.tsx): bench players you mark so the assistant brings them on and
+// they improve by playing. Merged into STRINGS by strings.ts; keep vi, en and ja in sync.
+export const benchStrings: { vi: Record<string, string>; en: Record<string, string>; ja: Record<string, string> } = {
+  vi: {
+    'bring.on': 'Ưu tiên vào sân', 'bring.short': 'Vào sân',
+    'bring.tip': 'Khi thay người, trợ lý tung cầu thủ này vào trước (khoảng phút 55–70; mỗi trận dành tối đa 3 lượt thay cho những người được đánh dấu) để cậu ấy có phút thi đấu và lên chỉ số. Áp dụng khi mô phỏng, khi xem trận và khi máy đá thay bạn.',
+    'bring.help': 'Bấm "Vào sân" ở cầu thủ dự bị bạn muốn cho đá để luyện: khi thay người, trợ lý tung họ vào trước (khoảng phút 55–70, mỗi trận dành tối đa 3 lượt thay cho họ), trừ khi cậu ấy kém quá xa người bị thay. Ra sân là cách tốt nhất để lên chỉ số. Ai chờ lâu nhất được vào trước.',
+    'bring.count': '{n}/{max} cầu thủ ưu tiên vào sân',
+    'bring.set': 'Trợ lý sẽ ưu tiên tung {name} vào sân', 'bring.unset': '{name} vào sân như bình thường',
+    'bring.weak': 'Kém quá xa người đá chính cùng tuyến: trợ lý sẽ không tung vào', 'bring.weakShort': 'Kém quá xa',
+    'bring.starter': 'Đang đá chính: chỉ có tác dụng khi ngồi dự bị',
+    'bring.order': 'Thứ tự vào sân: {n}', 'bring.rep': '(ưu tiên vào sân)',
+    'err.bring_max': 'Chỉ ưu tiên được tối đa 5 cầu thủ cùng lúc.',
+    'lv.tip.bring': 'Tung {in} vào thay {out} ({n}%) để cậu ấy có phút thi đấu?',
+  },
+  en: {
+    'bring.on': 'Bring on first', 'bring.short': 'Bring on',
+    'bring.tip': 'When making changes, your assistant brings him on first (around minutes 55–70; up to three changes a match go to the players you marked) so he gets game time and improves. Works in quick sims, watched matches and whenever the computer plays for you.',
+    'bring.help': 'Press "Bring on" for the bench players you want to see play: when making changes your assistant brings them on first (around minutes 55–70, up to three changes a match for them) unless one is far below the man he would replace. Playing is the best way to improve. Whoever has waited longest comes on first.',
+    'bring.count': '{n}/{max} marked to bring on',
+    'bring.set': 'Your assistant will bring {name} on first', 'bring.unset': '{name} is back to the usual changes',
+    'bring.weak': 'Too far below the starters in his line: he will not be brought on', 'bring.weakShort': 'Too weak',
+    'bring.starter': 'In the starting XI: it only counts when he is on the bench',
+    'bring.order': 'Comes on {n}', 'bring.rep': '(marked to bring on)',
+    'err.bring_max': 'You can mark at most 5 players at a time.',
+    'lv.tip.bring': 'Bring {in} on for {out} ({n}%) to give him some minutes?',
+  },
+  ja: {
+    'bring.on': '優先して途中出場', 'bring.short': '投入',
+    'bring.tip': '交代のとき、アシスタントがこの選手を優先して投入します（55〜70分ごろ。1試合で最大3回の交代を指定選手に使います）。出場時間を得て能力が伸びます。クイックシム、観戦、コンピューターが代わりにプレーするときに有効です。',
+    'bring.help': '試合に出して育てたい控え選手に「投入」を付けましょう。交代のとき、アシスタントが優先して投入します（55〜70分ごろ、1試合で最大3回の交代を指定選手に使います）。代わる選手より大きく劣る場合は除きます。出場こそ一番の成長法です。待ち時間が長い選手から先に入ります。',
+    'bring.count': '優先投入 {n}/{max}人',
+    'bring.set': '{name}を優先して投入します', 'bring.unset': '{name}の優先投入を解除しました',
+    'bring.weak': '同じポジションの先発と差が大きすぎるため、投入されません', 'bring.weakShort': '力不足',
+    'bring.starter': '先発出場中：ベンチにいるときだけ有効です',
+    'bring.order': '投入順 {n}', 'bring.rep': '（優先投入）',
+    'err.bring_max': '同時に指定できるのは5人までです。',
+    'lv.tip.bring': '{out}（{n}%）に代えて{in}を投入し、出場機会を与えますか？',
+  },
+}

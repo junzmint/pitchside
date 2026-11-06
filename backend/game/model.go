@@ -56,6 +56,7 @@ type Player struct {
 	Version      string   `json:"version"`              // legend card label, e.g. "Real Madrix '14"
 	Load         string   `json:"load"`                 // user's per-player training load (from Career.Care, not stored on the player)
 	Rushed       bool     `json:"rushed"`               // cleared to play in his last week out (from Career.Care)
+	Bring        int      `json:"bring,omitempty"`      // you want him brought on from the bench: 1 comes on first, 2 next… (from Career.Care)
 	Rust         float64  `json:"rust,omitempty"`       // 0..0.3: lost match sharpness after an injury (medical.go, not stored on the player)
 	InjKind      string   `json:"injKind,omitempty"`    // the kind of his injury (medical.go, not stored on the player)
 	GrowBoost    float64  `json:"-"`                    // extra growth share, e.g. from a mentor (staff_life.go, not stored on the player)

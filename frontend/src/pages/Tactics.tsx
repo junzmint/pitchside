@@ -8,6 +8,7 @@ import { errText, useI18n } from '../i18n'
 import { eventsApi, eventsOf } from '../api_events'
 import { personKeys, twoVersions } from '../legendVersions'
 import { HomeMark } from '../LegendBits'
+import { BRING_MAX, BringToggle, bringCount, bringTooWeak, isMarked } from './BringOn'
 
 function chemColor(c: number) {
   return c >= 7 ? '#3fcf7a' : c >= 5 ? '#e8c547' : '#ef6a55'
@@ -210,14 +211,20 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
           </section>
 
           <section className="panel">
-            <h3 style={{ marginBottom: 8 }}>{selRole ? t('tac.pickFor', { role: selRole }) : t('tac.bench', { n: bench.length })}</h3>
+            <div className="row spread" style={{ marginBottom: 8 }}>
+              <h3 style={{ margin: 0 }}>{selRole ? t('tac.pickFor', { role: selRole }) : t('tac.bench', { n: bench.length })}</h3>
+              <span className={'chip bringcount' + (bringCount(st.squad) ? ' on' : '')}><Icon name="up" size={13} /> {t('bring.count', { n: bringCount(st.squad), max: BRING_MAX })}</span>
+            </div>
+            {!selRole && <Hint text={t('bring.help')} />}
             <div className="scroll">
               <table className="compact">
                 <thead><tr><th>{t('player')}</th><th><Abbr k="pos" /></th><th className="r"><Abbr k="ovr" /></th>{selRole && <th className="r">{t('tac.atRole', { role: selRole })}</th>}<th>{t('fitness')}</th></tr></thead>
                 <tbody>
                   {list.map(p => (
                     <tr key={p.id} className={selRole && (p.injury === 0 || p.rushed) ? 'click' : ''} onClick={() => selRole && assign(p.id)} style={{ opacity: p.injury > 0 && !p.rushed ? 0.5 : 1 }}>
-                      <td className="namecell"><div className="pname">{p.shirt}. {p.name} <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small />{otherStarts(p) && <span className="flag warn" data-tip={t('lgv.otherStartsTip')}><Icon name="legend" size={12} /> {t('lgv.otherStarts')}</span>}{p.injury > 0 && <span className="inj"> ✚ {p.injury}{t('wk')}{p.rushed ? ' · ' + t('rush.on') : ''}</span>}{xi.has(p.id) ? <span className="slotchip">{t('starter')} · {roles[lineup.indexOf(p.id)]}</span> : null}</div></td>
+                      <td className="namecell"><div className="pname">{p.shirt}. {p.name} <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small />{otherStarts(p) && <span className="flag warn" data-tip={t('lgv.otherStartsTip')}><Icon name="legend" size={12} /> {t('lgv.otherStarts')}</span>}{p.injury > 0 && <span className="inj"> ✚ {p.injury}{t('wk')}{p.rushed ? ' · ' + t('rush.on') : ''}</span>}{xi.has(p.id) ? <span className="slotchip">{t('starter')} · {roles[lineup.indexOf(p.id)]}</span> : null}
+                        {!selRole && !xi.has(p.id) && <span className="bringcell"><BringToggle ctx={ctx} p={p} compact />
+                          {isMarked(p) && bringTooWeak(p, starters) && <span className="flag warn" data-tip={t('bring.weak')}><Icon name="warn" size={12} /> {t('bring.weakShort')}</span>}</span>}</div></td>
                       <td><PosTag p={p.position} role={p.role} /></td>
                       <td className="r"><Ovr v={p.overall} /></td>
                       {selRole && <td className="r num"><b style={{ color: ROLE_CAT[selRole] === p.position ? undefined : 'var(--warn)' }}>{Math.round(effective(p, selRole))}</b></td>}

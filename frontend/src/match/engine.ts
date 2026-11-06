@@ -135,6 +135,8 @@ export interface MatchOutcome {
   pens?: [number, number] | null
 }
 export const MAX_SUBS = 5
+/** A marked bench player stays on the bench below this share of the man he would replace (backend BringFloor). */
+const BRING_FLOOR = 0.6
 
 export interface Stats {
   shots: [number, number]; onTarget: [number, number]; fouls: [number, number]; corners: [number, number]; offsides: [number, number]
@@ -727,19 +729,40 @@ export class Engine {
     return true
   }
 
-  /** The computer brings on fresh legs for tired (or injured) players. */
+  /** The computer brings on fresh legs for tired (or injured) players. On your side the bench players you marked
+   *  to bring on (Player.bring) come on first (bringOn). */
   cpuSubs(t: Side) {
     if (this.subsLeft(t) <= 0) return
     const min = this.minute()
     const inj = this.teams[t].find(p => p.injured && p !== this.ball.owner)
     if (!inj && (min < 55 || min === this.cpuSubCheck[t] || min % 4 !== 0)) return
     if (!inj) this.cpuSubCheck[t] = min
+    if (!inj && this.bringOn(t, min)) return
     const tired = inj ?? this.teams[t].filter(p => !p.isGK && p.stamina < (min > 75 ? 0.68 : 0.6) && p !== this.ball.owner).sort((a, b) => a.stamina - b.stamina)[0]
     if (!tired) return
     const want = tired.isGK ? 'GK' : tired.cat
     const cand = this.bench[t].filter(p => p.position === want && p.fitness >= 55).sort((a, b) => b.overall - a.overall)[0]
       ?? this.bench[t].filter(p => (tired.isGK ? p.position === 'GK' : p.position !== 'GK') && p.fitness >= 55).sort((a, b) => b.overall - a.overall)[0]
     if (cand && (inj || cand.overall >= tired.data.overall - 10)) this.substitute(t, tired.data.id, cand.id)
+  }
+
+  /** A bench player you marked to bring on (Player.bring, 1 first) for the most tired man in his line, a keeper for
+   *  the keeper, unless he is far below him (BRING_FLOOR); until the 78th minute and three changes in all, like the
+   *  quick sim (backend autoSubs). True when he came on. */
+  bringOn(t: Side, min = this.minute()): boolean {
+    if (min > 78 || MAX_SUBS - this.subsLeft(t) >= 3) return false
+    const marked = this.bench[t].filter(p => (p.bring ?? 0) > 0 && p.injury === 0 && p.fitness >= 55).sort((a, b) => (a.bring ?? 0) - (b.bring ?? 0))
+    for (const pl of marked) {
+      const out = this.bringFor(t, pl)
+      if (out && this.substitute(t, out.data.id, pl.id)) return true
+    }
+    return false
+  }
+  /** Who a marked bench player would replace: the most tired man in his line he is not far below (null: nobody). */
+  bringFor(t: Side, pl: Player): MP | null {
+    const gk = pl.position === 'GK'
+    return this.teams[t].filter(m => m !== this.ball.owner && !m.injured && (gk ? m.isGK : !m.isGK && m.cat === pl.position))
+      .sort((a, b) => a.stamina - b.stamina).find(m => pl.overall >= m.data.overall * BRING_FLOOR) ?? null
   }
 
   // ------------------------------------------------------------------------------------------------ input

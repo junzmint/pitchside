@@ -211,12 +211,12 @@ type LoanDeal struct {
 	Club     string `json:"club"`
 	Season   int    `json:"season"`
 	Fee      int64  `json:"fee"`
-	Wage     int64  `json:"wage"`   // loans out: his contract, restored on return
-	Years    int    `json:"years"`  // loans out: seasons left, restored on return
-	Tenure   int    `json:"tenure"` // matches for the club before he left
+	Wage     int64  `json:"wage"`            // loans out: his contract, restored on return
+	Years    int    `json:"years"`           // loans out: seasons left, restored on return
+	Tenure   int    `json:"tenure"`          // matches for the club before he left
 	Shirt    int    `json:"shirt,omitempty"` // his number at home, given back on return if it is still free
-	AppsAt   int    `json:"appsAt"` // loans out: season appearances when he left
-	Apps     int    `json:"apps"`   // loans out: appearances for the borrower (refreshed in the view)
+	AppsAt   int    `json:"appsAt"`          // loans out: season appearances when he left
+	Apps     int    `json:"apps"`            // loans out: appearances for the borrower (refreshed in the view)
 }
 
 func (w *world) seasonApps(ctx context.Context, q DBTX, pid int) int {

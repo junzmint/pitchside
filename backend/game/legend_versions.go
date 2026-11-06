@@ -384,6 +384,7 @@ func tidyAfterMerge(c *Career, club *Club, legend, modern *Player) {
 	c.Contracts.Demands = keep
 	delete(c.Care.Load, modern.ID)
 	delete(c.Care.Rush, modern.ID)
+	delete(c.Care.Bring, modern.ID)
 	delete(c.Care.Breaks, modern.ID)
 	if c.Events.Captain == modern.ID {
 		c.Events.Captain = legend.ID

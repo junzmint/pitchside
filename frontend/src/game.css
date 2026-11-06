@@ -887,6 +887,17 @@ small.wrap, span.wrap { display: block; }
 .mail.w-icon { --wc: #f2b600; box-shadow: inset 80px 0 80px -80px rgba(255, 210, 63, 0.5); }
 .sr-dec > .mailtags { margin-bottom: -2px; }
 .panel.alerts .mtag { font-size: 12.5px; padding: 2px 8px 2px 7px; vertical-align: 1px; }
+/* bring on first (pages/BringOn.tsx): bench players the assistant brings on so they improve by playing */
+.bringbtn { white-space: nowrap; }
+.bringbtn.on { color: #08140d; background: #3ee08a; border-color: #3ee08a; font-weight: 700; box-shadow: 0 0 12px rgba(62, 224, 138, 0.35); }
+.bringbtn.on:hover:not(:disabled) { background: #5cf0a0; }
+.bringbtn b { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: rgba(0, 0, 0, 0.22); font-size: 11px; line-height: 1; }
+.bringcell { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; }
+.bringcell .bringbtn.small { padding: 2px 8px; font-size: 12px; }
+.flag.bring { color: #3ee08a; border-color: rgba(62, 224, 138, 0.45); background: rgba(62, 224, 138, 0.1); }
+.chip.bringcount.on { color: #3ee08a; border-color: rgba(62, 224, 138, 0.45); }
+small.warnc { color: var(--warn); }
+.bringrep { color: #3ee08a; font-size: 12px; }
 .icon-head { display: flex; gap: 10px; align-items: center; }
 .icon-head > div { display: grid; gap: 2px; min-width: 0; }
 .icon-name { font-family: var(--display); font-size: 19px; font-style: italic; text-transform: uppercase; overflow-wrap: anywhere; line-height: 1.15; }

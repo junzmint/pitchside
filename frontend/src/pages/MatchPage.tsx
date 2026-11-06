@@ -91,16 +91,16 @@ const setPref = (k: string, v: boolean) => { try { localStorage.setItem(k, v ? '
 
 /** Players a substitution tip was already shown for (once for being tired, once for being hurt), kept for the
  *  fixture in this tab so a reload or a resumed match doesn't show the same tips again. */
-type TipSeen = { tired: Set<number>; hurt: Set<number> }
+type TipSeen = { tired: Set<number>; hurt: Set<number>; bring: Set<number> }
 function loadTips(key: string, fresh: boolean): TipSeen {
   try {
     if (fresh) sessionStorage.removeItem(key)
-    else { const v = JSON.parse(sessionStorage.getItem(key) ?? 'null'); if (v) return { tired: new Set(v.tired ?? []), hurt: new Set(v.hurt ?? []) } }
+    else { const v = JSON.parse(sessionStorage.getItem(key) ?? 'null'); if (v) return { tired: new Set(v.tired ?? []), hurt: new Set(v.hurt ?? []), bring: new Set(v.bring ?? []) } }
   } catch { /* storage unavailable */ }
-  return { tired: new Set(), hurt: new Set() }
+  return { tired: new Set(), hurt: new Set(), bring: new Set() }
 }
 function saveTips(key: string, s: TipSeen) {
-  try { sessionStorage.setItem(key, JSON.stringify({ tired: [...s.tired], hurt: [...s.hurt] })) } catch { /* storage unavailable */ }
+  try { sessionStorage.setItem(key, JSON.stringify({ tired: [...s.tired], hurt: [...s.hurt], bring: [...s.bring] })) } catch { /* storage unavailable */ }
 }
 
 function defaultAssign(mode: PlayMode, pads: PadInfo[]): Assign {
@@ -676,6 +676,23 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         return
       }
     }
+    // around the hour: a bench player you marked to bring on (Player.bring), once each, for the most tired man in
+    // his line, the same choice the computer makes when it plays for you (Engine.bringFor)
+    const min = e.minute()
+    if (!rested || min < 58 || min > 78) return
+    for (const s of [0, 1] as Side[]) {
+      if (!hud.human[s] || hud.subsLeft[s] <= 0) continue
+      const marked = e.bench[s].filter(b => (b.bring ?? 0) > 0 && b.injury === 0 && b.fitness >= 55 && !seen.bring.has(b.id))
+        .sort((a, b) => (a.bring ?? 0) - (b.bring ?? 0))
+      for (const b of marked) {
+        const p = e.bringFor(s, b)
+        if (!p) continue
+        seen.bring.add(b.id)
+        saveTips(tipKey, seen)
+        setTip({ side: s, out: p.data.id, in: b.id, outName: p.data.name, inName: b.name, pct: Math.round(p.stamina * 100), hurt: false, bring: true, at: e.clock })
+        return
+      }
+    }
   }, [hud])
 
   return (
@@ -992,7 +1009,7 @@ function SubsPanel({ eng, side, duo, pre, onSide, onClose }: {
                 <tr key={p.id} className={(out != null && left > 0 ? 'click' : '') + (pick === p.id ? ' sel' : '')} style={{ opacity: out == null ? 0.6 : 1 }}
                   onClick={() => swap(p.id)}>
                   <td><PosTag p={p.position} role={p.role} /></td>
-                  <td>{p.name}{sugg === p.id && <em className="lv-tag pick">★ {t('lv.subs.pick')}</em>}</td>
+                  <td>{p.name}{sugg === p.id && <em className="lv-tag pick">★ {t('lv.subs.pick')}</em>}{(p.bring ?? 0) > 0 && <em className="lv-tag bring" data-tip={t('bring.tip')}>⬆ {t('bring.short')}</em>}</td>
                   <td className="r"><Ovr v={p.overall} /></td>
                   <td className={'r num lv-pct ' + staminaTone({ stamina: p.fitness / 100, injured: p.injury > 0 })}>{Math.round(p.fitness)}%</td>
                 </tr>
@@ -1088,7 +1105,7 @@ export function Report({ r, clubId, onClose, live }: { r: DayReport; clubId: num
   const groups: [string, ReactNode[]][] = [
     ['lv.rep.match', [
       subs.length ? <i key="sh">{t('rep.subs')}</i> : null,
-      ...subs.map((x, i) => <span key={'s' + i}><b className="num">{x.minute ?? 0}'</b> {t('lv.rep.subLine', { in: x.in, out: x.out })}</span>),
+      ...subs.map((x, i) => <span key={'s' + i}><b className="num">{x.minute ?? 0}'</b> {t('lv.rep.subLine', { in: x.in, out: x.out })}{x.bring ? <span className="bringrep"> ⬆ {t('bring.rep')}</span> : null}</span>),
       r.rotated?.length ? <i key="rh">{t('rep.rotated')}</i> : null,
       ...(r.rotated ?? []).map((x, i) => <span key={'r' + i}>↻ {t('lv.rep.rotLine', { in: x.in, out: x.out, fit: x.outFit })}</span>),
       r.congested ? <span key="cg" className="muted">{t('rep.congested')}</span> : null,

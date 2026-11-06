@@ -12,6 +12,7 @@ import { MentorFlag } from './staff/MentorFlag'
 import { DemandCard } from './Demands'
 import { HomeMark } from '../LegendBits'
 import { clubApi, refreshClubLife, useClubLife } from '../api_club'
+import { BringFlag, BringToggle, bringTooWeak, isMarked } from './BringOn'
 
 type Sort = 'shirt' | 'overall' | 'potential' | 'age' | 'fitness' | 'value'
 
@@ -127,7 +128,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
                   <tr className="click" onClick={() => setOpen(open === p.id ? null : p.id)} style={{ opacity: p.injury > 0 ? 0.6 : 1 }}>
                     <td className="num">{p.shirt}</td>
                     <td className="namecell"><div className="pname">
-                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} />
+                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} /> <BringFlag p={p} />
                       {p.injury > 0 && <span className="inj"><Icon name="injury" size={13} /> {p.injury}{t('wk')}</span>}
                       {p.injury === 1 && (
                         <button className={'small rush' + (p.rushed ? ' on' : '')} title={t('rush.help')}
@@ -216,6 +217,11 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
                 </span>
               </div>
               <ShirtPicker ctx={ctx} p={openP} />
+              <div className="field"><span className="muted"><Icon name="up" size={14} /> {t('bring.on')}</span>
+                <span className="row" style={{ gap: 6 }}><BringToggle ctx={ctx} p={openP} />
+                  {isMarked(openP) && (xi.has(openP.id) ? <small className="muted">{t('bring.starter')}</small>
+                    : bringTooWeak(openP, st.club.lineup.map(id => st.squad.find(q => q.id === id))) && <small className="warnc">{t('bring.weak')}</small>)}</span>
+              </div>
               <div className="field"><span className="muted"><Icon name="wages" size={14} /> {t('ct.wage')}</span><b className="num">{money(openP.wage)}{openP.market && openP.market >= openP.wage * 1.2 ? <span data-tip={t('sq.marketWage', { v: money(openP.market) })}> <Icon name="up" size={14} className="warnc" /></span> : ''}</b></div>
               <div className="field"><span className="muted"><Icon name="money" size={14} /> {t('value')}</span><b className="num gold">{money(openP.value)}</b></div>
             </div>
@@ -287,6 +293,7 @@ function PlayerFlags({ p, slot, loanee, listed, clubName }: { p: Player; slot: s
       {p.unrest > 0 && <span className="flag bad" data-tip={t('sq.unrestHint')}><Icon name="warn" size={12} /> {t('sq.unrest', { n: Math.max(0, 4 - p.unrest) })}</span>}
       {p.contract === 1 && <span className="flag warn"><Icon name="contract" size={12} /> {t('ct.left', { n: 1 })}</span>}
       {p.load && <span className="flag">{t('load.' + p.load)}</span>}
+      <BringFlag p={p} />
       <MentorFlag p={p} />
       <TagChip p={p} />
       <HomeMark p={p} clubName={clubName} />

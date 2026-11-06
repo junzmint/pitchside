@@ -122,7 +122,7 @@ func TestTidyOldNumbers(t *testing.T) {
 		p.Shirt = i + 1 // the old generator: by line
 	}
 	sq[3].Shirt, sq[20].Shirt = 47, 66 // signings past the highest
-	sq[5].Shirt = sq[6].Shirt         // a clash
+	sq[5].Shirt = sq[6].Shirt          // a clash
 	legend, mine := sq[22], sq[12]
 	legend.Shirt, mine.Shirt = 4, 77 // a legend whose 4 was retired for him; a number you picked
 	if legend.Position == "DF" {

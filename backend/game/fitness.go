@@ -17,6 +17,7 @@ type Care struct {
 	Rush   map[int]bool   `json:"rush"`             // players one week from fitness cleared to play anyway
 	Rotate int            `json:"rotate"`           // 0: off; otherwise starters below this fitness are rested before a match
 	AutoXI bool           `json:"autoXi"`           // the assistant picks the strongest available eleven before every match
+	Bring  map[int]bool   `json:"bring,omitempty"`  // bench players to bring on first, so they get minutes and improve (autoSubs)
 	Breaks map[int]int    `json:"breaks,omitempty"` // player id → season he last broke his limit (club.go)
 }
 
@@ -29,14 +30,41 @@ const (
 	RushInjury    = 0.08 // extra chance of breaking down again
 	MidweekDrain  = 1.25 // fixture congestion: two games in one week
 	MidweekInjury = 0.006
+	SubsPlanned   = 3   // changes made for fresh legs (or to bring someone on); the last two are kept for the exhausted and the hurt
+	BringMax      = 5   // bench players you can mark to bring on at a time
+	BringFloor    = 0.6 // a marked player stays on the bench if he is below this share of the man he would replace (Effective)
 )
 
-// applyCare marks the user's players with their training load and whether they were rushed back.
+// applyCare marks the user's players with their training load, whether they were rushed back, and the order in
+// which the bench players you want to see play come on.
 func applyCare(c *Career, squad []*Player) {
+	var bring []*Player
 	for _, p := range squad {
 		p.Load = c.Care.Load[p.ID]
 		p.Rushed = p.Injury == 1 && c.Care.Rush[p.ID]
 		p.BrokeLimit = c.Care.Breaks[p.ID] == c.Season
+		p.Bring = 0
+		if c.Care.Bring[p.ID] {
+			bring = append(bring, p)
+		}
+	}
+	// whoever has waited longest for a game first, so marking several players shares the minutes out; then the
+	// one with the most room to grow, then the younger
+	sort.SliceStable(bring, func(i, j int) bool {
+		a, b := bring[i], bring[j]
+		if wa, wb := c.Events.Bench[a.ID], c.Events.Bench[b.ID]; wa != wb {
+			return wa > wb
+		}
+		if ga, gb := a.Potential-a.Overall, b.Potential-b.Overall; ga != gb {
+			return ga > gb
+		}
+		if a.Age != b.Age {
+			return a.Age < b.Age
+		}
+		return a.ID < b.ID
+	})
+	for i, p := range bring {
+		p.Bring = i + 1
 	}
 }
 
@@ -58,6 +86,11 @@ func pruneCare(c *Career, squad []*Player) {
 			delete(c.Care.Rush, id)
 		}
 	}
+	for id := range c.Care.Bring {
+		if have[id] == nil {
+			delete(c.Care.Bring, id)
+		}
+	}
 	for id, season := range c.Care.Breaks {
 		if have[id] == nil || season != c.Season {
 			delete(c.Care.Breaks, id)
@@ -66,16 +99,22 @@ func pruneCare(c *Career, squad []*Player) {
 }
 
 type CareReq struct {
-	Load string `json:"load"` // "" | rest | recovery | intense
-	Rush *bool  `json:"rush"`
+	Load  *string `json:"load"`  // "" (follow the team plan) | rest | recovery | intense; nil: unchanged
+	Rush  *bool   `json:"rush"`  // nil: unchanged
+	Bring *bool   `json:"bring"` // bring him on first from the bench; nil: unchanged
 }
 
-// SetCare changes one player's training load or clears him to play while carrying a knock.
+// SetCare changes one player's training load, clears him to play while carrying a knock, or marks him to be
+// brought on first from the bench.
 func (s *Store) SetCare(ctx context.Context, careerID, playerID int, req CareReq) error {
-	if req.Load != "" && !PlayerLoads[req.Load] {
+	if req.Load != nil && *req.Load != "" && !PlayerLoads[*req.Load] {
 		return userErr("bad_load", "Unknown training load")
 	}
 	return s.tx(ctx, func(q pgx.Tx) error {
+		// queue behind a matchday being played: saving a career read before it would undo the day
+		if _, err := q.Exec(ctx, `SELECT 1 FROM careers WHERE id=$1 FOR UPDATE`, careerID); err != nil {
+			return err
+		}
 		c, err := getCareer(ctx, q, careerID)
 		if err != nil {
 			return err
@@ -93,10 +132,12 @@ func (s *Store) SetCare(ctx context.Context, careerID, playerID int, req CareReq
 		if c.Care.Rush == nil {
 			c.Care.Rush = map[int]bool{}
 		}
-		if req.Load == "" {
-			delete(c.Care.Load, playerID)
-		} else {
-			c.Care.Load[playerID] = req.Load
+		if req.Load != nil {
+			if *req.Load == "" {
+				delete(c.Care.Load, playerID)
+			} else {
+				c.Care.Load[playerID] = *req.Load
+			}
 		}
 		if req.Rush != nil {
 			if *req.Rush {
@@ -106,6 +147,19 @@ func (s *Store) SetCare(ctx context.Context, careerID, playerID int, req CareReq
 				c.Care.Rush[playerID] = true
 			} else {
 				delete(c.Care.Rush, playerID)
+			}
+		}
+		if req.Bring != nil {
+			if c.Care.Bring == nil {
+				c.Care.Bring = map[int]bool{}
+			}
+			if *req.Bring {
+				if !c.Care.Bring[playerID] && len(c.Care.Bring) >= BringMax {
+					return userErr("bring_max", "You can mark at most 5 players to bring on")
+				}
+				c.Care.Bring[playerID] = true
+			} else {
+				delete(c.Care.Bring, playerID)
 			}
 		}
 		return saveCareer(ctx, q, c)
@@ -165,6 +219,7 @@ type SwapNote struct {
 	OutFit float64 `json:"outFit"`
 	InFit  float64 `json:"inFit"`
 	Minute int     `json:"minute,omitempty"`
+	Bring  bool    `json:"bring,omitempty"` // a substitution: he came on because you marked him to bring on
 }
 
 // rotate rests tired starters, bringing in the best fresh player for the same slot.
@@ -222,7 +277,10 @@ func projectedEnd(p *Player, drain float64) float64 {
 	return p.Fitness - drain*(1.15-p.Physical/250)
 }
 
-// autoSubs: the bench comes on for tired or rushed players, and for fresh legs late on.
+// autoSubs: the bench comes on for tired or rushed players, and for fresh legs late on. On your team the bench
+// players you marked (Player.Bring, in that order) come on first: around the hour, each for the most tired man in
+// his line (a keeper for the keeper), unless he is far below him (BringFloor). They use the SubsPlanned changes
+// before anyone else does; the last two stay for the exhausted and the hurt.
 func autoSubs(r *rand.Rand, sh *TeamSheet, drain float64) {
 	type cand struct {
 		slot int
@@ -250,37 +308,107 @@ func autoSubs(r *rand.Rand, sh *TeamSheet, drain float64) {
 			used[p.ID] = true
 		}
 	}
-	for _, c := range cs {
-		if len(sh.Subs) >= SubsMax || (!c.need && len(sh.Subs) >= 3) {
-			break
+	ready := func(b *Player) bool { return !used[b.ID] && !b.Rushed && b.Fitness >= 60 }
+	var marked []*Player
+	for _, b := range sh.Bench {
+		if b.Bring > 0 {
+			marked = append(marked, b)
 		}
+	}
+	sort.SliceStable(marked, func(i, j int) bool { return marked[i].Bring < marked[j].Bring })
+	changed := map[int]bool{}
+	add := func(slot int, in *Player, min int) {
+		used[in.ID], changed[slot] = true, true
+		sh.Subs = append(sh.Subs, Sub{Slot: slot, Out: sh.Starters[slot], In: in, Minute: min})
+	}
+	// fits: he can take this slot without the side falling apart (BringFloor of the man he replaces)
+	fits := func(b *Player, slot int) bool {
+		role := sh.Roles[slot]
+		return Effective(b, role) >= Effective(sh.Starters[slot], role)*BringFloor
+	}
 
-		out := sh.Starters[c.slot]
-		role := sh.Roles[c.slot]
-		var best *Player
-		bestR := 0.0
-		for _, b := range sh.Bench {
-			if used[b.ID] || b.Rushed || b.Position == "GK" || b.Fitness < 60 {
-				continue
-			}
-			if v := Effective(b, role); v > bestR {
-				best, bestR = b, v
-			}
-		}
-		floor := 0.9
-		if c.need {
-			floor = 0.75
-		}
-		if best == nil || bestR < Effective(out, role)*floor {
+	// 1. the exhausted and the rushed come off; a marked player of that line takes the place if he can (three of
+	// them at most, as many as step 2 could bring on)
+	brought := 0
+	for _, c := range cs {
+		if !c.need || len(sh.Subs) >= SubsMax {
 			continue
 		}
-		used[best.ID] = true
-		min := 60 + r.Intn(20)
-		if c.need {
-			min = 52 + r.Intn(16)
+		var in *Player
+		for _, b := range marked {
+			if brought < SubsPlanned && ready(b) && b.Position == RoleCat(sh.Roles[c.slot]) && fits(b, c.slot) {
+				in = b
+				brought++
+				break
+			}
 		}
-		sh.Subs = append(sh.Subs, Sub{Slot: c.slot, Out: out, In: best, Minute: min})
+		if in == nil {
+			in = bestSub(sh, c.slot, ready, 0.75)
+		}
+		if in != nil {
+			add(c.slot, in, 52+r.Intn(16))
+		}
 	}
+	// 2. the players you marked, for the most tired man in their line (failing that, any place they can fill)
+	for _, b := range marked {
+		if len(sh.Subs) >= SubsPlanned {
+			break
+		}
+		if !ready(b) {
+			continue
+		}
+		slot := -1
+		if b.Position == "GK" {
+			for i, role := range sh.Roles {
+				if role == "GK" && sh.Starters[i] != nil && !changed[i] && fits(b, i) {
+					slot = i
+				}
+			}
+		} else {
+			for pass := 0; pass < 2 && slot < 0; pass++ {
+				for _, c := range cs {
+					if !changed[c.slot] && (pass == 1 || RoleCat(sh.Roles[c.slot]) == b.Position) && fits(b, c.slot) {
+						slot = c.slot
+						break
+					}
+				}
+			}
+		}
+		if slot >= 0 {
+			add(slot, b, 55+r.Intn(16))
+		}
+	}
+	// 3. fresh legs for the most tired, from anyone nearly as good
+	for _, c := range cs {
+		if len(sh.Subs) >= SubsPlanned {
+			break
+		}
+		if c.need || changed[c.slot] {
+			continue
+		}
+		if in := bestSub(sh, c.slot, ready, 0.9); in != nil {
+			add(c.slot, in, 60+r.Intn(20))
+		}
+	}
+}
+
+// bestSub: the outfield bench player who would play the slot best, if he is at least floor of the man there now.
+func bestSub(sh *TeamSheet, slot int, ready func(*Player) bool, floor float64) *Player {
+	role := sh.Roles[slot]
+	var best *Player
+	bestR := 0.0
+	for _, b := range sh.Bench {
+		if !ready(b) || b.Position == "GK" {
+			continue
+		}
+		if v := Effective(b, role); v > bestR {
+			best, bestR = b, v
+		}
+	}
+	if best == nil || bestR < Effective(sh.Starters[slot], role)*floor {
+		return nil
+	}
+	return best
 }
 
 // liveSubs validates the changes the user made during a live match.

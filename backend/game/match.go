@@ -572,7 +572,8 @@ func (s *Store) PlayDay(ctx context.Context, careerID int, req MatchResultReq) (
 			}
 			rep.Rotated, rep.Congested = us.Rotated, w.congested(c.UserClubID, uf)
 			for _, s := range us.Subs {
-				rep.Subs = append(rep.Subs, SwapNote{Out: s.Out.Name, In: s.In.Name, OutFit: math.Round(s.Out.Fitness), InFit: math.Round(s.In.Fitness), Minute: s.Minute})
+				rep.Subs = append(rep.Subs, SwapNote{Out: s.Out.Name, In: s.In.Name, OutFit: math.Round(s.Out.Fitness), InFit: math.Round(s.In.Fitness), Minute: s.Minute,
+					Bring: s.In.Bring > 0})
 			}
 			uo = w.record(ctx, q, r, uf, res, home, away, injuredToday)
 			if err := w.eventsAfterUserMatch(ctx, q, r, uf, uo, rep); err != nil {

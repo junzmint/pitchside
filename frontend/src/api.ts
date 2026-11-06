@@ -67,7 +67,7 @@ export const api = {
   quests: (id: number) => req<Quest[]>('GET', c(id) + '/quests'),
   claim: (id: number, qid: number) => req<{ reward: number }>('POST', `${c(id)}/quests/${qid}/claim`),
 
-  setCare: (id: number, pid: number, body: { load?: string; rush?: boolean }) => req('PUT', `${c(id)}/players/${pid}/care`, body),
+  setCare: (id: number, pid: number, body: { load?: string; rush?: boolean; bring?: boolean }) => req('PUT', `${c(id)}/players/${pid}/care`, body),
   setRotation: (id: number, threshold: number) => req('PUT', c(id) + '/rotation', { threshold }),
   setAutoXi: (id: number, on: boolean) => req('PUT', c(id) + '/autoxi', { on }),
   upgradeFacility: (id: number, kind: string) => req('POST', `${c(id)}/facilities/${kind}`),

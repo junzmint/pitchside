@@ -38,6 +38,8 @@ export interface Player {
   wage: number
   load?: '' | 'rest' | 'recovery' | 'intense'
   rushed?: boolean
+  /** you marked him to bring on first from the bench: the order he comes on in (1 first) */
+  bring?: number
   /** medical stream: the kind of his injury (what the club doctor diagnosed) */
   injKind?: string
   market?: number
@@ -190,7 +192,7 @@ export interface SideSetup {
   unavailable?: Player[]
 }
 
-export interface SwapNote { out: string; in: string; outFit: number; inFit: number; minute?: number }
+export interface SwapNote { out: string; in: string; outFit: number; inFit: number; minute?: number; bring?: boolean }
 export interface Demand { kind: 'player' | 'coach'; id: number; name: string; role: string; current: number; ask: number; until: number; tries: number; reason: 'improved' | 'star' | 'senior' | 'coach' | 'renewal'; easy?: boolean; renewal?: boolean }
 export interface IconOption { templateId: number; name: string; position: Pos; overall: number; version: string; price: number; home: boolean }
 export interface IconPick { season: number; day: number; until: number; done: boolean; options: IconOption[] | null }

@@ -80,6 +80,8 @@
 .lv-tip.hurt { border-color: rgba(255, 90, 60, 0.7); }
 .lv-tip-ico { color: #ffd23f; }
 .lv-tip.hurt .lv-tip-ico { color: #ff5a3c; }
+.lv-tip.bring { border-color: rgba(62, 224, 138, 0.65); }
+.lv-tip.bring .lv-tip-ico { color: #3ee08a; }
 .lv-tip-text { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 .lv-tip-text b { color: #4dd2ff; }
 .lv-tip-btns { display: flex; gap: 6px; }
@@ -112,6 +114,7 @@
 .lv-tag.low { color: #ff7a5c; background: rgba(255, 90, 60, 0.14); border: 1px solid rgba(255, 90, 60, 0.45); }
 .lv-tag.inj { color: #fff; background: #c0392b; }
 .lv-tag.pick { color: #d9a400; background: rgba(255, 210, 63, 0.16); border: 1px solid rgba(255, 190, 40, 0.55); }
+.lv-tag.bring { color: #3ee08a; background: rgba(62, 224, 138, 0.14); border: 1px solid rgba(62, 224, 138, 0.5); }
 .lv-subgo { flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; width: 100%; margin: 6px 0 10px; padding: 10px 14px; font-size: 16px; font-weight: 700; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
 .lv-subgo small { font-weight: 600; opacity: 0.85; font-variant-numeric: tabular-nums; }
 

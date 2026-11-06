@@ -135,9 +135,13 @@ export function staminaTone(p: { stamina: number; injured: boolean }): 'inj' | '
  *  best rated first. */
 export function benchOrder(bench: Player[], p?: MP | null): Player[] {
   if (!p) return [...bench].sort((a, b) => b.overall - a.overall)
+  // a bench player you marked to bring on goes ahead of the others in his line (never ahead of a keeper for the keeper)
   const fit = (b: Player) => (b.injury > 0 ? -9 : 0) + ((b.position === 'GK') === p.isGK ? 4 : 0) + (b.role && b.role === p.role ? 2 : 0) + (b.position === p.cat ? 1 : 0)
+    + ((b.bring ?? 0) > 0 && b.position === p.cat ? 2.5 : 0)
   const fresh = (b: Player) => Math.floor(Math.min(99, b.fitness) / 10)
-  return [...bench].sort((a, b) => fit(b) - fit(a) || fresh(b) - fresh(a) || b.overall - a.overall)
+  // (among the marked, the one who has waited longest first, like the computer's own order)
+  const rank = (b: Player) => ((b.bring ?? 0) > 0 ? b.bring! : 99)
+  return [...bench].sort((a, b) => fit(b) - fit(a) || fresh(b) - fresh(a) || rank(a) - rank(b) || b.overall - a.overall)
 }
 
 /** The bench player to suggest for p (see benchOrder). Null when nobody fits, or when p is only tired and nobody on
@@ -171,7 +175,9 @@ export function FitBars({ eng, side }: { eng: Engine; side: Side }) {
   )
 }
 
-export interface SubTipData { side: Side; out: number; in: number; outName: string; inName: string; pct: number; hurt: boolean; at: number }
+export interface SubTipData { side: Side; out: number; in: number; outName: string; inName: string; pct: number; hurt: boolean; at: number
+  /** a bench player you marked to bring on, not a tired or hurt one */
+  bring?: boolean }
 
 /** One small substitution tip: "X is tired (38%): bring on Y?" with a button (or Select / Tab) that opens the bench
  *  with both picked. It goes by itself after TIP_S seconds of play; `left` is the share of that time still to go. */
@@ -179,11 +185,11 @@ export function SubTip({ tip, g, duo, left, onSub, onClose }: { tip: SubTipData;
   const { t } = useI18n()
   const key = g === 'touch' ? '' : glyph('SELECT', g)
   return (
-    <div className={'lv-tip p' + (tip.side + 1) + (tip.hurt ? ' hurt' : '')} role="status" aria-live="polite">
-      <Icon name={tip.hurt ? 'injury' : 'fitness'} size={20} className="lv-tip-ico" />
+    <div className={'lv-tip p' + (tip.side + 1) + (tip.hurt ? ' hurt' : tip.bring ? ' bring' : '')} role="status" aria-live="polite">
+      <Icon name={tip.hurt ? 'injury' : tip.bring ? 'up' : 'fitness'} size={20} className="lv-tip-ico" />
       <span className="lv-tip-text">
         {duo && <b>P{tip.side + 1} · </b>}
-        {t(tip.hurt ? 'lv.tip.hurt' : 'lv.tip.tired', { out: tip.outName, in: tip.inName, n: tip.pct })}
+        {t(tip.hurt ? 'lv.tip.hurt' : tip.bring ? 'lv.tip.bring' : 'lv.tip.tired', { out: tip.outName, in: tip.inName, n: tip.pct })}
       </span>
       <span className="lv-tip-btns">
         <button className="primary" onClick={onSub}>⇄ {t('lv.tip.go')}{key && <kbd>{key}</kbd>}</button>
