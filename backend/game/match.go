@@ -294,6 +294,21 @@ type MatchSetup struct {
 	Knockout   bool        `json:"knockout"`
 	Weather    string      `json:"weather"` // events.go: clear | rain | snow | heat (stable per fixture)
 	Derby      bool        `json:"derby"`   // events.go: against the club's fixed rival
+	// the chance of each result in 90 minutes and the expected goals, from the model the simulated match
+	// plays (sim.go MatchOdds) with everything it uses today: the occasion, the weather, the captain, the
+	// press conference and the home crowd. Career matches only.
+	Odds *OddsView `json:"odds,omitempty"`
+}
+
+// matchSheets: both team sheets of the user's match as it is played (PlayDay) and as its odds are worked out
+// (MatchSetup): a cup or continental tie is a big game, then the weather, a derby, the captain and the press
+// conference (events.go), and the home crowd (club_fans.go).
+func (w *world) matchSheets(ctx context.Context, q DBTX, f *Fixture) (TeamSheet, TeamSheet) {
+	home, away := w.sheet(f.HomeID), w.sheet(f.AwayID)
+	home.BigGame, away.BigGame = f.Comp != "league", f.Comp != "league"
+	w.matchMods(f, &home, &away)
+	w.fanMods(ctx, q, f, &home, &away)
+	return home, away
 }
 
 func (w *world) side(clubID int, f *Fixture) SideSetup {
@@ -333,6 +348,9 @@ func (s *Store) MatchSetup(ctx context.Context, careerID int) (*MatchSetup, erro
 		}
 		ms = &MatchSetup{Fixture: viewFixture(f, w.byID), Home: w.side(f.HomeID, f), Away: w.side(f.AwayID, f),
 			UserIsHome: f.HomeID == w.career.UserClubID, Knockout: isKnockout(f), Weather: weatherFor(f), Derby: w.isDerby(f)}
+		// the odds from the sheets as PlayDay will play them (nothing here is saved: if the assistant answers
+		// the press for you, his answer counts in the odds and is given for real on matchday)
+		ms.Odds = MatchOdds(w.matchSheets(ctx, q, f)).View()
 		return fillKits(ctx, q, careerID, ms.Home.Club, ms.Away.Club) // kits.go: what each side can wear
 	})
 	return ms, err
@@ -486,11 +504,7 @@ func (s *Store) PlayDay(ctx context.Context, careerID int, req MatchResultReq) (
 		uf := w.userFixture()
 		var uo *matchOutcome
 		if uf != nil {
-			home, away := w.sheet(uf.HomeID), w.sheet(uf.AwayID)
-			home.BigGame, away.BigGame = uf.Comp != "league", uf.Comp != "league"
-			w.matchMods(uf, &home, &away) // events.go: weather, derby, captain, press conference
-			// club_fans.go: the home crowd
-			w.fanMods(ctx, q, uf, &home, &away)
+			home, away := w.matchSheets(ctx, q, uf) // the occasion, weather, derby, captain, press conference, home crowd
 			var res SimResult
 			live := req.Mode == "live"
 			if req.Mode != "forfeit" {

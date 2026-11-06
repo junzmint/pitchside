@@ -3,7 +3,7 @@
 export const ui2Strings: { vi: Record<string, string>; en: Record<string, string>; ja: Record<string, string> } = {
   vi: {
     // pre-match VS screen
-    'vs.chance': 'Khả năng thắng (ước tính)', 'vs.chanceTip': 'Ước tính từ sức mạnh, độ ăn ý và lợi thế sân nhà.\nBóng đá luôn có bất ngờ!',
+    'vs.chance': 'Khả năng thắng (ước tính)', 'vs.chanceTip': 'Tính bằng đúng mô hình của mô phỏng nhanh: đội hình ra sân (chỉ số, vị trí, thể lực, tinh thần), độ ăn ý, HLV, chiến thuật, sân nhà, thời tiết và tính chất trận đấu.\nBóng đá luôn có bất ngờ!', 'vs.xg': 'Bàn thắng kỳ vọng {h} – {a}',
     'vs.win': '{c} thắng', 'vs.draw': 'Hòa', 'vs.key': 'Ngôi sao', 'vs.form': '5 trận gần nhất', 'vs.formNone': 'Chưa đá trận nào',
     'vs.watch': 'Xem trận đấu', 'vs.playHint': 'Bạn điều khiển cầu thủ trên sân', 'vs.watchHint': 'Máy đá cả hai đội, bạn xem trọn trận',
     'vs.simHint': 'Có kết quả ngay lập tức', 'vs.notes': 'Trước giờ bóng lăn', 'vs.you': 'Đội của bạn', 'vs.weather': 'Thời tiết',
@@ -43,7 +43,7 @@ export const ui2Strings: { vi: Record<string, string>; en: Record<string, string
     'set.help': 'Trợ giúp', 'ht.what': 'Chơi thế nào, cách điều khiển và 5 mẹo', 'set.tour': 'Xem lại hướng dẫn nhanh', 'set.tourNote': 'Hướng dẫn nhanh chỉ chạy khi bạn đang mở một sự nghiệp.', 'set.helpNote': 'Quên cách chơi? Mọi thứ đều có ở đây.',
   },
   en: {
-    'vs.chance': 'Win chance (estimate)', 'vs.chanceTip': 'Estimated from strength, chemistry and home advantage.\nFootball always has surprises!',
+    'vs.chance': 'Win chance (estimate)', 'vs.chanceTip': 'Worked out with the quick simulation\'s own model: the starting elevens (attributes, positions, fitness, morale), chemistry, the coach, tactics, home advantage, the weather and the occasion.\nFootball always has surprises!', 'vs.xg': 'Expected goals {h} – {a}',
     'vs.win': '{c} win', 'vs.draw': 'Draw', 'vs.key': 'Key players', 'vs.form': 'Last 5 games', 'vs.formNone': 'No games yet',
     'vs.watch': 'Watch the match', 'vs.playHint': 'You control the players on the pitch', 'vs.watchHint': 'The computer plays both sides, you watch',
     'vs.simHint': 'Get the result straight away', 'vs.notes': 'Before kick-off', 'vs.you': 'Your team', 'vs.weather': 'Weather',
@@ -79,7 +79,7 @@ export const ui2Strings: { vi: Record<string, string>; en: Record<string, string
     'set.help': 'Help', 'ht.what': 'The game loop, the controls and 5 tips', 'set.tour': 'Replay the quick tour', 'set.tourNote': 'The quick tour runs while a career is open.', 'set.helpNote': 'Forgot how something works? It is all here.',
   },
   ja: {
-    'vs.chance': '勝敗予想', 'vs.chanceTip': '戦力・ケミストリー・ホームの利から推定。\nサッカーに番狂わせはつきもの！',
+    'vs.chance': '勝敗予想', 'vs.chanceTip': 'クイックシミュレートと同じモデルで計算：先発メンバー（能力・ポジション・体力・士気）、ケミストリー、監督、戦術、ホーム、天候、試合の重み。\nサッカーに番狂わせはつきもの！', 'vs.xg': '期待ゴール {h} – {a}',
     'vs.win': '{c}の勝ち', 'vs.draw': '引き分け', 'vs.key': '注目選手', 'vs.form': '直近5試合', 'vs.formNone': 'まだ試合なし',
     'vs.watch': '試合を観戦', 'vs.playHint': 'ピッチの選手を自分で操作', 'vs.watchHint': 'CPU同士の試合をフルで観戦',
     'vs.simHint': 'すぐに結果が出ます', 'vs.notes': 'キックオフ前', 'vs.you': 'あなたのチーム', 'vs.weather': '天気',

@@ -31,9 +31,13 @@ export default function MatchCentre({ ctx }: { ctx: Ctx }) {
   const ev = eventsOf(st)
   const pre = !!fx && !fx.played
 
+  // the odds come from the backend's own match model: ask again when the line-up, the tactics or the press answer change
+  const setupKey = `${st.club.formation}|${JSON.stringify(st.club.tactic)}|${st.club.lineup.join(',')}|${ev?.today?.answer ?? ''}`
+  useEffect(() => { setSetup(null) }, [id, fx?.id]) // a new fixture: no stale odds while the next ones load
   useEffect(() => {
-    setSetup(null)
     if (pre) api.match(id).then(setSetup).catch(() => {})
+  }, [id, fx?.id, pre, st.career.day, st.career.season, setupKey])
+  useEffect(() => {
     // before a match the full view also gives the opponent's recent results
     api.competitions(id, !pre).then(setComp).catch(() => {})
   }, [id, fx?.id, st.career.day, st.career.season])
@@ -222,26 +226,6 @@ function formOf(fixtures: FixtureView[], clubId: number) {
   return fixtures.filter(f => f.played && (f.homeId === clubId || f.awayId === clubId)).sort((a, b) => a.day - b.day).slice(-5)
 }
 
-/** Home win / draw / away win from the simulation's own goal model (backend sim.go, Simulate):
- *  expected goals from attack against defence and midfield, then the exact Poisson outcome odds.
- *  (The goals both sides share don't change who wins, so only the separate parts matter.) */
-function winChance(h: SideSetup, a: SideSetup): [number, number, number] {
-  const mid = ((h.rating.midfield - a.rating.midfield) / 30) * 0.25
-  const lh = Math.min(3.6, 1.5 * Math.exp((h.rating.attack - a.rating.defense) / 50 + mid))
-  const la = Math.min(3.6, 1.2 * Math.exp((a.rating.attack - h.rating.defense) / 50 - mid))
-  const shared = Math.min(0.2, Math.min(lh, la) * 0.5)
-  const pois = (l: number) => { const p = [Math.exp(-l)]; for (let k = 1; k <= 12; k++) p.push((p[k - 1] * l) / k); return p }
-  const ph = pois(lh - shared), pa = pois(la - shared)
-  let H = 0, D = 0, A = 0
-  for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) {
-    const p = ph[i] * pa[j]
-    if (i > j) H += p; else if (i === j) D += p; else A += p
-  }
-  const tot = H + D + A || 1
-  const h100 = Math.round((H / tot) * 100), d100 = Math.round((D / tot) * 100)
-  return [h100, d100, Math.max(0, 100 - h100 - d100)]
-}
-
 function luma(hex: string) {
   const n = parseInt((hex || '#000').replace('#', ''), 16)
   return ((n >> 16) & 255) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114
@@ -263,7 +247,9 @@ function VsScreen({ ctx, fx, setup, comp, ev, snap, busy, onSim }: {
   const derby = setup?.derby ?? ev?.today?.derby
   const fixtures = comp?.fixtures ?? []
   const H = setup?.home, A = setup?.away
-  const odds = H && A ? winChance(H, A) : null
+  // the quick simulation's own odds (backend MatchOdds): the same model that plays the match when you simulate it
+  const odds = setup?.odds ? [setup.odds.home, setup.odds.draw, setup.odds.away] : null
+  const oddsTip = setup?.odds ? `${t('vs.chanceTip')}\n${t('vs.xg', { h: setup.odds.homeXg.toFixed(1), a: setup.odds.awayXg.toFixed(1) })}` : t('vs.chanceTip')
   const round = fx.comp === 'league' ? st.today?.round : undefined
   const sides = [
     { key: 'home', id: fx.homeId, name: fx.home, short: fx.homeShort, color: fx.homeColor, color2: fx.homeColor2, s: H },
@@ -306,7 +292,7 @@ function VsScreen({ ctx, fx, setup, comp, ev, snap, busy, onSim }: {
       </div>
 
       {odds && (
-        <div className="vsx-odds" data-tip={t('vs.chanceTip')} tabIndex={0}>
+        <div className="vsx-odds" data-tip={oddsTip} tabIndex={0}>
           <span className="eyebrow"><Icon name="rating" size={13} /> {t('vs.chance')}</span>
           <div className="vsx-oddsbar">
             <i className="h" style={{ flexGrow: Math.max(odds[0], 1) }}>{odds[0] >= 12 && <b className="num">{odds[0]}%</b>}</i>

@@ -211,7 +211,9 @@ export interface MatchSetup { fixture: FixtureView; home: SideSetup; away: SideS
   /** events stream: clear | rain | snow | heat, stable per fixture */
   weather?: 'clear' | 'rain' | 'snow' | 'heat'
   /** events stream: the user's derby against the club's fixed rival */
-  derby?: boolean }
+  derby?: boolean
+  /** before the match: the quick simulation's own odds (% in 90 minutes) and expected goals (backend MatchOdds) */
+  odds?: { home: number; draw: number; away: number; homeXg: number; awayXg: number } }
 
 export interface DayReport {
   alerts?: Alert[]

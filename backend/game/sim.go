@@ -94,34 +94,63 @@ func assistWeight(role string, p *Player) float64 {
 	return f * math.Pow(p.Passing/50, 2)
 }
 
-// The simulated match's goal model (see Simulate): even sides score about 1.5 at home and
-// 1.2 away; every SimGap points between attack and defence multiply that by e.
+// ---------------------------------------------------------------- the goal model
+//
+// One model plays the simulated match (Simulate) and gives the pre-match odds (MatchOdds), so the chance
+// the match page shows is the chance the simulation plays out (sim_calibration_test.go measures it).
+//
+// A side's expected goals follow its attack line against the other side's defence line, and the midfield
+// battle (TeamSheet.Rating: the starters' effective ratings by line, i.e. attributes, position fit, fitness,
+// morale and match sharpness, times chemistry and the head coach's fit, plus his skill, the tactics, traits,
+// staff perks and the day's boosts such as the press conference and the home crowd). Even sides expect
+// SimHomeGoals at home and SimAwayGoals away. Every SimGap points of attack over defence multiply a side's
+// expected goals by e (10 points ≈ +25%), and a point of midfield edge counts SimMid of that, for one side
+// and against the other. Rain, snow and heat take goals away (WeatherGoals).
+//
+// What is left to chance: the goals themselves (Poisson), a little luck on the day (SimLuck: each side's
+// expected goals vary by about ±12%, a deflection, a red card, an off day), and a few goals both sides share
+// (SimShared, a bivariate Poisson: real scores correlate, so level scores are a little commoner). With these
+// values the four leagues average about 2.75 goals a match with a quarter of the games drawn; a side given 80%
+// wins about 80%, draws about 14% and loses about 6–7%, much as bookmakers' odds have it in real football; and
+// a top-flight season spreads like a real one (the champions on about 90–95 points, the bottom club 20–30).
 const (
 	SimHomeGoals = 1.5
 	SimAwayGoals = 1.2
-	SimGap       = 50.0
-	SimMid       = 0.25
+	SimGap       = 44.0
+	SimMid       = 0.42
 	SimMaxGoals  = 3.6
-	SimForm      = 0.22
-	SimShared    = 0.2 // goals both sides share (bivariate Poisson): real scores correlate, so draws are commoner
+	SimLuck      = 0.12
+	SimShared    = 0.1
 )
+
+// goalRates: both sides' expected goals before the day's luck and the weather.
+func goalRates(h, a TeamRating) (lh, la float64) {
+	mid := (h.Midfield - a.Midfield) * SimMid / SimGap
+	lh = SimHomeGoals * math.Exp((h.Attack-a.Defense)/SimGap+mid)
+	la = SimAwayGoals * math.Exp((a.Attack-h.Defense)/SimGap-mid)
+	return lh, la
+}
+
+func weatherGoals(wx string) float64 {
+	if f := WeatherGoals[wx]; f > 0 {
+		return f
+	}
+	return 1
+}
+
+// onTheDay: a side's expected goals with the day's luck (z, a standard normal draw), capped, in the weather.
+func onTheDay(l, z, wx float64) float64 { return math.Min(SimMaxGoals, l*math.Exp(z*SimLuck)) * wx }
+
+// sharedGoals: the expected goals both sides share (they add to both scores, so they change no result).
+func sharedGoals(lh, la float64) float64 { return math.Min(SimShared, math.Min(lh, la)*0.5) }
 
 func Simulate(r *rand.Rand, home, away TeamSheet) SimResult {
 	h, a := home.Rating(), away.Rating()
 	midDiff := (h.Midfield - a.Midfield) / 30
-	// Expected goals follow one side's attack against the other's defence, softened so that the
-	// stronger side usually wins while draws and upsets stay common, plus a little form on the day.
-	form := func() float64 { return math.Exp(r.NormFloat64() * SimForm) }
-	lh := math.Min(SimMaxGoals, SimHomeGoals*math.Exp((h.Attack-a.Defense)/SimGap+midDiff*SimMid)*form())
-	la := math.Min(SimMaxGoals, SimAwayGoals*math.Exp((a.Attack-h.Defense)/SimGap-midDiff*SimMid)*form())
-	// weather: wet and frozen pitches mean fewer goals, heat slows the game a little
-	wx := WeatherGoals[home.Weather]
-	if wx == 0 {
-		wx = 1
-	}
-	lh, la = lh*wx, la*wx
-	// a shared part keeps each side's expected goals but makes level scores more likely
-	sh := math.Min(SimShared, math.Min(lh, la)*0.5)
+	lh0, la0 := goalRates(h, a)
+	wx := weatherGoals(home.Weather)
+	lh, la := onTheDay(lh0, r.NormFloat64(), wx), onTheDay(la0, r.NormFloat64(), wx)
+	sh := sharedGoals(lh, la)
 	z := poisson(r, sh)
 	res := SimResult{HomeGoals: poisson(r, lh-sh) + z, AwayGoals: poisson(r, la-sh) + z}
 	add := func(t TeamSheet) {
@@ -143,6 +172,106 @@ func Simulate(r *rand.Rand, home, away TeamSheet) SimResult {
 	res.ShotsHome = res.HomeGoals + poisson(r, lh*4)
 	res.ShotsAway = res.AwayGoals + poisson(r, la*4)
 	return res
+}
+
+// ---------------------------------------------------------------- pre-match odds
+
+// Odds: the chance of each result over 90 minutes (they add up to 1) and the goals each side can expect.
+type Odds struct {
+	Home, Draw, Away float64
+	HomeXG, AwayXG   float64
+}
+
+// The day's luck in MatchOdds: 9-point Gauss–Hermite nodes for a standard normal (z) and their weights.
+var luckZ, luckW = func() ([]float64, []float64) {
+	x := []float64{-3.190993201781528, -2.266580584531843, -1.468553289216668, -0.7235510187528376, 0,
+		0.7235510187528376, 1.468553289216668, 2.266580584531843, 3.190993201781528}
+	w := []float64{3.960697726326438e-05, 0.004943624275536947, 0.08847452739437657, 0.4326515590025558, 0.7202352156060510,
+		0.4326515590025558, 0.08847452739437657, 0.004943624275536947, 3.960697726326438e-05}
+	z, p := make([]float64, len(x)), make([]float64, len(x))
+	for i := range x {
+		z[i], p[i] = x[i]*math.Sqrt2, w[i]/math.Sqrt(math.Pi)
+	}
+	return z, p
+}()
+
+// poissonResult: the chance that a Poisson(lh) score beats, equals or loses to an independent Poisson(la) score.
+func poissonResult(lh, la float64) (h, d, a float64) {
+	const n = 26 // expected goals stay under SimMaxGoals: more than 25 goals never happens
+	var ph, pa [n]float64
+	ph[0], pa[0] = math.Exp(-lh), math.Exp(-la)
+	for k := 1; k < n; k++ {
+		ph[k], pa[k] = ph[k-1]*lh/float64(k), pa[k-1]*la/float64(k)
+	}
+	below := 0.0 // P(home score < k)
+	for k := 0; k < n; k++ {
+		d += ph[k] * pa[k]
+		a += below * pa[k]
+		below += ph[k]
+	}
+	return math.Max(0, 1-d-a), d, a
+}
+
+// MatchOdds: the chance of each result in 90 minutes as Simulate plays it, worked out exactly: the same expected
+// goals, weather, cap and shared goals, the day's luck integrated over (Gauss–Hermite), then the Poisson scores.
+// Pass the sheets prepared the way the match is played (world.matchSheets for the user's match).
+func MatchOdds(home, away TeamSheet) Odds {
+	lh0, la0 := goalRates(home.Rating(), away.Rating())
+	wx := weatherGoals(home.Weather)
+	var o Odds
+	for i, zh := range luckZ {
+		lh := onTheDay(lh0, zh, wx)
+		for j, za := range luckZ {
+			w := luckW[i] * luckW[j]
+			la := onTheDay(la0, za, wx)
+			sh := sharedGoals(lh, la)
+			h, d, a := poissonResult(lh-sh, la-sh)
+			o.Home, o.Draw, o.Away = o.Home+w*h, o.Draw+w*d, o.Away+w*a
+			o.HomeXG, o.AwayXG = o.HomeXG+w*lh, o.AwayXG+w*la
+		}
+	}
+	if s := o.Home + o.Draw + o.Away; s > 0 {
+		o.Home, o.Draw, o.Away = o.Home/s, o.Draw/s, o.Away/s
+	}
+	return o
+}
+
+// Percent: the odds in whole percentages that add up to 100 (largest remainder), as the match page shows them.
+func (o Odds) Percent() [3]int {
+	ps := [3]float64{o.Home * 100, o.Draw * 100, o.Away * 100}
+	var out [3]int
+	left := 100
+	for i, p := range ps {
+		ps[i] = math.Max(0, p)
+		out[i] = int(math.Floor(ps[i]))
+		left -= out[i]
+	}
+	for ; left > 0; left-- {
+		best, bestR := 0, -1.0
+		for i, p := range ps {
+			if r := p - float64(out[i]); r > bestR {
+				best, bestR = i, r
+			}
+		}
+		out[best]++
+		ps[best] = float64(out[best]) // that remainder is used up
+	}
+	return out
+}
+
+// OddsView: the pre-match odds as the match page gets them (MatchSetup.Odds).
+type OddsView struct {
+	Home   int     `json:"home"` // % home win in 90 minutes
+	Draw   int     `json:"draw"`
+	Away   int     `json:"away"`
+	HomeXG float64 `json:"homeXg"` // expected goals
+	AwayXG float64 `json:"awayXg"`
+}
+
+// View: the odds for the match page, in whole percentages, with the expected goals to two decimals.
+func (o Odds) View() *OddsView {
+	p := o.Percent()
+	return &OddsView{Home: p[0], Draw: p[1], Away: p[2], HomeXG: math.Round(o.HomeXG*100) / 100, AwayXG: math.Round(o.AwayXG*100) / 100}
 }
 
 // Penalties decide drawn knockout ties; better keepers tilt the odds.
