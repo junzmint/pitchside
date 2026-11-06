@@ -221,14 +221,15 @@ func GenPlayer(r *rand.Rand, pool []string, pos string, target float64, minAge, 
 }
 
 func MakeStar(r *rand.Rand, d StarDef) *Player {
-	p := &Player{Name: d.Name, Nation: d.Nation, Age: d.Age, Position: d.Pos, Fitness: 100, Morale: 80, Focus: "balanced"}
+	pos, _ := d.posRole() // "FW/RW": his role is the data's label (starRole), not a build
+	p := &Player{Name: d.Name, Nation: d.Nation, Age: d.Age, Position: pos, Fitness: 100, Morale: 80, Focus: "balanced"}
 	genAttrs(r, p, d.Ovr, d.Style)
 	if ts := styleTraits[d.Style]; len(ts) > 0 {
 		p.Traits = append([]string{}, ts[:min(2, len(ts))]...)
 	} else {
 		p.Traits = assignTraits(r, p)
 	}
-	p.Potential = int(math.Max(float64(d.Pot), math.Round(OverallAs(p, d.Pos))))
+	p.Potential = int(math.Max(float64(d.Pot), math.Round(OverallAs(p, pos))))
 	p.Fill()
 	return p
 }
@@ -256,7 +257,8 @@ func GenSquad(r *rand.Rand, pool []string, base float64, stars []StarDef) []*Pla
 	out := []*Player{}
 	for _, s := range stars {
 		out = append(out, MakeStar(r, s))
-		need[s.Pos]--
+		pos, _ := s.posRole()
+		need[pos]--
 	}
 	for _, pos := range []string{"GK", "DF", "MF", "FW"} {
 		for n := 0; n < need[pos]; n++ {

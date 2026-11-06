@@ -19,7 +19,7 @@ import (
 // always plays that role (legendRole) and his attributes are built for it (legendStar). Without a role ("DF")
 // his attributes decide, as for anyone else.
 const legendData = `
-Lionel Messo|AR|FW/ST|goat|95|2012|1987|FC Barcelano:2006,FC Barcelano:2011,FC Barcelano:2015,Paris Lumière:2022,Miami Rosa:2024
+Lionel Messo|AR|FW/RW|goat|95|2012|1987|FC Barcelano:2006,FC Barcelano:2011,FC Barcelano:2015,Paris Lumière:2022,Miami Rosa:2024
 Cristiano Ronalda|PT|FW/LW|siu|94|2014|1985|Sporting Lisboa:2003,Manchester Reds:2008,Real Madrix:2014,Torino Zebras:2019,Riyadh Nassr:2024
 Ronaldo Fenômeno|BR|FW/ST|speed|94|1998|1976|Eindhoven Boeren:1995,FC Barcelano:1997,Milano Nerazzurri:1998,Real Madrix:2003,Milano Rossoneri:2007
 Ronaldinyo Gaúcho|BR|FW/LW|dribbler|93|2005|1980|Paris Lumière:2002,FC Barcelano:2005,Milano Rossoneri:2009
@@ -53,7 +53,7 @@ Philipp Lahmm|DE|DF/RB|wall|90|2013|1983|Stuttgart Swabians:2004,FC Bavaria:2013
 Bastian Schweinstiga|DE|MF/CM|engine|90|2013|1984|FC Bavaria:2008,FC Bavaria:2013,Manchester Reds:2016
 Franck Riberi|FR|FW/LW|dribbler|90|2013|1983|Marseille Bleu:2006,FC Bavaria:2013,Firenze Viola:2020
 Arjen Robbin|NL|FW/RW|dribbler|90|2013|1984|Eindhoven Boeren:2003,West London Blues:2005,Real Madrix:2008,FC Bavaria:2013
-Thomas Müllerr|DE|FW/ST|finisher|88|2014|1989|FC Bavaria:2010,FC Bavaria:2014,FC Bavaria:2020
+Thomas Müllerr|DE|FW/RW|finisher|88|2014|1989|FC Bavaria:2010,FC Bavaria:2014,FC Bavaria:2020
 Miroslav Klosé|DE|FW/ST|finisher|87|2006|1978|Kaiserslautern Rot:2002,Bremen Werder:2006,FC Bavaria:2008,Aquile Roma:2012
 Marco Royce|DE|FW/LW|speed|89|2016|1989|Gladbach Foals:2011,Dortmund Yellows:2016,Dortmund Yellows:2021
 Mats Hummelz|DE|DF/CB|wall|89|2014|1988|Dortmund Yellows:2012,FC Bavaria:2017
@@ -144,7 +144,7 @@ Marek Hamšíkk|SK|MF/CM|playmaker|87|2016|1987|Neapolis SSC:2013,Neapolis SSC:2
 Edinson Cavanni|UY|FW/ST|finisher|89|2013|1987|Neapolis SSC:2012,Paris Lumière:2017,Manchester Reds:2021
 Lorenzo Insignié|IT|FW/LW|dribbler|87|2019|1991|Neapolis SSC:2019
 Ciro Immobilé|IT|FW/ST|finisher|88|2020|1990|Dortmund Yellows:2015,Aquile Roma:2020
-Hristo Stoichkof|BG|FW/ST|finisher|91|1994|1966|FC Barcelano:1994
+Hristo Stoichkof|BG|FW/LW|finisher|91|1994|1966|FC Barcelano:1994
 Romário Faria|BR|FW/ST|finisher|92|1994|1966|Eindhoven Boeren:1990,FC Barcelano:1994,Rio Rubro-Negro:1998
 Bebeto Oliveira|BR|FW/ST|finisher|88|1993|1964|La Coruña Blanquiazul:1993
 Cafú Evangelista|BR|DF/RB|engine|90|2002|1970|Roma Lupi:2001,Milano Rossoneri:2004

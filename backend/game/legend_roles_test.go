@@ -44,6 +44,9 @@ func TestLegendRolesKnown(t *testing.T) {
 		"Vini Juniór":            "LW",
 		"Gerd Müllar":            "ST",
 		"Thierry Henri":          "ST",
+		"Lionel Messo":           "RW", // the report that started the modern stars' roles: he was a striker
+		"Thomas Müllerr":         "RW",
+		"Hristo Stoichkof":       "LW",
 	}
 	for name, role := range want {
 		for _, p := range legendCards(t, name, 25) {
@@ -123,9 +126,10 @@ func TestLegendRolesMatchData(t *testing.T) {
 	}
 }
 
-// The data's role belongs to the legend cards. Today's player of the same name, a custom design, a legend the data
-// does not know or one whose position no longer fits the role keep the role their attributes give (attrRole), and
-// so does everyone else: the side from the id, as before.
+// The data's role belongs to the legend cards. Today's player of the same name (unless he is a modern star with a
+// role of his own in the club data, starRole), a custom design, a legend the data does not know or one whose
+// position no longer fits the role keep the role their attributes give (attrRole), and so does everyone else: the
+// side from the id, as before.
 func TestLegendRoleOnlyForCards(t *testing.T) {
 	stopper := func(id int, name, tag, pos string) *Player { // a centre-back's numbers
 		p := &Player{ID: id, Name: name, Tag: tag, Position: pos, Pace: 72, Shooting: 50, Passing: 70, Dribbling: 60,
