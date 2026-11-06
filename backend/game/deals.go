@@ -347,18 +347,16 @@ func (s *Store) MakeDeal(ctx context.Context, careerID int, req DealReq) (*DealR
 		}
 		out.Accepted = newRand().Float64() < qt.Chance
 		if out.Accepted {
-			_, myShirt, err := nextShirt(ctx, q, d.user.ID)
-			if err != nil {
-				return err
-			}
-			_, theirShirt, err := nextShirt(ctx, q, d.other.ID)
-			if err != nil {
-				return err
-			}
+			// shirts.go: each newcomer gets a number that suits him (asked one at a time, so two never share one)
+			shirtAt := func(clubID int, p *Player) (int, error) { _, n, err := nextShirt(ctx, q, clubID, p); return n, err }
 			switch req.Type {
 			case "buy":
 				d.user.Budget -= req.Price
 				d.other.Budget += req.Price
+				myShirt, err := shirtAt(d.user.ID, d.p)
+				if err != nil {
+					return err
+				}
 				moveTo(d.p, &d.user.ID, myShirt)
 				if req.Promise {
 					d.p.Morale = clamp(d.p.Morale+10, 20, 100)
@@ -373,6 +371,10 @@ func (s *Store) MakeDeal(ctx context.Context, careerID int, req DealReq) (*DealR
 			case "sell":
 				d.user.Budget += req.Price
 				d.other.Budget -= req.Price
+				theirShirt, err := shirtAt(d.other.ID, d.p)
+				if err != nil {
+					return err
+				}
 				moveTo(d.p, &d.other.ID, theirShirt)
 				if err := addFinance(ctx, q, d.c, "transfer_out", req.Price, d.p.Name); err != nil {
 					return err
@@ -385,13 +387,25 @@ func (s *Store) MakeDeal(ctx context.Context, careerID int, req DealReq) (*DealR
 				noteSigning(d.c, d.p, fee)
 				d.user.Budget -= req.Price
 				d.other.Budget += req.Price
-				moveTo(d.p, &d.user.ID, myShirt)
+				theirShirt, err := shirtAt(d.other.ID, d.give)
+				if err != nil {
+					return err
+				}
 				moveTo(d.give, &d.other.ID, theirShirt)
 				if err := savePlayer(ctx, q, d.give); err != nil {
 					return err
 				}
+				myShirt, err := shirtAt(d.user.ID, d.p) // (after the ones you gave left)
+				if err != nil {
+					return err
+				}
+				moveTo(d.p, &d.user.ID, myShirt)
 				if d.give2 != nil {
-					moveTo(d.give2, &d.other.ID, theirShirt+1)
+					shirt2, err := shirtAt(d.other.ID, d.give2)
+					if err != nil {
+						return err
+					}
+					moveTo(d.give2, &d.other.ID, shirt2)
 					if err := savePlayer(ctx, q, d.give2); err != nil {
 						return err
 					}

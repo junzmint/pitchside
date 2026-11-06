@@ -487,59 +487,10 @@ func (life *ClubLife) retiredSet() map[int]int {
 	return out
 }
 
-// guardShirts: anyone wearing a retired number (except the legend himself) gets the next free one.
+// guardShirts: the daily tidy of the user's squad (shirts.go): nobody on a number someone else wears, a retired one
+// (but its legend) or one above 40, and nobody on a number that doesn't suit his position.
 func guardShirts(life *ClubLife, squad []*Player) []*Player {
-	ret := life.retiredSet()
-	if len(ret) == 0 {
-		return nil
-	}
-	used := map[int]bool{}
-	for _, p := range squad {
-		used[p.Shirt] = true
-	}
-	var changed []*Player
-	for _, p := range squad {
-		owner, ok := ret[p.Shirt]
-		if !ok || owner == p.ID {
-			continue
-		}
-		s := p.Shirt
-		for i := 0; i < 200; i++ {
-			s++
-			if s > 99 {
-				s = 2
-			}
-			if _, bad := ret[s]; !bad && !used[s] {
-				break
-			}
-		}
-		used[s] = true
-		p.Shirt = s
-		changed = append(changed, p)
-	}
-	return changed
-}
-
-// freeShirt: the next number for a new signing, past the squad's highest, skipping retired ones.
-func freeShirt(life *ClubLife, squad []*Player) int {
-	ret := life.retiredSet()
-	used := map[int]bool{}
-	top := 0
-	for _, p := range squad {
-		used[p.Shirt] = true
-		top = max(top, p.Shirt)
-	}
-	s := top
-	for i := 0; i < 200; i++ {
-		s++
-		if s > 99 {
-			s = 2
-		}
-		if _, bad := ret[s]; !bad && !used[s] {
-			return s
-		}
-	}
-	return top + 1
+	return tidyShirts(squad, life.retiredSet(), life.keepShirts(), false)
 }
 
 // honourLegend: retire his number, or keep it in use.

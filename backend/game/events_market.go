@@ -131,13 +131,7 @@ func (w *world) sellTo(ctx context.Context, q DBTX, p *Player, to *Club, fee int
 	}
 	user.Budget += fee
 	to.Budget -= fee
-	shirt := 1
-	for _, x := range w.players[to.ID] {
-		if x.Shirt >= shirt {
-			shirt = x.Shirt + 1
-		}
-	}
-	moveTo(p, &to.ID, shirt)
+	moveTo(p, &to.ID, w.shirtFor(ctx, q, to.ID, p))
 	w.players[to.ID] = append(w.players[to.ID], p)
 	delete(c.Contracts.Players, p.ID)
 	delete(c.Contracts.Years, p.ID)
@@ -220,6 +214,7 @@ type LoanDeal struct {
 	Wage     int64  `json:"wage"`   // loans out: his contract, restored on return
 	Years    int    `json:"years"`  // loans out: seasons left, restored on return
 	Tenure   int    `json:"tenure"` // matches for the club before he left
+	Shirt    int    `json:"shirt,omitempty"` // his number at home, given back on return if it is still free
 	AppsAt   int    `json:"appsAt"` // loans out: season appearances when he left
 	Apps     int    `json:"apps"`   // loans out: appearances for the borrower (refreshed in the view)
 }
@@ -294,19 +289,13 @@ func (w *world) loanOut(ctx context.Context, q DBTX, r *rand.Rand, pid int) (*Lo
 	to := cs[0].cl
 	d := LoanDeal{ID: es.nextID(), PlayerID: p.ID, Name: p.Name, Role: p.Role, Overall: p.Overall, ClubID: to.ID, Club: to.Name,
 		Season: c.Season, Fee: roundK(float64(p.Value) * LoanOutShare), Wage: c.Contracts.Players[p.ID], Years: c.Contracts.Years[p.ID],
-		Tenure: p.Tenure, AppsAt: w.seasonApps(ctx, q, p.ID)}
+		Tenure: p.Tenure, AppsAt: w.seasonApps(ctx, q, p.ID), Shirt: p.Shirt}
 	if d.Wage == 0 {
 		d.Wage = p.Wage
 	}
 	user.Budget += d.Fee
 	to.Budget -= d.Fee
-	shirt := 1
-	for _, x := range w.players[to.ID] {
-		if x.Shirt >= shirt {
-			shirt = x.Shirt + 1
-		}
-	}
-	moveTo(p, &to.ID, shirt)
+	moveTo(p, &to.ID, w.shirtFor(ctx, q, to.ID, p))
 	p.Morale = clamp(p.Morale+3, 20, 100)
 	w.players[to.ID] = append(w.players[to.ID], p)
 	delete(c.Contracts.Players, p.ID)
@@ -408,15 +397,10 @@ func (w *world) loanIn(ctx context.Context, q DBTX, pid int) (*LoanDeal, error) 
 	p := cand.Player
 	from := w.byID[cand.ClubID]
 	d := LoanDeal{ID: es.nextID(), PlayerID: p.ID, Name: p.Name, Role: p.Role, Overall: p.Overall, ClubID: from.ID, Club: from.Name,
-		Season: c.Season, Fee: cand.Fee, Tenure: p.Tenure}
+		Season: c.Season, Fee: cand.Fee, Tenure: p.Tenure, Shirt: p.Shirt}
 	user.Budget -= d.Fee
 	from.Budget += d.Fee
-	shirt := 1
-	for _, x := range w.userSquad() {
-		if x.Shirt >= shirt {
-			shirt = x.Shirt + 1
-		}
-	}
+	shirt := w.shirtFor(ctx, q, user.ID, p)
 	// out of the lender's squad, into yours
 	keep := w.players[from.ID][:0]
 	for _, x := range w.players[from.ID] {
@@ -471,7 +455,7 @@ func (w *world) checkLoansIn(ctx context.Context, q DBTX, rep *DayReport) error 
 		if owner != nil {
 			owner.Budget += charge
 			if p.ClubID == nil && !p.Retired { // released to the market: he goes home
-				moveTo(p, &owner.ID, 60+p.ID%30)
+				moveTo(p, &owner.ID, w.homeShirt(ctx, q, owner.ID, p, d.Shirt))
 				if err := savePlayers(ctx, q, []*Player{p}); err != nil {
 					return err
 				}
@@ -506,13 +490,7 @@ func (w *world) returnLoans(ctx context.Context, q DBTX, r *rand.Rand, rep *DayR
 			}
 		}
 		w.players[d.ClubID] = keep
-		shirt := 1
-		for _, x := range w.userSquad() {
-			if x.Shirt >= shirt {
-				shirt = x.Shirt + 1
-			}
-		}
-		moveTo(p, &user.ID, shirt)
+		moveTo(p, &user.ID, w.homeShirt(ctx, q, user.ID, p, d.Shirt))
 		p.Tenure = d.Tenure
 		w.players[user.ID] = append(w.players[user.ID], p)
 		c.Contracts.Players[p.ID] = d.Wage
@@ -553,7 +531,7 @@ func (w *world) returnLoans(ctx context.Context, q DBTX, r *rand.Rand, rep *DayR
 			}
 		}
 		w.players[user.ID] = keep
-		moveTo(p, &home.ID, 60+p.ID%30)
+		moveTo(p, &home.ID, w.homeShirt(ctx, q, home.ID, p, d.Shirt))
 		p.Tenure = d.Tenure
 		w.players[home.ID] = append(w.players[home.ID], p)
 		delete(c.Contracts.Players, p.ID)

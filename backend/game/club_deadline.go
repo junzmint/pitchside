@@ -349,15 +349,7 @@ func (w *world) deadlineDeals(ctx context.Context, q DBTX, r *rand.Rand, squads 
 		if best == nil {
 			continue
 		}
-		used := map[int]bool{}
-		for _, x := range squads[buyer.ID] {
-			used[x.Shirt] = true
-		}
-		shirt := 2
-		for used[shirt] && shirt < 99 {
-			shirt++
-		}
-		moveTo(best, &buyer.ID, shirt)
+		moveTo(best, &buyer.ID, pickShirt(squads[buyer.ID], w.retiredOf(ctx, q, buyer.ID), best))
 		keep := squads[from.ID][:0]
 		for _, x := range squads[from.ID] {
 			if x.ID != best.ID {
@@ -427,7 +419,7 @@ func (w *world) buyBargain(ctx context.Context, q DBTX, life *ClubLife, pid int)
 	user.Budget -= b.Price
 	from.Budget += b.Price
 	from.Deals++
-	moveTo(p, &user.ID, freeShirt(life, squad))
+	moveTo(p, &user.ID, pickShirt(squad, life.retiredSet(), p))
 	keep := w.players[from.ID][:0]
 	for _, x := range w.players[from.ID] {
 		if x.ID != p.ID {

@@ -34,11 +34,12 @@ export interface ClubLifeView {
   fans: FanView; tour: TourView | null; deadline: DeadlineView | null
   legends: LegendEntry[]; retired: number[]; honour: LegendEntry | null; waiting: number
 }
-export interface ClubResult { outcome?: string; amount?: number; name?: string; shirt?: number; player?: Player }
+export interface ClubResult { outcome?: string; amount?: number; name?: string; shirt?: number; player?: Player; moved?: { id: number; name: string; shirt: number }[] }
 export type ClubReq =
   | { action: 'tour'; key: TourKey }
   | { action: 'bargain'; playerId: number }
   | { action: 'honour'; playerId: number; choice: 'retire' | 'keep' }
+  | { action: 'shirt'; playerId: number; shirt: number }
 
 export const clubApi = {
   get: (id: number) => req<ClubLifeView>('GET', careerPath(id) + '/clublife'),

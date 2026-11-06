@@ -223,6 +223,15 @@ func (s *Store) NewCareer(ctx context.Context, userID int, req NewCareerReq) (in
 				return err
 			}
 		}
+		// shirts.go: numbered again now that each has an id, which decides the flank a full-back or a winger plays
+		// on (the right-back wears 2, the left-back 3)
+		for _, p := range userSquad {
+			p.Role = NaturalRole(p)
+		}
+		freshShirts(userSquad)
+		if err := savePlayers(ctx, q, userSquad); err != nil {
+			return err
+		}
 		userClub.Lineup = BestLineup(userSquad, userClub.Formation)
 		if err := saveClub(ctx, q, userClub); err != nil {
 			return err

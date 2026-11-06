@@ -28,6 +28,7 @@ type ClubLife struct {
 	Retired  []int          `json:"retired,omitempty"` // retired shirt numbers
 	Roster   []RosterEntry  `json:"roster,omitempty"`  // the squad at the last check (to notice arrivals and departures)
 	Joined   map[int]int    `json:"joined,omitempty"`  // player → when he arrived (season*100+day), for recent signings
+	Shirts   []int          `json:"shirts,omitempty"`  // players whose number you picked yourself (shirts.go leaves it alone)
 }
 
 // RosterEntry: one player of the squad as it was at the last check.
@@ -173,6 +174,7 @@ func (w *world) clubTick(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepo
 		return err
 	}
 	w.pickVoice(life, notes, rep.Day)
+	life.pruneShirts(squad)
 	changed = append(changed, guardShirts(life, squad)...)
 	life.Roster = w.snapshotRoster(life, squad)
 	w.fanReport(life, before, uo, home, rep, notes)
@@ -238,7 +240,8 @@ func (w *world) clubNewSeason(ctx context.Context, q DBTX, r *rand.Rand, res *Ne
 		return err
 	}
 	w.pickVoice(life, notes, 0)
-	changed = append(changed, guardShirts(life, squad)...)
+	// shirts.go: every squad's numbers in order for the new season (a freed 9 goes to the best striker)
+	changed = append(changed, seasonShirts(life, c.UserClubID, squads)...)
 	life.Roster = w.snapshotRoster(life, squad)
 	if len(changed) > 0 {
 		if err := savePlayers(ctx, q, uniquePlayers(changed)); err != nil {
@@ -336,6 +339,7 @@ type ClubReq struct {
 	Key      string `json:"key"`    // tour: far | local | camp
 	PlayerID int    `json:"playerId"`
 	Choice   string `json:"choice"` // honour: retire | keep
+	Shirt    int    `json:"shirt"`  // shirt: the number you give him
 }
 
 type ClubResult struct {
@@ -344,6 +348,14 @@ type ClubResult struct {
 	Name    string  `json:"name,omitempty"`
 	Shirt   int     `json:"shirt,omitempty"`
 	Player  *Player `json:"player,omitempty"` // a bargain just signed (for the card reveal)
+	Moved   []Moved `json:"moved,omitempty"`  // shirt: everyone whose number changed, with the new one
+}
+
+// Moved: a player and his new shirt number.
+type Moved struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Shirt int    `json:"shirt"`
 }
 
 // ClubAction handles the club-life decisions: pick a pre-season tour, sign a Deadline Day bargain,
@@ -386,6 +398,15 @@ func (s *Store) ClubAction(ctx context.Context, careerID int, req ClubReq) (*Clu
 				return err
 			}
 			touched, out.Outcome, out.Name, out.Shirt = ps, le.Honour, le.Name, le.Shirt
+		case "shirt":
+			ps, err := setShirt(life, squad, req.PlayerID, req.Shirt)
+			if err != nil {
+				return err
+			}
+			touched, out.Outcome, out.Shirt = ps, "shirt", req.Shirt
+			for _, p := range ps {
+				out.Moved = append(out.Moved, Moved{ID: p.ID, Name: p.Name, Shirt: p.Shirt})
+			}
 		default:
 			return userErr("bad_action", "Unknown action")
 		}

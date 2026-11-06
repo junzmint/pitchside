@@ -65,6 +65,10 @@ func main() {
 	if err := store.FixLegendRoles(ctx); err != nil {
 		log.Printf("legend roles: %v", err)
 	}
+	// …and squads numbered before shirts.go (one past the highest for every signing) put in order, once
+	if err := store.TidyShirts(ctx); err != nil {
+		log.Printf("shirt numbers: %v", err)
+	}
 	// `pitchside seed` loads demo data and exits; AUTO_SEED=1 seeds a brand-new database on start.
 	if len(os.Args) > 1 && os.Args[1] == "seed" {
 		if err := runSeed(ctx, store); err != nil {

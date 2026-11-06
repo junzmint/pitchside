@@ -427,7 +427,7 @@ func (w *world) refuse(ctx context.Context, q DBTX, r *rand.Rand, d Demand) (str
 			fee := int64(float64(p.Value)*0.6/10_000) * 10_000
 			user.Budget += fee
 			to.Budget -= fee
-			moveTo(p, &to.ID, 50+r.Intn(40))
+			moveTo(p, &to.ID, w.shirtFor(ctx, q, to.ID, p))
 			w.players[to.ID] = append(w.players[to.ID], p)
 			delete(c.Contracts.Players, p.ID)
 			if err := addFinance(ctx, q, c, "forced_sale", fee, p.Name); err != nil {
@@ -661,7 +661,7 @@ func (w *world) academyTopUp(ctx context.Context, q DBTX, r *rand.Rand) ([]strin
 		have[pos]++
 		p := GenPlayer(r, nationsOf(user.League), pos, base-6+r.Float64()*4, 17, 19)
 		p.Potential = int(math.Min(95, float64(p.Potential)+float64(4+lvl*2)))
-		_, shirt, err := nextShirt(ctx, q, user.ID)
+		_, shirt, err := nextShirt(ctx, q, user.ID, p)
 		if err != nil {
 			return nil, err
 		}
@@ -739,7 +739,7 @@ func (w *world) expireContracts(ctx context.Context, q DBTX, r *rand.Rand) ([]st
 			continue
 		}
 		to := dest[r.Intn(len(dest))]
-		moveTo(p, &to.ID, 50+r.Intn(40))
+		moveTo(p, &to.ID, w.shirtFor(ctx, q, to.ID, p))
 		delete(c.Contracts.Years, p.ID)
 		delete(c.Contracts.Players, p.ID)
 		gone = append(gone, p.Name+" → "+to.Name)

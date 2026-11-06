@@ -840,7 +840,7 @@ func (w *world) advance(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepor
 		for len(w.players[cl.ID]) < AIMinSquad {
 			pos := []string{"GK", "DF", "MF", "FW"}[r.Intn(4)]
 			np := GenPlayer(r, nationsOf(cl.League), pos, 60+r.Float64()*6, 17, 20)
-			moveTo(np, &cl.ID, 40+len(w.players[cl.ID]))
+			moveTo(np, &cl.ID, pickShirt(w.players[cl.ID], nil, np))
 			if err := insertPlayer(ctx, q, c.ID, np); err != nil {
 				return err
 			}
@@ -1250,7 +1250,15 @@ func (w *world) ageAndRetire(ctx context.Context, q DBTX, r *rand.Rand) ([]strin
 					np = GenPlayer(r, nationsOf(cl.League), p.Position, float64(cl.Reputation)-12+r.Float64()*6, 17, 19)
 				}
 				if np != nil && cl != nil {
-					moveTo(np, home, p.Shirt)
+					// the number of the man he replaces if it suits him and is free there, else one that does
+					np.Shirt = p.Shirt
+					var others []*Player
+					for _, x := range w.players[*home] {
+						if x.ID != p.ID {
+							others = append(others, x)
+						}
+					}
+					moveTo(np, home, pickShirt(others, w.retiredOf(ctx, q, *home), np))
 					born = append(born, np)
 					if star && *old == user.ID {
 						regens = append(regens, np.Name+" → "+cl.Name)
@@ -1357,7 +1365,7 @@ func (w *world) wageUnrest(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRe
 		fee := int64(float64(p.Value)*0.6/10_000) * 10_000
 		user.Budget += fee
 		to.Budget -= fee
-		moveTo(p, &to.ID, 50+r.Intn(40))
+		moveTo(p, &to.ID, w.shirtFor(ctx, q, to.ID, p))
 		p.Unrest = 0
 		w.players[to.ID] = append(w.players[to.ID], p)
 		left++
@@ -1418,13 +1426,7 @@ func (w *world) academy(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepor
 	pos := []string{"GK", "DF", "DF", "MF", "MF", "FW", "FW"}[r.Intn(7)]
 	p := GenPlayer(r, nationsOf(user.League), pos, base-10+r.Float64()*4, 16, 17)
 	p.Potential = int(math.Min(95, float64(p.Potential)+float64(lvl*3)))
-	shirt := 30
-	for _, x := range w.players[user.ID] {
-		if x.Shirt >= shirt {
-			shirt = x.Shirt + 1
-		}
-	}
-	moveTo(p, &user.ID, shirt)
+	moveTo(p, &user.ID, w.shirtFor(ctx, q, user.ID, p))
 	p.Fill()
 	if err := insertPlayer(ctx, q, w.career.ID, p); err != nil {
 		return err

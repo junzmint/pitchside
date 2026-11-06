@@ -254,6 +254,11 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
 - **Legends wall**: at the end of every season the fans put two current players on the wall: the most deserving ones (appearances + 20 per trophy + 10 per season) with 250 games for the club, or 7 seasons or 6 trophies with at least 150 games (a hundred-odd games makes a good servant, not a legend). Icons, who never leave or retire, get there the same way. Anyone else with such a record joins when he leaves or retires. The wall shows its active legends first, with live numbers.
   - **Retiring a number**: possible for a legend still at the club (he keeps wearing it, nobody else ever will) or one who retired here. A player who was sold or let go cannot have his number retired.
   - **Selling a legend**: the fans are upset, and if his number was retired it goes back into use.
+- **Shirt numbers**: every club numbers its squad like a real one, and numbers stay low however much you buy and sell.
+  - **A newcomer** keeps his old number if it is free and suits him, or takes the free classic number of his role when he is good enough to start: 1 keeper, 2 and 3 full-backs, 4 and 5 centre-backs, 6 holding midfielder, 8 midfielder, 10 playmaker, 7 and 11 wingers, 9 striker. Otherwise he wears a number his line usually wears (13 a keeper, 15 a defender, 16 a midfielder, 19 a forward) or the lowest free one from 12. A player back from a loan gets his old number back if it is free.
+  - **Each new season** the squad is tidied: nobody on a number above 40 or one that doesn't suit him (a keeper on 9), and a classic number left free goes to the best player of that role, so your new first-choice striker inherits the 9.
+  - **Your own pick**: open a player in the squad and choose any free number, or a teammate's (they swap). A number you pick stays through the tidying. Retired numbers are never handed out or picked.
+  - Saves from before this got their numbers put in order once.
 - **Golden Ball night**: after the last matchday, a ceremony reveals the Golden Boot, Golden Glove, Golden Boy, Manager of the Year and the Golden Ball (10 → 1).
   - A first Golden Ball lifts the winner by about one overall point; every winner gets full morale.
   - It lifts your club's reputation if the winner is yours.

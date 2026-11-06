@@ -376,14 +376,8 @@ func (w *world) youthAnswer(ctx context.Context, q DBTX, id int, choice string) 
 		if len(squad) >= MaxSquad {
 			return userErr("squad_full", "Your squad is full")
 		}
-		shirt := 30
-		for _, x := range squad {
-			if x.Shirt >= shirt {
-				shirt = x.Shirt + 1
-			}
-		}
 		p := pr.Player
-		moveTo(p, &user.ID, shirt)
+		moveTo(p, &user.ID, w.shirtFor(ctx, q, user.ID, p))
 		p.Fill()
 		if err := insertPlayer(ctx, q, c.ID, p); err != nil {
 			return err

@@ -252,11 +252,9 @@ func buildLegendSquad(code string, idx int) *quickSquad {
 		p.Morale = 85
 		squad = append(squad, p)
 	}
-	// shirt numbers by line: keepers first, then defenders, midfielders and forwards
+	// listed by line (keepers first, then defenders, midfielders and forwards), numbered like a real squad (shirts.go)
 	sort.SliceStable(squad, func(a, b int) bool { return posOrder(squad[a].Position) < posOrder(squad[b].Position) })
-	for i, p := range squad {
-		p.Shirt = i + 1
-	}
+	freshShirts(squad)
 	kits := DefaultKits(lc.def.Name, lc.def.Color, lc.def.Color2) // the legends wear their club's kits
 	club := &Club{League: code, Division: 1, Name: lc.def.Name + " Legends", Short: lc.def.Short, Color: lc.def.Color, Color2: lc.def.Color2,
 		Reputation: 99, Tactic: lc.def.Tactic, FormWeeks: 12, Kits: &kits}

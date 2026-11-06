@@ -273,9 +273,7 @@ func GenSquad(r *rand.Rand, pool []string, base float64, stars []StarDef) []*Pla
 			out = append(out, GenPlayer(r, pool, pos, t, minAge, maxAge))
 		}
 	}
-	for i, p := range out {
-		p.Shirt = i + 1
-	}
+	freshShirts(out) // shirts.go: 1 for the first keeper, 9 for the best striker, squad numbers for the rest
 	return out
 }
 

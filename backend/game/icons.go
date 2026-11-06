@@ -173,7 +173,7 @@ func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*IconSi
 		if err != nil {
 			return err
 		}
-		n, shirt, err := nextShirt(ctx, q, club.ID)
+		n, _, err := nextShirt(ctx, q, club.ID, nil)
 		if err != nil {
 			return err
 		}
@@ -192,6 +192,10 @@ func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*IconSi
 		}
 		p := tps[0].toPlayer()
 		if err := floorCards(ctx, q, careerID, p); err != nil { // legend_versions.go: never below his modern self
+			return err
+		}
+		shirt, err := dbShirt(ctx, q, club.ID, p)
+		if err != nil {
 			return err
 		}
 		moveTo(p, &club.ID, shirt)

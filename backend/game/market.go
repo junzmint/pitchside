@@ -372,23 +372,18 @@ func (s *Store) Market(ctx context.Context, careerID int) (*MarketView, error) {
 	return &MarketView{Players: ps, Coaches: cs, Templates: ts, Legends: lg, Budget: club.Budget, Squad: n}, nil
 }
 
-// nextShirt: the squad size and the number for a new signing, past the highest one (skipping the
-// numbers the user's club has retired, club_legends.go).
-func nextShirt(ctx context.Context, q DBTX, clubID int) (int, int, error) {
-	var n, maxShirt int
-	var retired []int
-	err := q.QueryRow(ctx, `SELECT count(*), COALESCE(max(shirt),0),
-		COALESCE((SELECT club_life->'retired' FROM careers WHERE user_club_id=$1 LIMIT 1), '[]'::jsonb)
-		FROM players WHERE club_id=$1`, clubID).Scan(&n, &maxShirt, &retired)
-	ret := map[int]bool{}
-	for _, s := range retired {
-		ret[s] = true
+// nextShirt: the squad size and the number p gets joining it (shirts.go: one that suits him, never a retired
+// one); p nil: the size alone.
+func nextShirt(ctx context.Context, q DBTX, clubID int, p *Player) (int, int, error) {
+	var n int
+	if err := q.QueryRow(ctx, `SELECT count(*) FROM players WHERE club_id=$1`, clubID).Scan(&n); err != nil {
+		return 0, 0, err
 	}
-	next := maxShirt + 1
-	for ret[next] {
-		next++
+	if p == nil {
+		return n, 0, nil
 	}
-	return n, next, err
+	shirt, err := dbShirt(ctx, q, clubID, p)
+	return n, shirt, err
 }
 
 func (s *Store) Buy(ctx context.Context, careerID, playerID int) (*SignResult, error) {
@@ -413,7 +408,7 @@ func (s *Store) Buy(ctx context.Context, careerID, playerID int) (*SignResult, e
 		if err := floorCards(ctx, q, careerID, p); err != nil {
 			return err
 		}
-		n, shirt, err := nextShirt(ctx, q, club.ID)
+		n, shirt, err := nextShirt(ctx, q, club.ID, p)
 		if err != nil {
 			return err
 		}
@@ -478,7 +473,7 @@ func (s *Store) QuickSell(ctx context.Context, careerID, playerID int) (int64, e
 		if err := checkBargainHeld(ctx, q, careerID, p.ID); err != nil {
 			return err
 		}
-		n, _, err := nextShirt(ctx, q, club.ID)
+		n, _, err := nextShirt(ctx, q, club.ID, nil)
 		if err != nil {
 			return err
 		}

@@ -11,6 +11,7 @@ import { eventsOf } from '../api_events'
 import { MentorFlag } from './staff/MentorFlag'
 import { DemandCard } from './Demands'
 import { HomeMark } from '../LegendBits'
+import { clubApi, refreshClubLife, useClubLife } from '../api_club'
 
 type Sort = 'shirt' | 'overall' | 'potential' | 'age' | 'fitness' | 'value'
 
@@ -214,6 +215,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
                     : !loanee.has(openP.id) && openP.contract != null && openP.contract >= 1 && openP.contract <= 2 && <button className="small" onClick={() => renew(openP)}>{t('ct.renew')}</button>}
                 </span>
               </div>
+              <ShirtPicker ctx={ctx} p={openP} />
               <div className="field"><span className="muted"><Icon name="wages" size={14} /> {t('ct.wage')}</span><b className="num">{money(openP.wage)}{openP.market && openP.market >= openP.wage * 1.2 ? <span data-tip={t('sq.marketWage', { v: money(openP.market) })}> <Icon name="up" size={14} className="warnc" /></span> : ''}</b></div>
               <div className="field"><span className="muted"><Icon name="money" size={14} /> {t('value')}</span><b className="num gold">{money(openP.value)}</b></div>
             </div>
@@ -234,6 +236,42 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
       )}
       {selling && <Portal><SellDialog ctx={ctx} player={selling} onClose={() => setSelling(null)} /></Portal>}
     </>
+  )
+}
+
+/** His shirt number: any free one, or a teammate's (they swap); numbers the club retired are locked. A number you
+ *  pick stays through the automatic tidying at the start of each season. */
+function ShirtPicker({ ctx, p }: { ctx: Ctx; p: Player }) {
+  const { t } = useI18n()
+  const life = useClubLife(ctx.st)
+  const [busy, setBusy] = useState(false)
+  const wearer = new Map(ctx.st.squad.filter(x => x.id !== p.id).map(x => [x.shirt, x] as const))
+  const retired = new Map<number, { name: string; id: number }>()
+  for (const n of life?.retired ?? []) retired.set(n, { name: '', id: 0 })
+  for (const le of life?.legends ?? []) if (le.honour === 'retired' && retired.has(le.shirt)) retired.set(le.shirt, { name: le.name, id: le.playerId })
+  async function pick(n: number) {
+    if (n === p.shirt || busy) return
+    setBusy(true)
+    try {
+      const r = await clubApi.act(ctx.id, { action: 'shirt', playerId: p.id, shirt: n })
+      refreshClubLife()
+      await ctx.reload()
+      // whoever had to move (the one who wore it takes the old number, or one that suits him better)
+      const others = (r.moved ?? []).filter(m => m.id !== p.id)
+      ctx.toast(others.length ? t('sq.shirtSwapped', { name: p.name, n, others: others.map(m => t('sq.shirtTo', { name: m.name, n: m.shirt })).join(', ') }) : t('sq.shirtSet', { name: p.name, n }))
+    } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy(false) }
+  }
+  return (
+    <label className="field" data-tip={t('sq.shirtTip')}><span className="muted"><Icon name="kit" size={14} /> {t('sq.shirt')}</span>
+      <select value={p.shirt} disabled={busy} aria-label={t('sq.shirt')} onChange={e => void pick(Number(e.target.value))}>
+        {Array.from({ length: 99 }, (_, i) => i + 1).map(n => {
+          const who = wearer.get(n), ret = retired.get(n)
+          const locked = !!ret && ret.id !== p.id
+          const note = n === p.shirt ? '' : locked ? ` · ${t('sq.shirtRetired')}${ret.name ? ' · ' + ret.name : ''}` : who ? ` · ${t('sq.shirtSwap', { name: who.name })}` : ''
+          return <option key={n} value={n} disabled={locked}>{n}{note}</option>
+        })}
+      </select>
+    </label>
   )
 }
 
