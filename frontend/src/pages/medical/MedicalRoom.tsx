@@ -95,7 +95,7 @@ export default function MedicalRoom({ ctx }: { ctx: Ctx }) {
       ]} />
 
       <div className="md-pane" key={tab}>
-        {tab === 'room' && <TreatmentRoom v={v} busy={busy} onInject={id => act({ action: 'inject', playerId: id })} />}
+        {tab === 'room' && <TreatmentRoom v={v} busy={busy} onInject={id => act({ action: 'inject', playerId: id })} onElite={id => act({ action: 'elite', playerId: id })} />}
         {tab === 'risk' && <RiskBoard v={v} />}
         {tab === 'team' && <TeamPanel ctx={ctx} team={v.team} onChange={load} />}
         {tab === 'files' && <FilesPanel v={v} />}
@@ -104,7 +104,7 @@ export default function MedicalRoom({ ctx }: { ctx: Ctx }) {
 
       <details className="panel md-rules">
         <summary><Icon name="help" size={16} /> {t('med.rules.t')}</summary>
-        <ul>{[1, 2, 3, 4, 5].map(i => <li key={i}>{t('med.rules.' + i)}</li>)}</ul>
+        <ul>{[1, 2, 3, 4, 5, 6, 7].map(i => <li key={i}>{t('med.rules.' + i)}</li>)}</ul>
       </details>
     </div>
   )

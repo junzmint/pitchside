@@ -10,8 +10,9 @@ import (
 
 // ---------------------------------------------------------------- the medical room (medical work stream)
 //
-// GET /api/careers/{id}/medical → MedicalView; POST with MedReq answers a decision card or gives a
-// painkilling injection. The career state carries a small badge (CareerState.medicalView).
+// GET /api/careers/{id}/medical → MedicalView; POST with MedReq answers a decision card, gives a
+// painkilling injection or calls in elite surgery for a player already out. The career state carries
+// a small badge (CareerState.medicalView).
 
 type MedicalView struct {
 	Season    int          `json:"season"`
@@ -55,6 +56,7 @@ type MedInjured struct {
 	Rushed   bool    `json:"rushed"`
 	Pending  bool    `json:"pending"` // a decision about him is waiting
 	Inject   *MedOpt `json:"inject,omitempty"`
+	Elite    *MedOpt `json:"elite,omitempty"` // elite surgery is still possible: its cost and the weeks left after it
 	Case     int     `json:"case,omitempty"`
 }
 
@@ -119,7 +121,7 @@ type MedKind struct {
 }
 
 type MedReq struct {
-	Action   string `json:"action"` // card | inject
+	Action   string `json:"action"` // card | inject | elite
 	ID       int    `json:"id"`     // card id
 	Choice   string `json:"choice"`
 	PlayerID int    `json:"playerId"`
@@ -201,6 +203,10 @@ func (s *Store) MedicalAction(ctx context.Context, careerID int, req MedReq) (*M
 			if line, err = w.inject(ctx, q, req.PlayerID); err != nil {
 				return err
 			}
+		case "elite":
+			if line, err = w.elite(ctx, q, req.PlayerID); err != nil {
+				return err
+			}
 		default:
 			return userErr("bad_action", "Unknown action")
 		}
@@ -266,6 +272,55 @@ func (w *world) inject(ctx context.Context, q DBTX, playerID int) (*MedLine, err
 	return &line, nil
 }
 
+// eliteable: elite surgery can still be called in for a serious or career-threatening injury the
+// club knows about, with a few weeks to go, whatever treatment he had first.
+func (w *world) eliteable(p *Player, rec *MedRec) bool {
+	if rec == nil || p.Injury < EliteMinWeeks || rec.Treat == "elite" || !isRealInjury(rec.Kind) {
+		return false
+	}
+	return injuryKind(rec.shown()).Tier >= 3
+}
+
+// eliteOpt: what elite surgery would cost him now and how many weeks he would still be out.
+func (w *world) eliteOpt(p *Player, rec *MedRec) *MedOpt {
+	user := w.byID[w.career.UserClubID]
+	k := injuryKind(rec.shown())
+	return &MedOpt{Key: "elite", Cost: treatCost(p, k, "elite", user.Medical), Weeks: max(1, int(math.Round(float64(p.Injury)*treatmentOf("elite").Weeks)))}
+}
+
+// elite: the world's best surgical team operates on a player who is already out (the first treatment
+// is replaced; the weeks still to go shrink to about a third and nothing lasting is left).
+func (w *world) elite(ctx context.Context, q DBTX, playerID int) (*MedLine, error) {
+	p := w.mine(playerID)
+	if p == nil {
+		return nil, userErr("not_yours", "This player is not at your club")
+	}
+	md := w.med
+	rec := md.P[p.ID]
+	if !w.eliteable(p, rec) {
+		return nil, userErr("no_elite", "Elite surgery is not possible for this injury")
+	}
+	c := w.career
+	user := w.byID[c.UserClubID]
+	cost := w.eliteOpt(p, rec).Cost
+	if user.Budget < cost {
+		return nil, userErr("no_budget", "Not enough budget")
+	}
+	user.Budget -= cost
+	md.Stats.Spent += cost
+	if err := addFinance(ctx, q, c, "medical", -cost, p.Name); err != nil {
+		return nil, err
+	}
+	w.applyTreatment(newRand(), p, rec, "elite", user.ID)
+	if cs := md.caseByID(rec.Case); cs != nil {
+		cs.Treat, cs.Weeks = "elite", rec.Total
+		cs.Cost += cost
+	}
+	line := MedLine{Key: "treat", PlayerID: p.ID, Name: p.Name, Kind: rec.shown(), Treat: "elite", N: p.Injury, Cost: cost}
+	w.medLog(line, false)
+	return &line, nil
+}
+
 // medicalView: everything the medical room shows.
 func (w *world) medicalView() *MedicalView {
 	md := w.med
@@ -320,6 +375,9 @@ func (w *world) medicalView() *MedicalView {
 					t := treatmentOf("injection")
 					mi.Inject = &MedOpt{Key: "injection", Cost: InjectCost, Weeks: max(1, int(math.Round(float64(p.Injury)*t.Weeks))),
 						Risk: math.Min(1, mi.Setback*t.Setback), Dmg: math.Min(0.95, mi.Dmg*t.Dmg)}
+				}
+				if w.eliteable(p, rec) {
+					mi.Elite = w.eliteOpt(p, rec)
 				}
 			}
 			v.Injured = append(v.Injured, mi)

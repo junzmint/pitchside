@@ -107,6 +107,11 @@ span[data-inj] { cursor: help; }
 .md-opt b { font-size: 14px; line-height: 1.35; }
 .md-opt small { color: var(--muted); font-size: 12px; line-height: 1.4; }
 .md-opt.rec { border-color: color-mix(in srgb, var(--hot) 70%, transparent); background: rgba(255, 210, 63, 0.07); }
+/* elite surgery: the gold option, and the gold button on a bed in the treatment room */
+.md-opt.o-elite { border-color: rgba(255, 210, 63, 0.6); background: linear-gradient(160deg, rgba(255, 210, 63, 0.16), rgba(255, 255, 255, 0.04) 70%); box-shadow: 0 0 18px rgba(255, 210, 63, 0.16); }
+.md-opt.o-elite > b { color: #ffd23f; }
+button.md-elite { color: #2a1d00; background: linear-gradient(180deg, #ffe27a, #f2b600); border-color: transparent; font-weight: 800; }
+button.md-elite:hover:not(:disabled) { background: linear-gradient(180deg, #fff09a, #ffc61a); }
 .md-rec { justify-self: start; display: inline-flex; gap: 4px; align-items: center; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--hot-ink, #1a1300); background: var(--hot); border-radius: 3px; padding: 1px 6px; }
 .md-opt-stats { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; font-size: 12px; }
 .md-opt-stats .st { display: inline-flex; gap: 3px; align-items: center; color: #cfe0ef; }

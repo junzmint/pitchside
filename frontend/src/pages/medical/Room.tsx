@@ -6,26 +6,28 @@ import { Body } from './Body'
 import { injKey, partOfKind, plannedKind } from './kinds'
 import { pct, TierChip, tn } from './parts'
 
+type Act = (id: number) => void
+
 /** The treatment room: every player out, with his injury on a body, the weeks to go and the odds. */
-export function TreatmentRoom({ v, busy, onInject }: { v: MedicalView; busy: boolean; onInject: (id: number) => void }) {
+export function TreatmentRoom({ v, busy, onInject, onElite }: { v: MedicalView; busy: boolean; onInject: Act; onElite: Act }) {
   const { t } = useI18n()
   const hurt = v.injured.filter(x => !plannedKind(x.kind))
   const planned = v.injured.filter(x => plannedKind(x.kind))
   return (
     <section className="panel stack md-room">
       {hurt.length === 0 && planned.length === 0 && <Empty icon="check">{t('med.room.empty')}</Empty>}
-      {hurt.length > 0 && <div className="md-beds">{hurt.map(x => <BedCard key={x.playerId} x={x} v={v} busy={busy} onInject={onInject} />)}</div>}
+      {hurt.length > 0 && <div className="md-beds">{hurt.map(x => <BedCard key={x.playerId} x={x} v={v} busy={busy} onInject={onInject} onElite={onElite} />)}</div>}
       {planned.length > 0 && (
         <>
           <span className="eyebrow"><Icon name="clock" size={13} /> {t('med.planned')}</span>
-          <div className="md-beds small">{planned.map(x => <BedCard key={x.playerId} x={x} v={v} busy={busy} onInject={onInject} />)}</div>
+          <div className="md-beds small">{planned.map(x => <BedCard key={x.playerId} x={x} v={v} busy={busy} onInject={onInject} onElite={onElite} />)}</div>
         </>
       )}
     </section>
   )
 }
 
-function BedCard({ x, v, busy, onInject }: { x: MedInjured; v: MedicalView; busy: boolean; onInject: (id: number) => void }) {
+function BedCard({ x, v, busy, onInject, onElite }: { x: MedInjured; v: MedicalView; busy: boolean; onInject: Act; onElite: Act }) {
   const { t, lang } = useI18n()
   const total = Math.max(1, x.total)
   const done = Math.max(0, total - x.weeks)
@@ -66,6 +68,13 @@ function BedCard({ x, v, busy, onInject }: { x: MedInjured; v: MedicalView; busy
           <span data-tip={t('med.inject.tip', { n: x.inject.weeks ?? 1, m: x.weeks, s: pct(lang, x.inject.risk), d: pct(lang, x.inject.dmg) })}>
             <ConfirmButton className="small" disabled={busy || (x.inject.cost ?? 0) > v.budget}
               label={<><Icon name="bonus" size={13} /> {t('med.inject', { v: money(x.inject.cost ?? 0) })}</>} confirm={t('confirm')} onConfirm={() => onInject(x.playerId)} />
+          </span>
+        )}
+        {x.elite && (
+          <span data-tip={(x.elite.cost ?? 0) > v.budget ? t('err.no_budget') : t('med.elite.tip', { n: x.elite.weeks ?? 1, m: x.weeks })}>
+            <ConfirmButton className="small md-elite" disabled={busy || (x.elite.cost ?? 0) > v.budget}
+              label={<><Icon name="star" size={13} /> {t('med.elite', { v: money(x.elite.cost ?? 0) })}</>}
+              confirm={t('med.elite.confirm', { v: money(x.elite.cost ?? 0), n: x.elite.weeks ?? 1 })} onConfirm={() => onElite(x.playerId)} />
           </span>
         )}
       </div>

@@ -107,6 +107,12 @@ func treatCost(p *Player, k *InjuryKind, treat string, lvl int) int64 {
 		c *= 1.1 - 0.05*float64(max(1, lvl)-1)
 	case "specialist":
 		c = clamp(v*0.06, 1_000_000, 6_000_000)
+	case "elite": // the world's best surgical team flies in: no discount for a good centre
+		if k.Tier >= 4 {
+			c = clamp(v*0.12, 3_000_000, 25_000_000)
+		} else {
+			c = clamp(v*0.08, 1_500_000, 12_000_000)
+		}
 	case "injection":
 		c = InjectCost
 	}
@@ -118,15 +124,16 @@ func (w *world) treatCard(p *Player, rec *MedRec, k *InjuryKind) *MedCard {
 	user := w.byID[w.career.UserClubID]
 	doc, ps, lvl := w.doctorSkill(user.ID), w.perks(user.ID), user.Medical
 	physio := coachSkill(w.coaches[user.ID], "physio")
-	opts := []string{"rest", "surgery", "injection"}
+	opts := []string{"rest", "surgery", "injection", "elite"}
 	if k.Tier >= 4 {
-		opts = []string{"surgery", "specialist"}
+		opts = []string{"surgery", "specialist", "elite"}
 	}
 	cd := &MedCard{Kind: "treat", PlayerID: p.ID, Name: p.Name, Injury: k.Key, Weeks: p.Injury, Case: rec.Case, Due: w.med.Tick + 2}
 	for _, o := range opts {
 		t := treatmentOf(o)
 		weeks := max(1, int(math.Round(float64(p.Injury)*t.Weeks)))
 		tr := *rec
+		tr.Treat = o
 		tr.Dmg = math.Max(1, rec.Dmg) * treatmentDmg(o, doc, lvl, ps)
 		opt := MedOpt{Key: o, Weeks: weeks, Cost: treatCost(p, k, o, lvl), Dmg: damageChance(p, &tr, k, physio)}
 		per := k.Setback * t.Setback * (1 - 0.03*float64(min(20, physio))) * rehabPool(lvl)
@@ -147,11 +154,16 @@ func (w *world) treatCard(p *Player, rec *MedRec, k *InjuryKind) *MedCard {
 	} else if su := cd.opt("surgery"); su != nil && user.Budget >= 4*su.Cost && k.Dmg >= 0.2 {
 		advice = "surgery"
 	}
-	cd.advise(advice)
 	cd.Default = advice
 	if advice == "specialist" {
 		cd.Default = "surgery" // left alone, the club never spends that much
 	}
+	// for an icon, or a valuable player facing most of a season out, the doctor would fly in the
+	// world's best surgeons when the club can easily afford it (left alone, it never does)
+	if el := cd.opt("elite"); el != nil && user.Budget >= 3*el.Cost && (isLegend(p) || (k.Tier >= 4 && p.Value >= 30_000_000)) {
+		advice = "elite"
+	}
+	cd.advise(advice)
 	return cd
 }
 

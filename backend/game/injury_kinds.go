@@ -102,10 +102,23 @@ func injuryKind(key string) *InjuryKind {
 // avgWeeks: the middle of the kind's usual lay-off.
 func (k *InjuryKind) avgWeeks() float64 { return float64(k.Min+k.Max) / 2 }
 
-// pickKind: what kind of injury a player picks up. Tired legs tear muscles, keepers hurt their
+// iconSafe: an icon is never career-threatened; the worst a horror tackle does to him is the serious
+// injury of the same part (a torn meniscus instead of a cruciate, and so on).
+var iconSafe = map[string]string{"acl": "meniscus", "achilles": "ankle_lig", "broken_leg": "metatarsal"}
+
+// pickKind: what kind of injury a player picks up (rollKind), for an icon never a career-threatening one.
+func pickKind(r *rand.Rand, p *Player, rec *MedRec, training bool) *InjuryKind {
+	k := rollKind(r, p, rec, training)
+	if k.Tier >= 4 && isLegend(p) {
+		return injuryKind(iconSafe[k.Key])
+	}
+	return k
+}
+
+// rollKind: what kind of injury a player picks up. Tired legs tear muscles, keepers hurt their
 // hands and shoulders, older bodies break worse, and a player back from an injury often breaks
 // down the same way (sometimes worse) while he is still fragile.
-func pickKind(r *rand.Rand, p *Player, rec *MedRec, training bool) *InjuryKind {
+func rollKind(r *rand.Rand, p *Player, rec *MedRec, training bool) *InjuryKind {
 	if rec != nil && rec.Frag > 0 && rec.FragK != "" && r.Float64() < 0.5 {
 		k := injuryKind(rec.FragK)
 		if k.Escalate != "" && r.Float64() < 0.25 {
@@ -188,7 +201,9 @@ func rollWeeks(r *rand.Rand, k *InjuryKind, physio, medLvl int) int {
 
 // Treatment: how a serious injury is handled. Rest is free and safe but slow; surgery costs money
 // and is only as good as the doctor and the medical centre; an injection (painkillers, play on)
-// is quick but risky; a specialist abroad is the best and the dearest.
+// is quick but risky; a specialist abroad is safer still. Elite surgery (the world's best surgical
+// team) is in a class of its own and priced like it: about a third of the lay-off, no lasting damage
+// (damageChance), hardly a setback, never a complication.
 type Treatment struct {
 	Weeks   float64 // share of the lay-off left
 	Setback float64 // setbacks during rehab
@@ -201,7 +216,11 @@ var Treatments = map[string]Treatment{
 	"surgery":    {Weeks: 0.8, Setback: 0.6, Dmg: 0.55, Wear: 1},
 	"injection":  {Weeks: 0.55, Setback: 2.2, Dmg: 1.7, Wear: 1.5},
 	"specialist": {Weeks: 0.75, Setback: 0.5, Dmg: 0.35, Wear: 1},
+	"elite":      {Weeks: 0.35, Setback: 0.25, Dmg: 0, Wear: 1},
 }
+
+// EliteMinWeeks: elite surgery is offered for a serious or career-threatening injury with at least this many weeks to go.
+const EliteMinWeeks = 3
 
 func treatmentOf(key string) Treatment {
 	if t, ok := Treatments[key]; ok {

@@ -13,6 +13,8 @@ export interface MedInjured {
   playerId: number; name: string; position: Pos; role: string; overall: number; age: number; shirt: number
   kind: string; tier: number; part: string; weeks: number; total: number; treat: string; source: string; since: number
   setback: number; dmg: number; rushed: boolean; pending: boolean; inject?: MedOpt | null; case?: number
+  /** elite surgery can still be called in: its cost and the weeks he would have left */
+  elite?: MedOpt | null
 }
 export interface MedRisk {
   playerId: number; name: string; position: Pos; role: string; overall: number; age: number; shirt: number
@@ -42,7 +44,7 @@ export interface MedicalView {
   stats: MedSeason; prev: MedSeason | null; cases: MedCase[]; news: MedNews[]; kinds: MedKind[]; waiting: number
 }
 export interface MedResult { view: MedicalView; line?: MedLine | null }
-export type MedReq = { action: 'card'; id: number; choice: string } | { action: 'inject'; playerId: number }
+export type MedReq = { action: 'card'; id: number; choice: string } | { action: 'inject' | 'elite'; playerId: number }
 
 export const medicalApi = {
   get: (id: number) => req<MedicalView>('GET', careerPath(id) + '/medical'),

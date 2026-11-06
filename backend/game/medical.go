@@ -980,7 +980,7 @@ func (w *world) lastingDamage(r *rand.Rand, p *Player, rec *MedRec, k *InjuryKin
 
 // damageChance: the odds of lasting damage from this injury as things stand.
 func damageChance(p *Player, rec *MedRec, k *InjuryKind, physio int) float64 {
-	if isLegend(p) || k.Dmg <= 0 || (k.GKLoss && p.Position != "GK") {
+	if isLegend(p) || k.Dmg <= 0 || (k.GKLoss && p.Position != "GK") || (rec != nil && rec.Treat == "elite") {
 		return 0
 	}
 	dm := 1.0

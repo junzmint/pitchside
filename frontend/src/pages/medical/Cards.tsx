@@ -40,7 +40,7 @@ export function DecisionCard({ cd, v, busy, onPick }: { cd: MedCard; v: MedicalV
         {cd.options.map(o => {
           const short = (o.cost ?? 0) > v.budget
           return (
-            <button key={o.key} className={'md-opt' + (o.rec ? ' rec' : '')} disabled={busy || short} onClick={() => onPick(cd, o.key)}
+            <button key={o.key} className={'md-opt o-' + o.key + (o.rec ? ' rec' : '')} disabled={busy || short} onClick={() => onPick(cd, o.key)}
               data-tip={short ? t('err.no_budget') : undefined}>
               {o.rec && <span className="md-rec"><Icon name="star" size={11} /> {t('med.advice')}</span>}
               <b>{t('med.opt.' + o.key)}</b>
