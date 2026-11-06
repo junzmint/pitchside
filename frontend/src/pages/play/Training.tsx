@@ -174,7 +174,7 @@ function DrillScreen({ id, name, color, short, career, reward, onReward, onExit,
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr) }
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
-      const [f0] = hub.poll()
+      const f0 = viewRef.current.stick(hub.poll()[0]) // the set-piece camera turns the stick with the picture
       // Start / A on a pad starts the challenge from the intro card
       if (run.phase === 'ready' && f0 && (f0.b & (1 | 512))) { audio.wake(); run.start() }
       run.eng.setInput(0, f0)
@@ -186,7 +186,7 @@ function DrillScreen({ id, name, color, short, career, reward, onReward, onExit,
       audio.tick(dt, run.phase === 'run' ? ex * 0.6 : 0.1, homeAtt)
       ctx2.setTransform(dpr, 0, 0, dpr, 0, 0)
       const view = viewRef.current
-      view.draw(ctx2, w, h, run.frame(), run.eng.statics(), now, { labels, names: false })
+      view.draw(ctx2, w, h, run.frame(), run.eng.statics(), now, { labels, names: false, setPiece: true })
       drawMarks(ctx2, view, run.marks, now)
       if (run.phase !== prevPhase) { prevPhase = run.phase; if (run.phase === 'count') audio.wake() }
       if (++frames % 5 === 0) {

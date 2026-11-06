@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { MatchSetup } from '../types'
-import type { Engine, HudState, Side } from './engine'
+import type { MatchSetup, Player } from '../types'
+import type { Engine, HudState, MP, Side } from './engine'
 import type { Glyphs } from './frame'
 import { glyph } from './controls'
 import { styleLine } from './style'
@@ -10,7 +10,7 @@ import { Icon, type IconName } from '../icons'
 import { useI18n } from '../i18n'
 
 // Match presentation on top of the canvas: the walk-out before kick-off, the TV scoreboard with its goal flash,
-// and the celebration buttons after a goal.
+// the celebration buttons after a goal, the team's fitness strip and the substitution tips.
 
 // ------------------------------------------------------------------------------------------------ walk-out
 /** Seconds the walk-out stays up before kick-off (any button or a tap starts the match sooner). */
@@ -116,6 +116,80 @@ export function Scoreboard({ hud, eng }: { hud: HudState; eng: Engine }) {
           <b>{t('lv.sb.goal')}</b><span>{eng.shorts[flash.team]} · {flash.text}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------------------------------------ fitness strip & substitution tips
+/** Stamina under which an outfield player counts as tired (red in the strip, a substitution tip). */
+export const TIRED = 0.45
+/** Seconds of match clock a substitution tip stays up. */
+export const TIP_S = 9
+
+export function staminaTone(p: { stamina: number; injured: boolean }): 'inj' | 'low' | 'mid' | 'ok' {
+  return p.injured ? 'inj' : p.stamina < TIRED ? 'low' : p.stamina < 0.7 ? 'mid' : 'ok'
+}
+
+/** The bench in the order to bring someone on for p: a keeper for a keeper (an outfield player otherwise), the same
+ *  role, else the same line, then the fittest (in steps of 10%), then the best rated; anyone injured last. Without p:
+ *  best rated first. */
+export function benchOrder(bench: Player[], p?: MP | null): Player[] {
+  if (!p) return [...bench].sort((a, b) => b.overall - a.overall)
+  const fit = (b: Player) => (b.injury > 0 ? -9 : 0) + ((b.position === 'GK') === p.isGK ? 4 : 0) + (b.role && b.role === p.role ? 2 : 0) + (b.position === p.cat ? 1 : 0)
+  const fresh = (b: Player) => Math.floor(Math.min(99, b.fitness) / 10)
+  return [...bench].sort((a, b) => fit(b) - fit(a) || fresh(b) - fresh(a) || b.overall - a.overall)
+}
+
+/** The bench player to suggest for p (see benchOrder). Null when nobody fits, or when p is only tired and nobody on
+ *  the bench is clearly fresher than he is now. */
+export function suggestSub(eng: Engine, side: Side, p: MP): Player | null {
+  const best = benchOrder(eng.bench[side], p)[0]
+  if (!best || best.injury > 0 || (best.position === 'GK') !== p.isGK) return null
+  if (!p.injured && best.fitness / 100 < p.stamina + 0.15) return null
+  return best
+}
+
+/** The eleven on the pitch as a row of small fuel gauges with shirt numbers, in formation order (keeper first):
+ *  green, amber under 70%, red under 45%, a red cross for an injury; the player you control is underlined. It sits
+ *  in the substitutions button, so a glance says who is running out of legs and a click opens the bench. */
+export function FitBars({ eng, side }: { eng: Engine; side: Side }) {
+  const { t } = useI18n()
+  const me = eng.ctrl[side]
+  return (
+    <span className="lv-fit" role="img" aria-label={t('lv.fit.label')}>
+      {eng.teams[side].map(p => {
+        const v = Math.round(p.stamina * 100)
+        const tone = staminaTone(p)
+        return (
+          <i key={p.data.id} className={tone + (p === me ? ' me' : '')} data-tip={`${p.data.shirt}. ${p.data.name} · ${p.injured ? t('lv.fit.hurt') : `${v}%`}`}>
+            <span><b style={{ height: `${Math.max(8, v)}%` }} /></span>
+            <small>{p.data.shirt}</small>
+          </i>
+        )
+      })}
+    </span>
+  )
+}
+
+export interface SubTipData { side: Side; out: number; in: number; outName: string; inName: string; pct: number; hurt: boolean; at: number }
+
+/** One small substitution tip: "X is tired (38%): bring on Y?" with a button (or Select / Tab) that opens the bench
+ *  with both picked. It goes by itself after TIP_S seconds of play; `left` is the share of that time still to go. */
+export function SubTip({ tip, g, duo, left, onSub, onClose }: { tip: SubTipData; g: Glyphs; duo: boolean; left: number; onSub: () => void; onClose: () => void }) {
+  const { t } = useI18n()
+  const key = g === 'touch' ? '' : glyph('SELECT', g)
+  return (
+    <div className={'lv-tip p' + (tip.side + 1) + (tip.hurt ? ' hurt' : '')} role="status" aria-live="polite">
+      <Icon name={tip.hurt ? 'injury' : 'fitness'} size={20} className="lv-tip-ico" />
+      <span className="lv-tip-text">
+        {duo && <b>P{tip.side + 1} · </b>}
+        {t(tip.hurt ? 'lv.tip.hurt' : 'lv.tip.tired', { out: tip.outName, in: tip.inName, n: tip.pct })}
+      </span>
+      <span className="lv-tip-btns">
+        <button className="primary" onClick={onSub}>⇄ {t('lv.tip.go')}{key && <kbd>{key}</kbd>}</button>
+        <button className="lv-tip-x" onClick={onClose} aria-label={t('lv.tip.dismiss')} data-tip={t('lv.tip.dismiss')}>✕</button>
+      </span>
+      <i className="lv-tip-time" style={{ width: `${Math.max(0, Math.min(1, left)) * 100}%` }} />
     </div>
   )
 }

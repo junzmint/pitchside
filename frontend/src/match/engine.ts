@@ -1,5 +1,5 @@
 import type { Player, Tactic } from '../types'
-import { ROLE_CAT, SLOTS } from '../formations'
+import { ROLE_CAT, SLOTS, roleFits } from '../formations'
 import {
   BOX_D, BOX_HW, BTN, CY, F_BEATEN, F_CELEB, F_CTRL0, F_CTRL1, F_DIVE, F_DOWN, F_GK, F_HANDS, F_JUMP, F_KICK, F_SKILL, F_SLIDE,
   F_SPRINT, F_YELLOW, GOAL_H, GOAL_HALF, L, W, type Ctx, type FrameState, type InputFrame, type Overlay, type Phase, type Statics,
@@ -23,10 +23,11 @@ export type RestartKind = 'kickoff' | 'throw' | 'corner' | 'goalkick' | 'free' |
 export type PauseReason = '' | 'user' | 'menu' | 'disconnect' | 'rotate'
 export type Side = 0 | 1
 type Mentality = Tactic['mentality']
-export type ShotKind = 'normal' | 'finesse' | 'chip' | 'driven' | 'header' | 'volley' | 'pen' | 'panenka' | 'fk'
+export type ShotKind = 'normal' | 'finesse' | 'chip' | 'driven' | 'header' | 'volley' | 'pen' | 'panenka' | 'fk' | 'knuckle' | 'trivela'
 type PassKind = 'ground' | 'driven' | 'through' | 'lofted' | 'loftThrough' | 'cross' | 'lowCross' | 'earlyCross' | 'throw' | 'longThrow' | 'goalkick' | 'header' | 'knock' | 'skill' | 'clear'
 type HumanPass = 'pass' | 'driven' | 'passgo' | 'through' | 'loftThrough' | 'lob' | 'lowCross' | 'earlyCross'
 export type SkillId = 'feint' | 'dragback' | 'knock' | 'stepover' | 'ballroll' | 'roulette' | 'mcgeady' | 'elastico' | 'rainbow' | 'fakeshot'
+  | 'cruyff' | 'croqueta'
 
 /** Right-stick combos, relative to where the player faces: F forward, B back, S side, O the opposite side. */
 export const SKILLS: { id: SkillId; seq: string[]; stars: number; dur: number }[] = [
@@ -34,6 +35,8 @@ export const SKILLS: { id: SkillId; seq: string[]; stars: number; dur: number }[
   { id: 'elastico', seq: ['S', 'O'], stars: 4, dur: 0.45 },
   { id: 'roulette', seq: ['B', 'S'], stars: 3, dur: 0.6 },
   { id: 'mcgeady', seq: ['S', 'F'], stars: 3, dur: 0.5 },
+  { id: 'croqueta', seq: ['S', 'B'], stars: 3, dur: 0.4 }, // the ball from one foot to the other, past him sideways
+  { id: 'cruyff', seq: ['F', 'B'], stars: 2, dur: 0.55 }, // shape to go on, drag it behind the standing leg, away
   { id: 'ballroll', seq: ['S', 'S'], stars: 2, dur: 0.55 },
   { id: 'stepover', seq: ['F', 'S'], stars: 2, dur: 0.55 },
   { id: 'dragback', seq: ['B'], stars: 1, dur: 0.42 },
@@ -212,6 +215,8 @@ export class MP {
   stamina: number
   stun = 0; tackleCd = 0; beatenT = 0
   runT = 0; runX = 0; runY = 0
+  /** how far he times this run past the last defender (0 = spot on; some runs go too early, the flag goes up) */
+  runErr = 0
   receiveT = 0; rx = 0; ry = 0
   holdT = 0
   sprint = false
@@ -252,16 +257,20 @@ export class MP {
       defending: b('defending', data.defending), physical: b('physical', data.physical), goalkeeping: b('goalkeeping', data.goalkeeping),
     }
     this.ageTire = icon ? 1 : 1 + 0.03 * Math.max(0, data.age - 30)
-    if (this.cat !== data.position) {
+    if (this.cat !== data.position && !(roleFits(data.role, role) && data.role && !this.isGK && data.position !== 'GK')) {
       const f = this.isGK || data.position === 'GK' ? 0.6 : 0.92
       for (const k of Object.keys(this.s) as AttrKey[]) this.s[k] *= f
     }
     this.stamina = clamp(data.fitness / 100, 0.35, 1)
     this.face = team === 0 ? 0 : Math.PI
   }
-  baseSpeed() { return 5.3 + this.s.pace * 0.037 + (this.traits.has('speedster') ? 0.45 : 0) }
+  /** top speed fresh: pace 50 → 6.8 m/s, 70 → 8.0, 90 → 9.1, 99 → 9.6 (it was 7.2–9.0: a quick winger could hardly
+   *  leave a slow centre-back behind) */
+  baseSpeed() { return 3.9 + Math.min(this.s.pace, 110) * 0.058 + (this.traits.has('speedster') ? 0.45 : 0) }
+  /** what the ball costs him at full tilt: 8% for a poor dribbler, 3% for a great one */
+  ballSpeed() { return Math.min(1, 0.86 + Math.min(this.s.dribbling, 110) * 0.0012) }
   maxSpeed() {
-    return this.baseSpeed() * (0.7 + 0.3 * this.stamina) * (this.stun > 0 ? 0.45 : 1) * (this.beatenT > 0 ? 0.5 : 1) * (this.burstT > 0 ? 1.1 : 1) * (this.injured ? 0.75 : 1)
+    return this.baseSpeed() * (0.8 + 0.2 * this.stamina) * (this.stun > 0 ? 0.45 : 1) * (this.beatenT > 0 ? 0.5 : 1) * (this.burstT > 0 ? 1.1 : 1) * (this.injured ? 0.75 : 1)
   }
 }
 
@@ -281,7 +290,7 @@ class Ctl {
   x = 0; y = 0; rx = 0; ry = 0
   latch = 0; now = 0; prev = 0; fresh = false
   held = 0; pr = 0; rl = 0
-  charge: { kind: 'shot' | 'spCross' | 'spShot' | 'pen'; t0: number; mods: number } | null = null
+  charge: { kind: 'shot' | 'spCross' | 'spShot' | 'pen'; t0: number; mods: number; style?: ShotKind } | null = null
   rsArmed = true
   lastKb: [number, number] = [0, 0]
   flicks: Flick[] = []
@@ -381,6 +390,8 @@ export class Engine {
   restartTeam: Side = 0
   setTaker: MP | null = null
   direct = false
+  /** an indirect free kick (offside): it must touch someone else before it can count, so no shot straight at goal */
+  indirect = false
   pending: { kind: RestartKind; team: Side; x: number; y: number; indirect: boolean } | null = null
   half = 1
   elapsed = 0
@@ -422,6 +433,12 @@ export class Engine {
   tutorial = false
   acts: HumanActs = { moved: 0, passes: 0, through: 0, shots: 0, tackles: 0, switches: 0 }
   ai: [AiPreset, AiPreset] = [{ ...DIFF.normal }, { ...DIFF.normal }]
+  /** the sides have changed ends (see east) */
+  private flip = false
+  /** when each side last had the ball at its feet (a loose ball keeps its shape for a moment) */
+  private ownT: [number, number] = [-9, -9]
+  /** each side's shape (back line, front line, width) eases to where it should be instead of jumping */
+  private shapeS = [{ D: -1, F: 0, W: 0 }, { D: -1, F: 0, W: 0 }]
   /** quality (0..1) and chemistry (0..1) of each XI: scales the AI's reactions on top of the difficulty preset */
   private aiQ: [{ q: number; chem: number }, { q: number; chem: number }] = [{ q: 0.5, chem: 0.5 }, { q: 0.5, chem: 0.5 }]
   /** average rating of each starting XI */
@@ -508,6 +525,7 @@ export class Engine {
       this.score = [...snap.score]; this.stats.shots = [...snap.shots]; this.possT = [...snap.possT]
       this.scorers = [...snap.scorers]; this.assists = [...snap.assists]
       this.elapsed = snap.elapsed; this.half = snap.half; this.tactics[0].mentality = snap.mentality
+      this.flip = this.half === 2 || this.half === 4
       if (snap.mentality1) this.tactics[1].mentality = snap.mentality1
       if (snap.stats) Object.assign(this.stats, JSON.parse(JSON.stringify(snap.stats)))
       this.extraTime = !!snap.extraTime || this.half > 2
@@ -525,7 +543,7 @@ export class Engine {
       if (snap.so && this.half >= 5) {
         this.startShootout(snap.so)
       } else {
-        this.kickoff(1)
+        this.kickoff(this.half % 2 === 0 ? 1 : 0)
         this.log(this.t('feed.resumed'))
       }
     } else {
@@ -536,12 +554,17 @@ export class Engine {
   }
 
   // ------------------------------------------------------------------------------------------------ helpers
-  ownX(t: Side, x: number) { return t === 0 ? x : L - x }
-  ownY(t: Side, y: number) { return t === 0 ? y : W - y }
-  dir(t: Side) { return t === 0 ? 1 : -1 }
-  world(t: Side, ox: number, oy: number): [number, number] { return t === 0 ? [ox, oy] : [L - ox, W - oy] }
-  goalX(t: Side) { return t === 0 ? L : 0 } // goal this team attacks
-  ownGoalX(t: Side) { return t === 0 ? 0 : L }
+  /** team t attacks towards +x: team 0 in the first half; the sides change ends at half time (and for the second
+   *  half of extra time), and in a shootout every kick is taken at the same goal */
+  private east(t: Side) { return (t === 0) !== this.flip }
+  ownX(t: Side, x: number) { return this.east(t) ? x : L - x }
+  ownY(t: Side, y: number) { return this.east(t) ? y : W - y }
+  dir(t: Side) { return this.east(t) ? 1 : -1 }
+  world(t: Side, ox: number, oy: number): [number, number] { return this.east(t) ? [ox, oy] : [L - ox, W - oy] }
+  goalX(t: Side) { return this.east(t) ? L : 0 } // goal this team attacks
+  /** the side attacking the goal at this end of the pitch (x beyond the halfway line picks the end) */
+  private attacking(x: number): Side { return this.goalX(0) === (x > L / 2 ? L : 0) ? 0 : 1 }
+  ownGoalX(t: Side) { return this.east(t) ? 0 : L }
   opp(t: Side): Side { return t === 0 ? 1 : 0 }
   gk(t: Side) { return this.teams[t].find(p => p.isGK) }
   now() { return this.elapsed + this.half * 1000 }
@@ -771,16 +794,16 @@ export class Engine {
     this.lastPass = null
     for (const p of this.players) {
       const [x, y] = p.isGK ? this.world(p.team, 2, CY) : this.formationSpot(p, 16, 46, 50, 0)
-      p.x = p.team === 0 ? Math.min(x, L / 2 - 1.5) : Math.max(x, L / 2 + 1.5)
+      p.x = this.dir(p.team) > 0 ? Math.min(x, L / 2 - 1.5) : Math.max(x, L / 2 + 1.5)
       p.y = y
       // the side not kicking off waits outside the centre circle
       if (p.team !== t) [p.x, p.y] = this.outsideCircle(p.x, p.y, KO_WAIT)
-      p.vx = p.vy = 0; p.tx = p.x; p.ty = p.y; p.face = p.team === 0 ? 0 : Math.PI
+      p.vx = p.vy = 0; p.tx = p.x; p.ty = p.y; p.face = this.dir(p.team) > 0 ? 0 : Math.PI
     }
     const taker = this.teams[t].filter(p => !p.isGK).sort((a, b) => hyp(a.x - L / 2, a.y - CY) - hyp(b.x - L / 2, b.y - CY))[0] ?? this.teams[t][0]
     taker.x = L / 2 - this.dir(t) * 0.7
     taker.y = CY
-    taker.face = t === 0 ? 0 : Math.PI
+    taker.face = this.dir(t) > 0 ? 0 : Math.PI
     this.ball.x = L / 2; this.ball.y = CY
     this.giveBall(taker, 'set')
     this.ball.fixed = true
@@ -807,14 +830,15 @@ export class Engine {
     const kt = this.restartTeam
     for (const p of this.players) {
       if (p === this.setTaker) continue
-      if (p.team === 0 ? p.x > L / 2 - KO_LINE : p.x < L / 2 + KO_LINE) {
-        p.x = p.team === 0 ? L / 2 - KO_LINE : L / 2 + KO_LINE
-        if (p.team === 0 ? p.vx > 0 : p.vx < 0) p.vx = 0
+      const e = this.dir(p.team) > 0
+      if (e ? p.x > L / 2 - KO_LINE : p.x < L / 2 + KO_LINE) {
+        p.x = e ? L / 2 - KO_LINE : L / 2 + KO_LINE
+        if (e ? p.vx > 0 : p.vx < 0) p.vx = 0
       }
       if (p.team === kt) continue
       const dx = p.x - L / 2, dy = p.y - CY, d = hyp(dx, dy)
       if (d >= KO_STAY) continue
-      const ux = d > 0.01 ? dx / d : p.team === 0 ? -1 : 1, uy = d > 0.01 ? dy / d : 0
+      const ux = d > 0.01 ? dx / d : -this.dir(p.team), uy = d > 0.01 ? dy / d : 0
       p.x = L / 2 + ux * KO_STAY; p.y = CY + uy * KO_STAY
       const vr = p.vx * ux + p.vy * uy
       if (vr < 0) { p.vx -= vr * ux; p.vy -= vr * uy }
@@ -836,6 +860,7 @@ export class Engine {
 
   restart(kind: RestartKind, a: Side, x: number, y: number, indirect = false) {
     this.resetMoment()
+    this.indirect = kind === 'free' && indirect
     const b = this.ball
     const d = this.opp(a)
     const out = this.teams[a].filter(p => !p.isGK)
@@ -857,8 +882,8 @@ export class Engine {
     this.setTaker = taker
     this.direct = direct
     const gx = this.goalX(a)
-    const face = kind === 'throw' ? (y < CY ? Math.PI / 2 : -Math.PI / 2) : kind === 'goalkick' ? (a === 0 ? 0 : Math.PI)
-      : kind === 'corner' ? Math.atan2(CY - y, (a === 0 ? L - 11 : 11) - x) : Math.atan2(CY - y, gx - x)
+    const face = kind === 'throw' ? (y < CY ? Math.PI / 2 : -Math.PI / 2) : kind === 'goalkick' ? (this.dir(a) > 0 ? 0 : Math.PI)
+      : kind === 'corner' ? Math.atan2(CY - y, gx - this.dir(a) * 11 - x) : Math.atan2(CY - y, gx - x)
     const back = kind === 'penalty' ? 1.8 : direct ? 1.6 : 0.65
     taker.x = x - Math.cos(face) * back; taker.y = y - Math.sin(face) * back
     if (kind === 'throw') { taker.x = x; taker.y = y < CY ? -0.35 : W + 0.35 }
@@ -1124,6 +1149,7 @@ export class Engine {
     this.moveAll(dt)
     if (this.phaseT > 0) return
     this.half++
+    this.flip = this.half === 2 || this.half === 4 // change ends
     this.elapsed = 0
     this.banner = ''
     for (const p of this.players) p.stamina = Math.min(1, p.stamina + (this.half === 2 ? 0.08 : 0.04)) // a breather
@@ -1247,14 +1273,18 @@ export class Engine {
       this.startSkill(p, 'fakeshot', side_)
       return
     }
-    if (prs & BTN.A) this.act(side, p, has, mods & BTN.RB ? 'driven' : mods & BTN.LB ? 'passgo' : 'pass')
+    if (c.charge?.kind === 'shot' && (prs & (BTN.Y | BTN.X))) {
+      // winding up a shot: Y makes it a knuckleball (struck dead, it wobbles and dips), X a trivela (outside of the boot)
+      c.charge.style = prs & BTN.Y ? 'knuckle' : 'trivela'
+      this.setFlash(this.t(c.charge.style === 'knuckle' ? 'lv.f.knuckle' : 'lv.f.trivela'), p.x, p.y, 0.7)
+    } else if (prs & BTN.A) this.act(side, p, has, mods & BTN.RB ? 'driven' : mods & BTN.LB ? 'passgo' : 'pass')
     else if (prs & BTN.Y) this.act(side, p, has, mods & BTN.LB ? 'loftThrough' : 'through')
     else if (prs & BTN.X) this.act(side, p, has, mods & BTN.RB ? 'lowCross' : mods & BTN.LB ? 'earlyCross' : 'lob')
     if (prs & BTN.B) c.charge = { kind: 'shot', t0: this.clock, mods: c.held }
     if (c.charge?.kind === 'shot' && (c.rl & BTN.B)) {
       const pw = clamp(this.chargePower(c), 0.12, 1)
       const m = c.charge.mods | c.held
-      const sk: ShotKind = (m & BTN.LB) && (m & BTN.RB) ? 'driven' : m & BTN.RB ? 'finesse' : m & BTN.LB ? 'chip' : 'normal'
+      const sk: ShotKind = c.charge.style ?? ((m & BTN.LB) && (m & BTN.RB) ? 'driven' : m & BTN.RB ? 'finesse' : m & BTN.LB ? 'chip' : 'normal')
       c.charge = null
       const own = this.ball.owner === p
       if (own && p.isGK) this.clearBall(p) // a keeper's "shot" is a long kick
@@ -1423,8 +1453,11 @@ export class Engine {
       p.sprint = sprint
       return
     }
-    // assisted reception: with the stick idle, the intended receiver runs onto the ball by himself
-    if (mag < 0.15 && !has && !b.owner && p.receiveT > 0 && b.pass?.to === p) {
+    // assisted reception: with the stick idle, the intended receiver runs onto the ball by himself — and also while
+    // the stick still points the way the pass went (control jumps to him at the kick, and the stick that aimed the
+    // pass sent him running away from the ball)
+    const aiming = mag >= 0.15 && hyp(b.vx, b.vy) > 2 && Math.cos(Math.atan2(iy, ix) - Math.atan2(b.vy, b.vx)) > 0.64
+    if ((mag < 0.15 || aiming) && !has && !b.owner && p.receiveT > 0 && b.pass?.to === p) {
       const [tx, ty] = this.interceptPoint(p)
       const dx = tx - p.x, dy = ty - p.y, d = hyp(dx, dy)
       const sp = Math.min(ms * (d > 4 ? 1 : 0.8), d * 3)
@@ -1436,15 +1469,15 @@ export class Engine {
     const jockey = ctx === 'def' && !!(c.held & BTN.LT)
     const shield = has && !!(c.held & BTN.LT)
     let f = sprint ? 1 : 0.72
-    if (has) f *= Math.min(1, 0.82 + p.s.dribbling * 0.0012)
+    if (has) f *= p.ballSpeed()
     if (shield) f = 0.42
     if (jockey) f = 0.56
     if (c.charge) f *= 0.6
     if (p.isGK && has && b.hands) f = Math.min(f, 0.5)
     const sp = ms * f * mag
     if (mag > 0.05) this.accel(p, (ix / hyp(ix, iy)) * sp, (iy / hyp(ix, iy)) * sp, dt, jockey ? 1.6 : has ? 0.9 + p.s.dribbling / 500 : 1)
-    if (side === 0 && mag > 0.3) this.acts.moved += hyp(p.vx, p.vy) * dt
     else this.accel(p, 0, 0, dt, jockey ? 1.6 : 1)
+    if (side === 0 && mag > 0.3) this.acts.moved += hyp(p.vx, p.vy) * dt
     p.sprint = sprint && mag > 0.2
     if (jockey && b.owner) { p.faceLock = Math.atan2(b.owner.y - p.y, b.owner.x - p.x); p.jockey = true }
     if (shield) {
@@ -1475,7 +1508,7 @@ export class Engine {
     if (c.pr & BTN.A) { this.spPass(p, aim.x, aim.y, 'ground'); return }
     if ((c.pr & BTN.Y) && kind !== 'throw') { this.spPass(p, aim.x, aim.y, 'through'); return }
     if (c.pr & BTN.X) c.charge = { kind: 'spCross', t0: this.clock, mods: 0 }
-    if ((c.pr & BTN.B) && kind === 'free') c.charge = { kind: 'spShot', t0: this.clock, mods: 0 }
+    if ((c.pr & BTN.B) && kind === 'free' && !this.indirect) c.charge = { kind: 'spShot', t0: this.clock, mods: 0 }
     if (c.charge && (c.rl & (c.charge.kind === 'spCross' ? BTN.X : BTN.B))) {
       const pw = this.chargePower(c)
       const k = c.charge.kind
@@ -1825,6 +1858,10 @@ export class Engine {
       case 'driven': speed *= 1.07; sigma *= 1.08; zT = 0.12 + power * 0.45 + Math.abs(gauss()) * 0.25 * miss; break
       case 'finesse': speed *= 0.8; sigma *= 0.82; zT = 0.5 + power * 1.0 + gauss() * 0.35 * miss; spin = finesseSpin(b.x, b.y, gx, aimY, power); break
       case 'chip': speed = clamp(dist * 0.62 + 4, 9, 18); sigma *= 0.9; zT = 0.7 + power * 1.6 + gauss() * 0.3; break
+      // struck dead through the middle of the ball: hard, no spin, it moves about in the air and dips late (ballPhysics)
+      case 'knuckle': speed *= 1.1; sigma *= 1.15 + (dist < 16 ? 0.3 : 0); zT = 0.9 + power * 1.0 + gauss() * 0.35 * miss; spin = 0; break
+      // the outside of the boot: it bends the other way from a finesse shot
+      case 'trivela': speed *= 0.88; sigma *= 0.92; zT = 0.5 + power * 1.0 + gauss() * 0.35 * miss; spin = -finesseSpin(b.x, b.y, gx, aimY, power) * 0.9; break
       case 'volley': sigma *= 1.35; zT = 0.4 + power * 1.6 + gauss() * 0.6 * miss; break
       case 'header': {
         const hs = (sh * 0.45 + Math.min(p.s.physical, 110) * 0.35 + (p.traits.has('aerial') ? 18 : 0)) / 100
@@ -1834,10 +1871,10 @@ export class Engine {
         break
       }
       case 'pen': {
-        const nerve = (p.traits.has('big_game') ? 0.75 : 1) * (this.so && this.so.k[0].length >= 5 ? 1.15 : 1)
+        const nerve = (p.traits.has('big_game') ? 0.75 : 1) * (this.so && this.so.k[p.team].length >= 5 ? 1.15 : 1)
         sigma = ((1 - sh / 115) * 0.04 + power * power * 0.02) * nerve
         speed = 19 + power * 13 * (0.6 + sh / 250)
-        zT = 0.15 + power * 2.0 + gauss() * 0.22 * (1 - sh / 115) * nerve
+        zT = 0.15 + power * 2.0 + gauss() * 0.22 * (1 - sh / 115) * nerve + (power > 0.95 ? 0.75 + rnd() * 0.5 : 0)
         break
       }
       case 'panenka': sigma = 0.02; speed = 10.5; zT = 1.4 + gauss() * 0.15; break
@@ -1852,7 +1889,7 @@ export class Engine {
     const vz = Math.max(kind === 'header' ? -3 : 0.3, (zT - z0 + 4.9 * T * T) / T)
     if (kind !== 'header') p.face = ang
     this.kick(p, Math.cos(ang) * speed, Math.sin(ang) * speed, vz, spin, z0)
-    const great = dist > 22 || kind === 'volley' || (kind === 'finesse' && dist > 16) || kind === 'chip' || (kind === 'header' && dist > 9) || kind === 'panenka'
+    const great = dist > 22 || kind === 'volley' || ((kind === 'finesse' || kind === 'trivela') && dist > 16) || kind === 'knuckle' || kind === 'chip' || (kind === 'header' && dist > 9) || kind === 'panenka'
     const shot: ShotInfo = { team: t, by: p, gkTried: false, t: this.clock, kind, dist, great, counted: false, minD: 99 }
     b.shot = shot
     this.shotBy = { p, at: this.clock, shot }
@@ -1907,6 +1944,16 @@ export class Engine {
         b.vx = vx
       }
     }
+    if (b.shot?.kind === 'knuckle' && (b.z > 0 || b.vz > 0)) {
+      // no spin to steady it: the air pushes it one way then the other, and it drops late
+      const age = this.clock - b.shot.t, sp = hyp(b.vx, b.vy)
+      if (sp > 8) {
+        const w = Math.sin(age * 11 + b.shot.t * 7.3) * 3.4
+        const nx = -b.vy / sp, ny = b.vx / sp
+        b.vx += nx * w * dt; b.vy += ny * w * dt
+        if (age > 0.3) b.vz -= 3.2 * dt
+      }
+    }
     if (b.z > 0 || b.vz > 0) {
       b.vz -= 9.8 * dt
       b.z += b.vz * dt
@@ -1944,7 +1991,7 @@ export class Engine {
     const yc = py + (b.y - py) * f, zc = pz + (b.z - pz) * f
     const off = Math.abs(yc - CY)
     const R = 0.11
-    const attacking: Side = lineX === L ? 0 : 1
+    const attacking = this.attacking(lineX)
     if (off < GOAL_HALF - R && zc < GOAL_H - R) { this.scoreGoal(attacking); return true }
     const postHit = Math.abs(off - GOAL_HALF) < R + 0.06 && zc < GOAL_H + 0.06
     const barHit = off < GOAL_HALF + 0.06 && Math.abs(zc - GOAL_H) < R + 0.06
@@ -2002,7 +2049,8 @@ export class Engine {
     const stretch = d / reach
     let p = (0.42 + (Math.min(gk.s.goalkeeping, 110) / 100) * 0.58 - (speed - 18) / 45 - stretch * stretch * 0.55) * gkMul + (gk.traits.has('reflexes') ? 0.08 : 0)
     if (sh.dist < 11) p -= (11 - sh.dist) * 0.03 // point blank
-    if (sh.kind === 'finesse') p -= 0.05
+    if (sh.kind === 'finesse' || sh.kind === 'trivela') p -= 0.05
+    if (sh.kind === 'knuckle') p -= 0.1 // it moves at the last moment
     if (sh.kind === 'header') p += 0.1
     if (sh.kind === 'panenka') p += 0.35
     if (sh.kind === 'pen') p -= 0.2 // from 11 m a firm kick beats most dives, even the right way
@@ -2156,7 +2204,7 @@ export class Engine {
     }
     if (ox < 35) {
       // clearance header: away from goal, towards the flank
-      const a = (t === 0 ? 0 : Math.PI) + (p.y < CY ? -0.6 : 0.6) * rnd() + gauss() * 0.3
+      const a = (this.dir(t) > 0 ? 0 : Math.PI) + (p.y < CY ? -0.6 : 0.6) * rnd() + gauss() * 0.3
       this.kick(p, Math.cos(a) * (12 + Math.min(p.s.physical, 110) / 15), Math.sin(a) * (12 + p.s.physical / 15), 4.5)
       b.last = p
       this.emit({ k: 'head', v: 0.6 })
@@ -2253,7 +2301,7 @@ export class Engine {
       // no carrier: poke a loose ball away
       if (!c && !b.inNet && hyp(b.x - def.x, b.y - def.y) < 1.5 && b.z < 1) {
         const ctl = this.ctl[def.team]
-        const a = this.human[def.team] && this.ctrl[def.team] === def && hyp(ctl.x, ctl.y) > 0.3 ? Math.atan2(ctl.y, ctl.x) : def.team === 0 ? 0 : Math.PI
+        const a = this.human[def.team] && this.ctrl[def.team] === def && hyp(ctl.x, ctl.y) > 0.3 ? Math.atan2(ctl.y, ctl.x) : this.dir(def.team) > 0 ? 0 : Math.PI
         this.kick(def, Math.cos(a) * 12, Math.sin(a) * 12, 2)
         this.emit({ k: 'kick', v: 0.5 })
       }
@@ -2265,7 +2313,7 @@ export class Engine {
     if (dB > 1.6 && dC > 1.25) { def.stun = 0.18; return }
     const immune = !!c.skill && c.skill.ok && c.skill.t > 0.05 && c.skill.t < c.skill.dur - 0.05
     let p = 0.44 + (Math.min(def.s.defending, 110) - Math.min(c.s.dribbling, 110)) / 150 + (def.traits.has('hard_tackler') ? 0.08 : 0) - (c.traits.has('flair') ? 0.08 : 0)
-      + (dB < dC ? 0.12 : -0.05) - (behind ? 0.15 : 0) + (def.jockey ? 0.08 : 0) - (c.shield && behind ? 0.18 : 0)
+      + (dB < dC ? 0.12 : -0.05) - (behind ? 0.15 : 0) + (def.jockey ? 0.08 : 0) - (c.shield && behind ? 0.18 + (Math.min(c.s.physical, 110) - Math.min(def.s.physical, 110)) / 200 : 0)
       + (this.human[def.team] && this.ctrl[def.team] === def ? HUMAN_TACKLE[this.opts.difficulty] : 0)
     if (immune) p = 0.03
     p = clamp(p, 0.05, 0.9)
@@ -2283,7 +2331,9 @@ export class Engine {
     } else {
       def.stun = 0.38
       if (dC < 1.2) {
-        const fp = 0.1 + (behind ? 0.24 : 0) + (def.traits.has('hothead') ? 0.1 : 0) + (this.derby ? 0.03 : 0) - Math.min(def.s.defending, 100) / 700
+        const fp = 0.16 + (behind ? 0.24 : 0) + (def.traits.has('hothead') ? 0.1 : 0) + (this.derby ? 0.03 : 0) + (hyp(c.vx, c.vy) > 6 ? 0.07 : 0)
+          + (this.inOwnBox(def.team, c.x, c.y) ? 0.06 : 0) // a clumsy one in the box: a penalty
+          - Math.min(def.s.defending, 100) / 1000
         if (rnd() < fp) this.foul(def, c, 'tackle', behind, true)
       }
     }
@@ -2517,6 +2567,14 @@ export class Engine {
         break
       }
       case 'fakeshot': vx = rx * 2.6 + fx * 0.6; vy = ry * 2.6 + fy * 0.6; break
+      case 'cruyff': {
+        const turn = u >= 0.35
+        const g = turn ? -2.2 : 1.6
+        vx = fx * g + rx * (turn ? 1.4 : 0); vy = fy * g + ry * (turn ? 1.4 : 0)
+        if (turn) face = k.f0 + Math.PI * Math.min(1, (u - 0.35) / 0.4) * k.s
+        break
+      }
+      case 'croqueta': vx = rx * 4.4 * (1 - u * 0.6) + fx * 1.2; vy = ry * 4.4 * (1 - u * 0.6) + fy * 1.2; break
       default: break
     }
     p.faceLock = face
@@ -2538,6 +2596,8 @@ export class Engine {
         case 'stepover': case 'elastico': case 'feint': ex = fx * 0.6 + rx * 0.8; ey = fy * 0.6 + ry * 0.8; sp = 6.5; break
         case 'ballroll': ex = rx * 0.7 + fx * 0.7; ey = ry * 0.7 + fy * 0.7; break
         case 'roulette': case 'mcgeady': ex = fx * 0.8 + rx * 0.6; ey = fy * 0.8 + ry * 0.6; sp = 6; break
+        case 'cruyff': ex = -fx * 0.5 + rx * 0.85; ey = -fy * 0.5 + ry * 0.85; sp = 5.2; break
+        case 'croqueta': ex = rx * 0.75 + fx * 0.65; ey = ry * 0.75 + fy * 0.65; sp = 6.8; break
         default: break
       }
       const n = hyp(ex, ey) || 1
@@ -2559,6 +2619,8 @@ export class Engine {
       case 'feint': return [fx * 0.5 + rx * 0.15 * u, fy * 0.5 + ry * 0.15 * u]
       case 'fakeshot': return [fx * 0.45 + rx * 0.35 * u, fy * 0.45 + ry * 0.35 * u]
       case 'rainbow': { const o = 0.35 - 0.6 * u; return [fx * o, fy * o] }
+      case 'cruyff': { const o = u < 0.35 ? 0.55 : 0.55 - 1.3 * ((u - 0.35) / 0.65); return [fx * o + rx * 0.2 * u, fy * o + ry * 0.2 * u] }
+      case 'croqueta': return [fx * 0.35 + rx * (0.45 * u - 0.15), fy * 0.35 + ry * (0.45 * u - 0.15)]
       default: return [fx * 0.55, fy * 0.55]
     }
   }
@@ -2729,9 +2791,9 @@ export class Engine {
   private checkBounds() {
     const b = this.ball
     if (b.inNet) return
-    if (b.owner && (b.x < 0 || b.x > L) && Math.abs(b.y - CY) < GOAL_HALF - 0.1) { b.owner = null; this.scoreGoal(b.x > L ? 0 : 1); return }
+    if (b.owner && (b.x < 0 || b.x > L) && Math.abs(b.y - CY) < GOAL_HALF - 0.1) { b.owner = null; this.scoreGoal(this.attacking(b.x)); return }
     if (b.x < -0.25 || b.x > L + 0.25) {
-      const t: Side = b.x > L ? 0 : 1
+      const t = this.attacking(b.x)
       if (this.so) { this.soResult(false); return }
       const def = this.opp(t)
       const lastT = b.last?.team ?? t
@@ -2741,7 +2803,7 @@ export class Engine {
         this.say(b.z > GOAL_H ? 'shotOver' : 'shotWide', { name: b.shot.by.data.name })
       }
       if (lastT === def) this.stoppage('corner', t, b.x > L ? L - 0.3 : 0.3, b.y < CY ? 0.3 : W - 0.3)
-      else this.stoppage('goalkick', def, def === 0 ? 5.5 : L - 5.5, CY + (b.y < CY ? -4 : 4))
+      else this.stoppage('goalkick', def, this.ownGoalX(def) + this.dir(def) * 5.5, CY + (b.y < CY ? -4 : 4))
       return
     }
     if (b.y < -0.2 || b.y > W + 0.2) {
@@ -2806,6 +2868,12 @@ export class Engine {
       p.face = side === 0 ? 0 : Math.PI
     })
     this.ball.x = L / 2; this.ball.y = CY; this.ball.owner = null
+    // resumed from a save after it was already decided: finish it, no more kicks
+    if (snap && soWinner(k) != null) {
+      this.so.done = true
+      this.so.wait = 0.05
+      this.pensResult = [k[0].reduce((x, y) => x + y, 0), k[1].reduce((x, y) => x + y, 0)]
+    }
   }
 
   private soTaker(a: Side): MP | undefined {
@@ -2828,6 +2896,7 @@ export class Engine {
     so.live = true
     so.t = 0
     const a = so.turn
+    this.flip = a === 1 // every kick at the same goal: the kicker's side attacks +x
     this.restart('penalty', a, this.world(a, L - 11, CY)[0], CY)
   }
 
@@ -2859,12 +2928,8 @@ export class Engine {
     r[a] = scored ? 0.8 : 0.3
     this.emit({ k: 'so', s: scored ? 'goal' : 'miss', side: a, r })
     if (scored) { this.shake = 0.5; this.whiteFlash = 0.35; this.netT = 1 }
-    const k0 = so.k[0], k1 = so.k[1]
-    const s0 = k0.reduce((x, y) => x + y, 0), s1 = k1.reduce((x, y) => x + y, 0)
-    const n0 = k0.length, n1 = k1.length
-    let win: Side | null = null
-    if (n0 <= 5 && n1 <= 5) { if (s0 > s1 + (5 - n1)) win = 0; else if (s1 > s0 + (5 - n0)) win = 1 }
-    if (win == null && n0 === n1 && n0 >= 5 && s0 !== s1) win = s0 > s1 ? 0 : 1
+    const s0 = so.k[0].reduce((x, y) => x + y, 0), s1 = so.k[1].reduce((x, y) => x + y, 0)
+    const win = soWinner(so.k)
     so.turn = this.opp(a)
     this.phase = 'shootout'
     so.wait = this.fast ? 0.05 : 2.4
@@ -2888,7 +2953,11 @@ export class Engine {
     const st = this.styles[t]
     const tac = this.tactics[t]
     const owner = b.owner
-    const inPoss = owner ? owner.team === t : !!b.last && b.last.team === t && (!!b.pass || hyp(b.vx, b.vy) > 3)
+    if (owner) this.ownT[owner.team] = this.clock
+    // a loose ball (a bobble, a block) keeps the side that had it in its shape for a moment: the whole team re-aiming
+    // at every bounce made them run back and forth
+    const inPoss = owner ? owner.team === t
+      : !!b.last && b.last.team === t && (!!b.pass || hyp(b.vx, b.vy) > 3 || this.clock - this.ownT[t] < 0.9)
     // the shape follows the ball with a short delay when defending: quick switches of play open gaps
     const lag = this.lagBall[t]
     const k = 1 - Math.exp(-(1 / 60) / (inPoss ? 0.12 : 0.45))
@@ -2902,6 +2971,10 @@ export class Engine {
     const team = this.teams[t]
     const user = this.ctrl[t]
     const restart = this.phase === 'restart' || this.phase === 'kickoff'
+    const sh = this.shapeS[t]
+    if (restart || sh.D < 0) { sh.D = D; sh.F = F; sh.W = width }
+    else { const e = 1 - Math.exp(-(1 / 60) / 0.4); sh.D += (D - sh.D) * e; sh.F += (F - sh.F) * e; sh.W += (width - sh.W) * e }
+    D = sh.D; F = sh.F; width = sh.W
     const line = this.offsideLine(t)
     const onside = Math.max(line, L / 2) - 0.6
     if (inPoss && owner && !restart) this.updateSupport(t, owner, onside)
@@ -2922,7 +2995,8 @@ export class Engine {
       if (inPoss) {
         if (p.supT > 0) { x = p.supX; y = p.supY }
         if (p.runT > 0) { x = p.runX; y = p.runY }
-        if (p.receiveT <= 0 && this.ownX(t, x) > onside) x = this.world(t, onside, 0)[0]
+        const lim = onside + (p.runT > 0 ? p.runErr : 0) // a run timed too early ends up offside
+        if (p.receiveT <= 0 && this.ownX(t, x) > lim) x = this.world(t, lim, 0)[0]
       } else if (p.mark && this.teams[this.opp(t)].includes(p.mark)) {
         const m = p.mark
         const a = Math.atan2(CY - m.y, this.ownGoalX(t) - m.x)
@@ -2938,7 +3012,7 @@ export class Engine {
         if (dd < 9.3) { const a = Math.atan2(y - b.y, x - b.x); x = b.x + Math.cos(a) * 9.3; y = b.y + Math.sin(a) * 9.3 }
       }
       if (this.phase === 'kickoff') {
-        x = t === 0 ? Math.min(x, L / 2 - 1) : Math.max(x, L / 2 + 1)
+        x = this.dir(t) > 0 ? Math.min(x, L / 2 - 1) : Math.max(x, L / 2 + 1)
         if (t !== this.restartTeam) [x, y] = this.outsideCircle(x, y, KO_WAIT)
       }
       p.tx = clamp(x, -1, L + 1); p.ty = clamp(y, 0.5, W - 0.5)
@@ -2955,11 +3029,23 @@ export class Engine {
           const ox = clamp(line + 4 + rnd() * 6, 30, L - 8)
           const oy = clamp(this.ownY(t, p.y) + gauss() * 6, 6, W - 6)
           ;[p.runX, p.runY] = this.world(t, ox, oy)
-          p.runT = 2.4
+          p.runT = 2.4; p.runErr = Math.max(0, gauss() * 1.1 + 0.1)
         }
       }
       // a teammate wide in the final third: attack the near post, the spot and the far post
       const oox = this.ownX(t, owner.x), ooy = this.ownY(t, owner.y)
+      // central in the final third against a deep block: one runner attacks the gap between the centre-backs, another
+      // arrives late at the edge of the box (it only happened when there was room in behind before)
+      if (oox > 60 && Math.abs(ooy - CY) <= 12 && this.tick % 30 === 0) {
+        const runners = team.filter(p => p !== owner && p !== user && !p.isGK && p.runT <= 0 && !p.hold && (p.cat === 'FW' || p.role === 'AM' || p.role === 'CM'))
+          .sort((p, q) => hyp(p.x - owner.x, p.y - owner.y) - hyp(q.x - owner.x, q.y - owner.y)).slice(0, 2)
+        const lineX = Math.min(this.offsideLine(t) - 0.8, L - 9)
+        runners.forEach((p, i) => {
+          if (rnd() > 0.55 * st.runs + 0.15) return
+          const [rx, ry] = i === 0 ? this.world(t, lineX, CY + (ooy < CY ? 2.5 : -2.5) + gauss() * 2) : this.world(t, Math.min(L - 17, lineX - 3), CY - (ooy < CY ? 4 : -4))
+          p.runX = rx; p.runY = ry; p.runT = 1.6; p.runErr = Math.max(0, gauss() * 1.0)
+        })
+      }
       if (oox > 68 - Math.max(0, st.cross - 0.62) * 30 && Math.abs(ooy - CY) > 12 && this.tick % 20 === 0) {
         const s = ooy < CY ? -1 : 1
         const spots: [number, number][] = [[L - 6, CY + s * 3], [L - 11, CY - s * 0.5], [L - 7, CY - s * 5]]
@@ -2969,6 +3055,7 @@ export class Engine {
       }
     }
     const others = team.filter(p => !p.isGK && p !== user && p !== owner && !p.hold)
+    const wasPressing = new Set(team.filter(p => p.pressing))
     for (const p of team) p.pressing = false
     if (!owner) {
       // loose ball: the quickest one goes for it
@@ -2989,8 +3076,13 @@ export class Engine {
       if (st.pressHeight <= -4 && zoneHigh) n = Math.min(n, 1)
       if (this.ownX(t, c.x) < 25) n = Math.max(n, 2)
       if (b.hands) n = 0
-      const sorted = others.sort((a, d) => hyp(a.x - c.x, a.y - c.y) - hyp(d.x - c.x, d.y - c.y))
-      if (user && sorted.length && hyp(user.x - c.x, user.y - c.y) < hyp(sorted[0].x - c.x, sorted[0].y - c.y) + 2) n -= 1
+      n = Math.min(n, this.clock - this.wonAt[this.opp(t)] < 3.5 ? 4 : 3) // never the whole team after the ball
+      // who presses: the nearest, but whoever is already at it keeps going (no swapping every tick), and the
+      // centre-backs hold the line unless he is near our box or running straight at them
+      const nearBox = this.ownX(t, c.x) < 30
+      const cost = (p: MP) => hyp(p.x - c.x, p.y - c.y) - (wasPressing.has(p) ? 3 : 0) + (p.role === 'CB' && !nearBox ? 7 : 0)
+      const sorted = others.sort((a, d) => cost(a) - cost(d))
+      if (user && sorted.length && hyp(user.x - c.x, user.y - c.y) < Math.min(12, hyp(sorted[0].x - c.x, sorted[0].y - c.y) + 2)) n -= 1
       const call = this.human[t] && this.ctl[t].pressCall && !b.hands
       const own = this.ownGoalX(t)
       // the first man closes the carrier down goal-side; the next ones cut off his easy passes instead of
@@ -3017,9 +3109,11 @@ export class Engine {
     this.supNext[t] = this.clock + 0.3
     const st = this.styles[t]
     const user = this.ctrl[t]
-    const cands = this.teams[t].filter(p => p !== owner && !p.isGK && p !== user && p.runT <= 0 && !p.hold)
+    // the nearest teammates come short for him, but not the centre-backs once the ball is in their half
+    const high = this.ownX(t, owner.x) > 45
+    const cands = this.teams[t].filter(p => p !== owner && !p.isGK && p !== user && p.runT <= 0 && !p.hold && !(high && p.role === 'CB'))
       .sort((a, b) => hyp(a.x - owner.x, a.y - owner.y) - hyp(b.x - owner.x, b.y - owner.y)).slice(0, st.shortPass > 0.6 ? 3 : 2)
-    const fwd = t === 0 ? 0 : Math.PI
+    const fwd = this.dir(t) > 0 ? 0 : Math.PI
     const taken: [number, number][] = [[owner.x, owner.y]]
     for (const p of cands) {
       let best: [number, number] = [p.x, p.y], bs = -1e9
@@ -3041,10 +3135,18 @@ export class Engine {
   private updateMarks(t: Side) {
     const opp = this.teams[this.opp(t)].filter(o => !o.isGK && o !== this.ball.owner).sort((a, b) => this.ownX(t, a.x) - this.ownX(t, b.x))
     const mine = this.teams[t].filter(p => !p.isGK && p !== this.ctrl[t] && p.cat !== 'FW' && !p.pressing)
+    // a man stays on his man while it still makes sense (rebuilding every pair each time had them swapping jobs)
+    const keep: [MP, MP][] = []
+    for (const p of mine) {
+      const o = p.mark
+      if (o && opp.includes(o) && this.ownX(t, o.x) <= 52 && hyp(p.x - o.x, p.y - o.y) < 14) keep.push([p, o])
+    }
     for (const p of this.teams[t]) p.mark = null
     const used = new Set<MP>()
+    const taken = new Set<MP>()
+    for (const [p, o] of keep) { p.mark = o; used.add(p); taken.add(o) }
     for (const o of opp) {
-      if (this.ownX(t, o.x) > 48) continue
+      if (taken.has(o) || this.ownX(t, o.x) > 48) continue
       let best: MP | null = null, bd = 20
       for (const p of mine) { if (used.has(p)) continue; const d = hyp(p.x - o.x, p.y - o.y); if (d < bd) { bd = d; best = p } }
       if (best) { best.mark = o; used.add(best) }
@@ -3142,7 +3244,12 @@ export class Engine {
     const consider = (s: number, f: () => void) => { if (s > bestS) { bestS = s; act = f } }
     if (!p.isGK && dGoal < 34) {
       const xg = this.shotValue(p, dGoal, pressure)
-      let s = 0.2 + xg * 6.5 + (dGoal > 18 ? st.longShot * 1.6 : 0) + urge * 0.45 + (tac.mentality === 'attacking' ? 0.08 : 0) + rnd() * 0.25
+      // the chance decides: from 25 m only a long-range shooter with a sight of goal tries it, and rarely anyone else
+      const longShooter = p.traits.has('long_shot') || p.s.shooting >= 88
+      let s = -0.15 + xg * 9.5 + (dGoal > 18 && dGoal < 28 && pressure >= 1.5 ? st.longShot * (longShooter ? 0.35 : 0.15) : 0) + urge * 0.45 + (tac.mentality === 'attacking' ? 0.08 : 0) + rnd() * 0.2
+      if (dGoal > 22 && !longShooter) s -= 0.25
+      if (xg < 0.015) s -= 0.4 // hopeless from there: keep the ball
+      if (dGoal > 30 && urge < 0.5) s -= 1 // 30 m out: only when chasing the game late
       if (setPiece) s -= 2
       consider(s, () => this.aiShoot(p, dGoal))
     }
@@ -3154,7 +3261,7 @@ export class Engine {
       if (d < 4 || d > 55) continue
       const mox = this.ownX(t, m.x)
       const progress = (mox - ox) / 30
-      if (mox > L / 2 && mox > line + 0.25 && rnd() > 0.06 * errMul) continue // spots the offside
+      if (mox > L / 2 && mox > line + 0.25 && rnd() > (m.runT > 0 && mox < line + 1.6 ? 0.42 : 0.06) * errMul) continue // spots the offside (a runner just off is hard to read)
       const laneM = this.laneOpen(p.x, p.y, m.x, m.y, t)
       if (laneM < 0 && d < 15) continue // will be cut out, and too short to chip
       const lane = clamp(laneM + 1, 0, 5) / 5
@@ -3177,8 +3284,13 @@ export class Engine {
       if (kind === 'lofted' && st.direct > 0.6 && progress > 0.35 && (m.cat === 'FW' || m.role === 'AM')) s += (st.direct - 0.55) * 1.6 // the long ball up to the front men
       if (st.cross > 0.68 && Math.abs(this.ownY(t, m.y) - CY) > 17 && progress > -0.15 && mox > 45) s += (st.cross - 0.6) * 1.1 // get it out wide
       if (p.holdT < 1 && progress > 0.5 && st.counter > 0.5) s += 0.2
+      // in or around their box what counts is the chance he gets: square it, cut it back, slip him in
+      if (mox > L - 30 && !m.isGK) {
+        const md = hyp(this.goalX(t) - m.x, CY - m.y)
+        if (md < 24) s += this.shotValue(m, md, this.pressure(m)) * 5.5 * clamp(laneM + 0.3, 0, 1)
+      }
       const k = kind
-      consider(s, () => this.passTo(p, m, k, errMul))
+      consider(s, () => { this.passTo(p, m, k, errMul); this.giveAndGo(p) })
     }
     if (!p.isGK && !setPiece && ox > 70 - Math.max(0, st.cross - 0.62) * 30 && Math.abs(oy - CY) > 11) {
       // wide in the final third (a wing side from deeper: early crosses): whip it in to whoever is waiting in the box
@@ -3211,7 +3323,7 @@ export class Engine {
       if (room > 7) s += 0.35 + transition * 0.3 // open grass in front: run at them
       else if (room < 2.6) s -= 0.35 // a defender squared up in front: move it on (or take him on, see aiDribble)
       if (ox > 85) s -= 0.2
-      if (dGoal < 22) s -= 0.4 // in range: look for the shot or the final pass
+      if (dGoal < 14) s -= 0.4 // in range: look for the shot or the final pass (from 22 m it was: shoot rather than go at them)
       if (final) s -= 0.12 + p.holdT * 0.1 // don't run around in their third: make something happen
       if (st.shortPass > 0.7) s -= (st.shortPass - 0.7) * 1.8 // a passing side gives it and goes
       consider(s, () => this.aiDribble(p))
@@ -3221,6 +3333,21 @@ export class Engine {
       consider(0.5 + (3.2 - pressure) * 0.3 + (tac.mentality === 'defensive' ? 0.15 : 0) - st.shortPass * 0.25 + rnd() * 0.2, () => this.kickToTouch(p))
     }
     act()
+  }
+
+  /** After a pass around their box the passer goes (a one-two): a run past his marker into the space ahead,
+   *  drifting inside and staying onside, for the return. */
+  private giveAndGo(p: MP) {
+    const t = p.team
+    const ox = this.ownX(t, p.x)
+    if (this.human[t] && this.ctrl[t] === p) return // the person decides his own runs (pass-and-go)
+    if (p.isGK || p.cat === 'DF' || ox < 52 || rnd() > 0.3 + this.styles[t].shortPass * 0.35) return
+    const line = this.offsideLine(t)
+    const oy = this.ownY(t, p.y)
+    const tx = clamp(ox + 12, 30, Math.min(line - 0.8, L - 7))
+    const ty = clamp(oy + (CY - oy) * 0.35, 6, W - 6)
+    ;[p.runX, p.runY] = this.world(t, tx, ty)
+    p.runT = 2.2; p.runErr = Math.max(0, gauss() * 0.8 - 0.1)
   }
 
   /** Safety first: knock it out of play over the near touchline (a throw for them, but no danger). */
@@ -3271,9 +3398,12 @@ export class Engine {
     let kind: ShotKind = 'normal'
     const gkOut = gk ? hyp(gk.x - this.goalX(t), gk.y - CY) : 0
     if (gkOut > 6 && dGoal < 24 && rnd() < 0.55) kind = 'chip'
+    else if (dGoal > 22 && p.s.shooting >= 80 && rnd() < 0.25) kind = 'knuckle'
+    else if (Math.abs(p.y - CY) > 6 && dGoal > 12 && dGoal < 24 && Math.max(p.s.dribbling, p.s.passing) >= 82 && rnd() < 0.15) kind = 'trivela'
     else if (p.s.shooting > 70 && dGoal > 14 && rnd() < 0.3) kind = 'finesse'
     else if (dGoal < 14 && rnd() < 0.3) kind = 'driven'
-    this.shoot(p, clamp(0.55 + rnd() * 0.4 + (dGoal > 20 ? 0.1 : 0), 0, 1), kind === 'finesse' ? CY + (p.y < CY ? 1 : -1) * 2.8 : this.aiAimY(t), kind)
+    const pw = rnd() < 0.04 ? 0.97 : clamp(0.55 + rnd() * 0.33 + (dGoal > 20 ? 0.06 : 0), 0, 0.93) // now and then he leans back
+    this.shoot(p, pw, kind === 'finesse' ? CY + (p.y < CY ? 1 : -1) * 2.8 : this.aiAimY(t), kind)
   }
 
   private aiDribble(p: MP) {
@@ -3283,7 +3413,7 @@ export class Engine {
     for (const o of this.teams[this.opp(t)]) {
       const dx = o.x - p.x, dy = o.y - p.y, d = hyp(dx, dy)
       if (d < 3 && (dx * fx + dy * fy) / (d || 1) > 0.3 && dribs > 60 && rnd() < (dribs - 52) / 80 + this.styles[t].dribble) {
-        const pool: SkillId[] = dribs >= 88 ? ['elastico', 'roulette', 'rainbow', 'mcgeady', 'stepover', 'ballroll'] : dribs >= 76 ? ['roulette', 'mcgeady', 'stepover', 'ballroll', 'feint'] : ['feint', 'dragback', 'stepover']
+        const pool: SkillId[] = dribs >= 88 ? ['elastico', 'roulette', 'rainbow', 'mcgeady', 'stepover', 'ballroll', 'croqueta'] : dribs >= 76 ? ['roulette', 'mcgeady', 'stepover', 'ballroll', 'feint', 'croqueta', 'cruyff'] : ['feint', 'dragback', 'stepover', 'cruyff']
         // an icon reaches for his trademark move half the time
         const id = p.sig && rnd() < 0.4 ? p.sig : pool[Math.floor(rnd() * pool.length)]
         this.startSkill(p, id, angDiff(Math.atan2(dy, dx), p.face) > 0 ? -1 : 1)
@@ -3301,8 +3431,11 @@ export class Engine {
     // keep driving forward: avoidance may bend the run, but not turn it into sideways wandering
     const fwd = (dx / m) * this.dir(t)
     if (fwd < 0.35 && this.pressure(p) > 1.5) { dx += this.dir(t) * (0.35 - fwd) * m * 1.4; m = hyp(dx, dy) || 1 }
-    p.tx = clamp(p.x + (dx / m) * 6, 1, L - 1)
-    p.ty = clamp(p.y + (dy / m) * 6, 1.5, W - 1.5)
+    // he carries it at a controlled pace and runs at full speed only on a real break: just won back, a quick man, open
+    // grass ahead (sprinting carriers everywhere turned every match into a race the weaker side won as often as not)
+    const run = this.spaceAhead(p) > 12 && this.clock - this.wonAt[t] < 5 && p.s.pace >= 75 ? 10 : 6
+    p.tx = clamp(p.x + (dx / m) * run, 1, L - 1)
+    p.ty = clamp(p.y + (dy / m) * run, 1.5, W - 1.5)
   }
 
   private clearBall(p: MP) {
@@ -3317,7 +3450,7 @@ export class Engine {
     }
     // wide in our own third under pressure: safety first, put it out for a throw
     if (!p.isGK && this.ownX(t, p.x) < 38 && Math.abs(p.y - CY) > 15 && this.pressure(p) < 3 && rnd() < 0.45) { this.kickToTouch(p); return }
-    const a = (t === 0 ? 0 : Math.PI) + (p.y < CY ? -0.35 : 0.35) * rnd() + gauss() * 0.25
+    const a = (this.dir(t) > 0 ? 0 : Math.PI) + (p.y < CY ? -0.35 : 0.35) * rnd() + gauss() * 0.25
     const ax = clamp(p.x + Math.cos(a) * 40, 2, L - 2), ay = clamp(p.y + Math.sin(a) * 40, 2, W - 2)
     let best: MP | null = null, bd = 18
     for (const m of this.teams[t]) { if (m === p) continue; const d = hyp(m.x - ax, m.y - ay); if (d < bd) { bd = d; best = m } }
@@ -3420,7 +3553,8 @@ export class Engine {
 
   // ------------------------------------------------------------------------------------------------ movement
   accel(p: MP, dvx: number, dvy: number, dt: number, mul = 1) {
-    const a = 13 * (0.75 + Math.min(p.s.physical, 110) / 400) * dt * mul * (this.weather === 'snow' ? 0.85 : 1)
+    // a quick man gets going quicker too (it was strength alone)
+    const a = 13 * (0.65 + Math.min(p.s.physical, 110) / 500 + Math.min(p.s.pace, 110) / 550) * dt * mul * (this.weather === 'snow' ? 0.85 : 1)
     const ex = dvx - p.vx, ey = dvy - p.vy, e = hyp(ex, ey)
     if (e <= a) { p.vx = dvx; p.vy = dvy } else { p.vx += (ex / e) * a; p.vy += (ey / e) * a }
   }
@@ -3429,7 +3563,7 @@ export class Engine {
     const dx = p.tx - p.x, dy = p.ty - p.y, d = hyp(dx, dy)
     if (d < 0.25) { this.accel(p, 0, 0, dt); p.sprint = false; return }
     p.sprint = d > 7 || p.receiveT > 0 || (p.pressing && d > 3) || p.celebrate
-    const ms = p.maxSpeed() * (p.sprint ? 1 : 0.68) * (hasBall ? Math.min(1, 0.82 + p.s.dribbling * 0.0012) : 1)
+    const ms = p.maxSpeed() * (p.sprint ? 1 : 0.68) * (hasBall ? p.ballSpeed() : 1)
     const sp = Math.min(ms, d * 2.2)
     this.accel(p, (dx / d) * sp, (dy / d) * sp, dt)
   }
@@ -3663,6 +3797,15 @@ function matchCombo(seq: string[], toks: Flick[]): number | null {
     else { if (lastS === 0 || k.s !== -lastS) return null; lastS = k.s }
   }
   return lastS
+}
+
+/** The side that has won a shoot-out with these kicks (1 scored, 0 missed), or null while it goes on. */
+function soWinner(k: [number[], number[]]): Side | null {
+  const s0 = k[0].reduce((x, y) => x + y, 0), s1 = k[1].reduce((x, y) => x + y, 0)
+  const n0 = k[0].length, n1 = k[1].length
+  if (n0 <= 5 && n1 <= 5) { if (s0 > s1 + (5 - n1)) return 0; if (s1 > s0 + (5 - n0)) return 1 }
+  if (n0 === n1 && n0 >= 5 && s0 !== s1) return s0 > s1 ? 0 : 1
+  return null
 }
 
 function comboPending(toks: Flick[]): boolean {

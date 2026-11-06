@@ -193,6 +193,8 @@ tied to one club for good — to manage another club, start a new career.
 
 The lineup screen marks low-chemistry positions and explains why. Chemistry affects both simulated and live matches.
 
+**Match odds**: the win / draw / loss chances on the Match Centre come from the quick simulation's own model, the one that plays the match when you simulate it: the starting elevens (attributes, positions, fitness, morale), chemistry, the coach, tactics, home advantage, the weather and the occasion (cup and continental nights, the captain, the press conference, the crowd). They update when you change the line-up, the tactics or answer the press, and the tooltip shows the expected goals. Measured over thousands of simulated matches, a side shown at 80% wins about 79% of the time, draws 14% and loses 7%; luck still counts, but less than before.
+
 **The computer** plays according to its formation and tactics. How well it plays depends on its players' stats and chemistry. Difficulty only shifts the baseline.
 
 **Transfers**
@@ -281,13 +283,20 @@ Other options:
 - Teams play their style: tiki-taka keeps the ball, high pressing hunts it, counter-attacking sides sit deep and break, direct sides go long and cross.
 - Legends and custom players pull off skill moves more often. Each has a signature move, shown in the pause menu, with a slow-motion moment.
 
+**How players move and think**:
+- **Pace matters**: top speed runs from about 6.8 m/s (pace 50) to 9.6 m/s (pace 99), a quick player also gets going faster, and the ball costs a dribbler only 3–8% of his speed. Fatigue slows a player by up to about 16%. A winger is not out of position on the flank of a midfield four (LW in an LM slot, and the other way round), in live and simulated matches alike.
+- **The computer's attack**: it shoots when the chance is worth it (a long shot needs a long-range shooter with time and space), squares it or cuts it back to a teammate in a better position, plays one-twos around the box, and sends runners between the centre-backs and to the edge of the box against a deep defence. It carries the ball at a controlled pace and runs at full speed only on a real break.
+- **The team's shape** eases between attacking and defending instead of jumping, a loose ball does not send everyone the other way, at most three players press (the centre-backs hold the line unless the ball is near the box), the same man keeps pressing and marking his man, and only midfielders and forwards come short in their half.
+- **Ends**: the teams change ends at half time (and for the second half of extra time); every shoot-out kick is at the same goal.
+
 **Help for beginners**:
 - Pass assist, shot assist and auto-switch are on by default on easy and normal; change them before kick-off or in the pause menu.
 - Your first live match starts with a six-step tutorial. Skip it, or replay it from the pause menu.
 - Difficulty only changes the computer's side: easy is relaxed, hard is a real fight.
 
 **Rules**:
-- Fouls are given for late or mistimed tackles and tackles from behind; fouls in the box are penalties.
+- Fouls are given for late or mistimed tackles and tackles from behind (a missed challenge on a quick dribbler is often one, and a clumsy one in the box gives a penalty).
+- Offside: runners now and then go too early and the flag goes up (a run timed just wrong is hard for the passer to read).
 - Yellow and red cards (a second yellow, or a last-man foul); sent-off players leave the pitch.
 - Advantage, offside and injuries.
 - A knockout tie that is level after 90 minutes goes to extra time (two short halves, heavier fatigue), then a shoot-out: five kicks each, then sudden death.
@@ -322,11 +331,15 @@ Modifiers use Q (L1/LB) and E (R1/RB):
 | Q+I | early cross |
 
 - **Fake shot:** press pass while charging a shot.
+- **Knuckleball:** hold shoot and press through ball (K then L): struck dead, it wobbles in the air and dips late, and keepers read it late. Best from distance.
+- **Trivela:** hold shoot and press lob (K then I): the outside of the boot, it bends the other way from a finesse shot.
 - **First time:** press pass or shoot before the ball arrives to play it first time (volleys and headers).
 
 **Skill moves** depend on the way the player is facing, and their success depends on dribbling and the flair trait:
-- feint, drag-back, knock-on (with sprint), stepover;
-- ball roll, roulette, McGeady spin, elastico, rainbow flick.
+- feint, drag-back, knock-on (with sprint), stepover, Cruyff turn (↑ ↓);
+- ball roll, roulette, McGeady spin, La Croqueta (→ ↓), elastico, rainbow flick.
+- **Shielding** (Space / L2 / LT) is a strength contest: a stronger player holding the ball up is harder to dispossess from behind.
+- The player a pass is meant for runs onto it by himself while you keep holding the direction you passed in (control jumps to him at the kick).
 
 The full list is in the pause menu.
 

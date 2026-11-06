@@ -50,6 +50,76 @@
 .lv-so-row i.out { background: #c0392b; }
 .lv-so-row .num { margin-left: 6px; font-weight: 800; }
 
+/* ---- the team's fitness strip in the substitutions button: one small gauge per player, shirt number below */
+.mbar .lv-subsbtn { display: inline-flex; align-items: center; gap: 8px; }
+.lv-fit { display: inline-flex; align-items: flex-end; gap: 2px; }
+.lv-fit i { display: flex; flex-direction: column; align-items: center; gap: 2px; font-style: normal; }
+.lv-fit i > span { position: relative; display: flex; align-items: flex-end; width: 7px; height: 16px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.12); }
+.lv-fit i b { display: block; width: 100%; background: #4fd07a; transition: height 0.6s ease; }
+.lv-fit i.mid b { background: #ffd23f; }
+.lv-fit i.low b { background: #ff5a3c; }
+.lv-fit i.inj > span { background: #c0392b; }
+.lv-fit i.inj b { background: transparent; }
+.lv-fit i.inj > span::after { content: '✚'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 8px; line-height: 1; color: #fff; }
+.lv-fit small { min-width: 9px; text-align: center; font-size: 9px; font-weight: 700; line-height: 1; color: #a9bdb0; font-variant-numeric: tabular-nums; }
+.lv-fit i.low small, .lv-fit i.inj small { color: #ff8a70; }
+.lv-fit i.me small { color: #ffe14d; }
+.lv-fit i.me > span { box-shadow: 0 0 0 1px #ffe14d; }
+.lv-subsbtn.p2 .lv-fit i.me small { color: #4dd2ff; }
+.lv-subsbtn.p2 .lv-fit i.me > span { box-shadow: 0 0 0 1px #4dd2ff; }
+/* a phone held sideways: "⇄ (5)" and the strip are enough (the tooltip still says what it is) */
+@media (orientation: landscape) and (max-height: 500px) { .lv-subsbtn .lv-subsword { display: none; } }
+
+/* ---- substitution tip: one small card at the top, gone by itself (the bar under it runs down) */
+.lv-tip { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 3; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px;
+  width: max-content; max-width: min(640px, calc(100% - 24px)); padding: 8px 10px 11px 12px; border-radius: 12px; color: #fff; overflow: hidden;
+  background: rgba(8, 16, 12, 0.9); border: 1px solid rgba(255, 225, 77, 0.45); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); animation: lv-tip-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.lv-tip.p2 { border-color: rgba(77, 210, 255, 0.55); }
+.lv-tip.hurt { border-color: rgba(255, 90, 60, 0.7); }
+.lv-tip-ico { color: #ffd23f; }
+.lv-tip.hurt .lv-tip-ico { color: #ff5a3c; }
+.lv-tip-text { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.lv-tip-text b { color: #4dd2ff; }
+.lv-tip-btns { display: flex; gap: 6px; }
+.lv-tip-btns button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 13px; line-height: 1.4; white-space: nowrap; }
+.lv-tip-btns kbd { border: 0; border-radius: 4px; padding: 0 5px; font-size: 11px; font-weight: 800; line-height: 1.5; background: rgba(0, 0, 0, 0.28); color: inherit; }
+.lv-tip-btns .lv-tip-x { background: transparent; color: #cfd8d2; border-color: rgba(255, 255, 255, 0.2); }
+.lv-tip-time { position: absolute; left: 0; bottom: 0; height: 3px; background: #ffe14d; transition: width 0.2s linear; }
+.lv-tip.p2 .lv-tip-time { background: #4dd2ff; }
+.lv-tip.hurt .lv-tip-time { background: #ff5a3c; }
+@keyframes lv-tip-in { from { transform: translate(-50%, -14px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+
+/* ---- the set-piece camera: its prompt sits under the scoreboard (P2's in the top right corner), where the
+   commentary feed and the keys panel usually are (both hidden meanwhile), clear of the goal, the shoot-out board,
+   the ball and the power bar */
+.lv-prompt.sp { left: 12px; right: auto; top: 56px; bottom: auto; transform: none; max-width: min(380px, calc(50% - 24px)); text-align: left; }
+.lv-prompt.sp.two.p1 { left: 12px; bottom: auto; max-width: min(380px, calc(50% - 24px)); }
+.lv-prompt.sp.two.p2 { left: auto; right: 12px; bottom: auto; max-width: min(380px, calc(50% - 24px)); }
+@media (max-width: 720px) {
+  .lv-prompt.sp, .lv-prompt.sp.two.p1, .lv-prompt.sp.two.p2 { left: 50%; right: auto; transform: translateX(-50%); max-width: 92%; text-align: center; }
+  .lv-prompt.sp.two.p2 { top: 120px; }
+}
+
+/* ---- substitutions panel: stamina in colour, tags for tired / hurt players and the suggested replacement */
+.lv-subs td { vertical-align: middle; line-height: 1.4; }
+.lv-pct { font-weight: 800; }
+.lv-pct.ok { color: var(--good, #4fd07a); }
+.lv-pct.mid { color: var(--warn, #ffb020); }
+.lv-pct.low, .lv-pct.inj { color: var(--bad, #ff5a5f); }
+.lv-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-style: normal; font-size: 11px; font-weight: 700; line-height: 1.6; vertical-align: 1px; white-space: nowrap; }
+.lv-tag.low { color: #ff7a5c; background: rgba(255, 90, 60, 0.14); border: 1px solid rgba(255, 90, 60, 0.45); }
+.lv-tag.inj { color: #fff; background: #c0392b; }
+.lv-tag.pick { color: #d9a400; background: rgba(255, 210, 63, 0.16); border: 1px solid rgba(255, 190, 40, 0.55); }
+.lv-subgo { flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; width: 100%; margin: 6px 0 10px; padding: 10px 14px; font-size: 16px; font-weight: 700; line-height: 1.35; text-align: center; overflow-wrap: anywhere; }
+.lv-subgo small { font-weight: 600; opacity: 0.85; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  .lv-fit small { display: none; }
+  .lv-fit i > span { width: 5px; height: 14px; }
+  .lv-tip { top: 52px; grid-template-columns: auto minmax(0, 1fr); }
+  .lv-tip-btns { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
 /* ---- pause menu */
 .lv-menu .card { gap: 10px; }
 .lv-tabs { display: flex; flex-wrap: wrap; gap: 6px; }

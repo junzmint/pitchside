@@ -131,7 +131,11 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr) }
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
-      const [f0, f1] = hub!.poll()
+      // the set-piece camera turns the sticks with the picture (up = towards the goal); a Wi-Fi guest's are turned on
+      // his own device
+      const [p0, p1] = hub!.poll()
+      const v = viewRef.current
+      const f0 = v.stick(p0), f1 = mode === 'lan' ? p1 : v.stick(p1)
       eng.setInput(0, f0)
       eng.setInput(1, f1)
       acc += dt
@@ -144,7 +148,7 @@ export function PlayLive({ setup, mode, assign, halfSeconds, difficulty, replays
       const [ex, homeAtt] = eng.excitement()
       audio.tick(dt, ex, homeAtt)
       ctx2.setTransform(dpr, 0, 0, dpr, 0, 0)
-      viewRef.current.draw(ctx2, w, h, eng.frameState(), eng.statics(), now, { labels, names: true })
+      viewRef.current.draw(ctx2, w, h, eng.frameState(), eng.statics(), now, { labels, names: true, setPiece: true })
       lan?.tick(now)
       frames++
       if (frames % 6 === 0) {

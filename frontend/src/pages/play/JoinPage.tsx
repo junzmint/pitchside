@@ -192,7 +192,7 @@ function GuestMatch({ code, onLeave, onExit }: { code: string; onLeave: () => vo
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
       // controls → host (touch pad while it is in use, otherwise controllers and keyboard)
-      const [f] = hub.poll()
+      const f = viewRef.current.stick(hub.poll()[0]) // the set-piece camera turns the stick with the picture
       const tp = touch.current
       const touchLive = tp.s.held.length > 0 || tp.s.x !== 0 || tp.s.y !== 0 || now - tp.at < 400
       if (touchLive) {
@@ -216,7 +216,7 @@ function GuestMatch({ code, onLeave, onExit }: { code: string; onLeave: () => vo
         audio.tick(dt, c.ex, c.ha)
         const fr = extrapolate(prev.current, c.f, (now - c.at) / 1000)
         ctx2.setTransform(dpr, 0, 0, dpr, 0, 0)
-        viewRef.current.draw(ctx2, w, h, fr, st.current, now, { labels, names: true, mini: miniRef.current })
+        viewRef.current.draw(ctx2, w, h, fr, st.current, now, { labels, names: true, mini: miniRef.current, setPiece: true })
         if (++frames % 6 === 0) {
           const x = c.f
           setFv(o => (o && o.sc[0] === x.sc[0] && o.sc[1] === x.sc[1] && o.min === x.min && o.half === x.half && o.bn === x.bn && o.ph === x.ph && JSON.stringify(o.so) === JSON.stringify(x.so)

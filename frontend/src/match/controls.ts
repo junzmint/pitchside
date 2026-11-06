@@ -30,7 +30,7 @@ export const ROWS: Record<CtlGroup, CtlRow[]> = {
     { k: 'move', b: 'LS' }, { k: 'sprint', b: 'RT' }, { k: 'pass', b: 'A' }, { k: 'through', b: 'Y' }, { k: 'lob', b: 'X' }, { k: 'shoot', b: 'B' },
     { k: 'passgo', b: 'LB+A' }, { k: 'loftThrough', b: 'LB+Y' }, { k: 'finesse', b: 'RB+B' }, { k: 'chip', b: 'LB+B' }, { k: 'low', b: 'LB+RB+B' },
     { k: 'driven', b: 'RB+A' }, { k: 'lowCross', b: 'RB+X' }, { k: 'earlyCross', b: 'LB+X' }, { k: 'shield', b: 'LT' }, { k: 'skills', b: 'RS' },
-    { k: 'knock', b: 'RT+RS↑' }, { k: 'fake', b: 'B → A' },
+    { k: 'knock', b: 'RT+RS↑' }, { k: 'fake', b: 'B → A' }, { k: 'knuckle', b: 'B + Y' }, { k: 'trivela', b: 'B + X' },
   ],
   def: [
     { k: 'contain', b: 'A' }, { k: 'tackle', b: 'B' }, { k: 'slide', b: 'X' }, { k: 'switch', b: 'LB' }, { k: 'switchDir', b: 'RS' },
@@ -51,9 +51,11 @@ export const COMBO_ROWS: { id: SkillId; stars: number; seq: string }[] = [
   { id: 'dragback', stars: 1, seq: '↓' },
   { id: 'knock', stars: 1, seq: '↑' },
   { id: 'stepover', stars: 2, seq: '↑ → (↑ ←)' },
+  { id: 'cruyff', stars: 2, seq: '↑ ↓' },
   { id: 'ballroll', stars: 2, seq: '→ → (← ←)' },
   { id: 'roulette', stars: 3, seq: '↓ → (↓ ←)' },
   { id: 'mcgeady', stars: 3, seq: '→ ↑ (← ↑)' },
+  { id: 'croqueta', stars: 3, seq: '→ ↓ (← ↓)' },
   { id: 'elastico', stars: 4, seq: '→ ← (← →)' },
   { id: 'rainbow', stars: 5, seq: '↓ ↑ ↑' },
 ]

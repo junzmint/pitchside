@@ -36,6 +36,7 @@ export function fitFactor(p: Player, role: string): number {
   const cat = ROLE_CAT[role]
   if (cat === p.position) return roleFits(p.role, role) ? 1 : 0.96
   if (cat === 'GK' || p.position === 'GK') return 0.55
+  if (p.role && roleFits(p.role, role)) return 1 // a winger on the flank of a midfield four (LW in an LM slot), or the other way round
   return Math.abs(ORDER[cat] - ORDER[p.position]) === 1 ? 0.92 : 0.84
 }
 export function effective(p: Player, role: string): number {

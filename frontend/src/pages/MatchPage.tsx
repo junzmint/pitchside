@@ -14,7 +14,7 @@ import { MatchAudio } from '../match/audio'
 import { COMBO_ROWS, ROWS, glyph, glyphParams, type CtlGroup } from '../match/controls'
 import { PostMatch } from '../match/PostMatch'
 import { manOfTheMatch, rateMatch } from '../match/ratings'
-import { CelebPicker, Intro, Scoreboard } from '../match/Presentation'
+import { CelebPicker, FitBars, Intro, Scoreboard, SubTip, TIP_S, TIRED, benchOrder, staminaTone, suggestSub, type SubTipData } from '../match/Presentation'
 import { Tutorial, markTutorialSeen, tutorialSeen } from '../match/Tutorial'
 import { styleFor, styleLine } from '../match/style'
 import { setSettings, useSettings, type Camera } from '../settings'
@@ -84,6 +84,20 @@ function AssistToggles({ value, onChange }: { value: Assists; onChange: (a: Assi
   )
 }
 const setPref = (k: string, v: boolean) => { try { localStorage.setItem(k, v ? '1' : '0') } catch { /* ignore */ } }
+
+/** Players a substitution tip was already shown for (once for being tired, once for being hurt), kept for the
+ *  fixture in this tab so a reload or a resumed match doesn't show the same tips again. */
+type TipSeen = { tired: Set<number>; hurt: Set<number> }
+function loadTips(key: string, fresh: boolean): TipSeen {
+  try {
+    if (fresh) sessionStorage.removeItem(key)
+    else { const v = JSON.parse(sessionStorage.getItem(key) ?? 'null'); if (v) return { tired: new Set(v.tired ?? []), hurt: new Set(v.hurt ?? []) } }
+  } catch { /* storage unavailable */ }
+  return { tired: new Set(), hurt: new Set() }
+}
+function saveTips(key: string, s: TipSeen) {
+  try { sessionStorage.setItem(key, JSON.stringify({ tired: [...s.tired], hurt: [...s.hurt] })) } catch { /* storage unavailable */ }
+}
 
 function defaultAssign(mode: PlayMode, pads: PadInfo[]): Assign {
   if (mode !== 'duo') return [[{ kind: 'kb' }], []]
@@ -352,6 +366,22 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
   miniRef.current = mini
   const [tts, setTts] = useState(() => pref('pitchside.tts', false))
   const [camMode, setCamMode] = useState<CamMode>(cam)
+  // the set-piece camera is on (its own prompts, less clutter on screen)
+  const [spOn, setSpOn] = useState(false)
+  // substitution tips: one at a time, each player at most once for being tired and once for being hurt
+  const [tip, setTip] = useState<SubTipData | null>(null)
+  const tipRef = useRef<SubTipData | null>(null)
+  tipRef.current = tip
+  const acceptTipRef = useRef<() => void>(() => {})
+  const tipKey = `pitchside.tips.${careerId}.${setup.fixture.id}`
+  const tipped = useRef<TipSeen | null>(null)
+  if (!tipped.current) tipped.current = loadTips(tipKey, !snapshot)
+  /** match clock when the last tip went away: the next one for a tired player waits a little (an injury doesn't) */
+  const tipGone = useRef(-1e9)
+  const hideTip = () => { tipGone.current = engRef.current?.clock ?? 0; setTip(null) }
+  const [subPre, setSubPre] = useState<{ out: number; in: number } | null>(null)
+  /** where the bench was opened from: closing it goes back there (the match, or the pause menu) */
+  const [subsFrom, setSubsFrom] = useState<'hud' | 'menu'>('hud')
   const user = setup.userIsHome ? setup.home : setup.away
   const cpu = setup.userIsHome ? setup.away : setup.home
   const tRef = useRef(t)
@@ -408,7 +438,7 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     const cv = canvas.current!
     const ctx2 = cv.getContext('2d')!
     let raf = 0, last = performance.now(), acc = 0, frames = 0, wasPaused = false, endFrames = 0
-    let prevB = 0
+    let prevB = 0, prevB1 = 0
     let ffPort: MessagePort | null = null // set while "skip to end" runs
     const persist = () => { if (eng.phase !== 'end') saveSnapshot(careerId, takeSnapshot(eng, setup.fixture.id, modeRef.current)) }
     const labels = { replay: tRef.current('lv.replay'), skip: tRef.current('lv.replaySkip') }
@@ -418,14 +448,18 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
       if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr) }
       const dt = Math.min(0.1, (now - last) / 1000)
       last = now
-      const [f0, f1] = hub!.poll()
+      // the set-piece camera turns the sticks with the picture (up = towards the goal); other cameras: as they are
+      const view = viewRef.current
+      const [r0, r1] = hub!.poll()
+      const f0 = view.stick(r0), f1 = view.stick(r1)
       // watching: the pad drives the viewer controls below, not the (computer-controlled) teams
       const watching = modeRef.current === 'watch'
       eng.setInput(0, watching ? null : f0)
       eng.setInput(1, watching ? null : f1)
+      const pr0 = f0 ? f0.b & ~prevB : 0, pr1 = f1 ? f1.b & ~prevB1 : 0
       if (modeRef.current === 'watch' && f0) {
         // viewer controls on a pad: Start pause · ✚←→ camera · R1 speed · △/Y take control
-        const pr = f0.b & ~prevB
+        const pr = pr0
         if (pr & BTN.START) { if (eng.paused) eng.resume(); else eng.pause('menu') }
         if (pr & BTN.RIGHT) changeCam(1)
         if (pr & BTN.LEFT) changeCam(-1)
@@ -433,7 +467,10 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         if (pr & BTN.Y && !eng.paused) takeControl()
         if (pr & (BTN.A | BTN.B) && eng.phase === 'replay') eng.skipReplay()
       }
+      // Select / Share / View (Tab on the keyboard) takes up a substitution tip
+      if (!eng.paused) for (const [s, pr] of [[0, pr0], [1, pr1]] as const) if (pr & BTN.SELECT && tipRef.current?.side === s) acceptTipRef.current()
       prevB = f0?.b ?? 0
+      prevB1 = f1?.b ?? 0
       if (ffPort) {
         // "skip to end" runs on its own (see skipToEnd); the picture just follows
       } else {
@@ -448,9 +485,13 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
       audio.tick(dt, ex, homeAtt)
       if (eng.phase === 'end') endFrames++
       ctx2.setTransform(dpr, 0, 0, dpr, 0, 0)
-      if (endFrames < 90) viewRef.current.draw(ctx2, w, h, eng.frameState(), eng.statics(), now, { labels, names: namesRef.current, mini: miniRef.current })
+      if (endFrames < 90) view.draw(ctx2, w, h, eng.frameState(), eng.statics(), now, { labels, names: namesRef.current, mini: miniRef.current, setPiece: true })
       frames++
-      if (frames % 6 === 0) { setHud(eng.hud()); setGlyphs(g => { const n0 = hub!.glyphs(0), n1 = hub!.glyphs(1); return g[0] === n0 && g[1] === n1 ? g : [n0, n1] }) }
+      if (frames % 6 === 0) {
+        setHud(eng.hud())
+        setSpOn(view.setPiece)
+        setGlyphs(g => { const n0 = hub!.glyphs(0), n1 = hub!.glyphs(1); return g[0] === n0 && g[1] === n1 ? g : [n0, n1] })
+      }
       if (frames % 180 === 0) persist()
       raf = requestAnimationFrame(frame)
     }
@@ -492,7 +533,7 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
       if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return
       if (eng.paused) {
         // menus: only Esc / P resume; leave the other keys to the buttons
-        if (k === 'Escape' || k === 'KeyP') { e.preventDefault(); eng.resume(); setSubsFor(null) }
+        if (k === 'Escape' || k === 'KeyP') { e.preventDefault(); eng.resume(); setSubsFor(null); setSubPre(null) }
         return
       }
       e.preventDefault()
@@ -572,15 +613,54 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     else if (!rotate && eng.paused && eng.pauseReason === 'rotate') eng.resume()
   }, [rotate, eng, hud?.paused])
   const params = (s: Side) => (glyphs[s] === 'touch' ? touchParams(t, hud!.sides[s].ctx === 'def') : glyphParams(glyphs[s], hud!.sides[s].ctx === 'def'))
-  const resume = () => { eng?.resume(); setSubsFor(null) }
-  const openSubs = (s: Side) => { if (!eng) return; eng.pause('menu'); setSubsFor(s) }
+  // (the HUD is refreshed at once, so the pause menu doesn't flash up for a few frames on the way back)
+  const resume = () => { eng?.resume(); setSubsFor(null); setSubPre(null); if (eng) setHud(eng.hud()) }
+  /** the bench for a side; pre: a player to take off and one to bring on, already picked (a substitution tip) */
+  const openSubs = (s: Side, pre: { out: number; in: number } | null = null, from: 'hud' | 'menu' = 'hud') => {
+    if (!eng) return
+    eng.pause('menu'); setSubPre(pre); setSubsFrom(from); setSubsFor(s)
+  }
+  acceptTipRef.current = () => { const tp = tipRef.current; if (!tp) return; hideTip(); openSubs(tp.side, { out: tp.out, in: tp.in }) }
   const prompts = ([0, 1] as const).filter(s => hud?.human[s] && hud.sides[s].prompt && !hud.intro)
+  // behind the ball the stick reads left / right on the screen, so the penalty prompts say ←→ instead of ↑↓
+  const promptKey = (p: string) => (spOn && (p === 'penTake' || p === 'penKeep') ? p + 'Sp' : p)
+  useEffect(() => {
+    // a tip when a player (yours, or P2's in a two-player match) tires below 45% or gets hurt: shown once, gone after
+    // TIP_S seconds of play, never while a set piece (or its prompt), a replay, a shoot-out or the tutorial is on screen
+    const e = engRef.current
+    if (!hud || !e) return
+    if (tip) {
+      const stale = !e.teams[tip.side].some(p => p.data.id === tip.out) || !e.bench[tip.side].some(b => b.id === tip.in)
+        || hud.subsLeft[tip.side] <= 0 || !!hud.so || hud.half >= 5 || !!done || e.clock - tip.at > TIP_S
+      if (stale) hideTip()
+      return
+    }
+    if (hud.paused || hud.intro || done || hud.so || hud.half >= 5 || spOn || tut || prompts.length || hud.phase === 'replay' || hud.phase === 'end') return
+    const seen = tipped.current!
+    const rested = e.clock - tipGone.current > 20
+    for (const s of [0, 1] as Side[]) {
+      if (!hud.human[s] || hud.subsLeft[s] <= 0) continue
+      const due = e.teams[s].filter(p => (p.injured ? !seen.hurt.has(p.data.id) : rested && !p.isGK && p.stamina < TIRED && !seen.tired.has(p.data.id)))
+        .sort((a, b) => Number(b.injured) - Number(a.injured) || a.stamina - b.stamina)
+      for (const p of due) {
+        const y = suggestSub(e, s, p)
+        if (!y) continue
+        ;(p.injured ? seen.hurt : seen.tired).add(p.data.id)
+        saveTips(tipKey, seen)
+        setTip({ side: s, out: p.data.id, in: y.id, outName: p.data.name, inName: y.name, pct: Math.round(p.stamina * 100), hurt: p.injured, at: e.clock })
+        return
+      }
+    }
+  }, [hud])
 
   return (
     <>
       <div className="mhud">
         <div className="mbar">
-          <button disabled={!hud || !!done} onClick={() => openSubs(0)}>⇄ {t('mp.subs')} ({hud?.subsLeft[0] ?? 5})</button>
+          <button className="lv-subsbtn" disabled={!hud || !!done} onClick={() => openSubs(0)} data-tip={t('lv.fit.tip')} aria-label={`${t('mp.subs')} (${hud?.subsLeft[0] ?? 5})`}>
+            <span>⇄ <span className="lv-subsword">{t('mp.subs')} </span>({hud?.subsLeft[0] ?? 5})</span>
+            {eng && hud && <FitBars eng={eng} side={0} />}
+          </button>
           {watch ? (
             <>
               <span className="lv-watch">👁 {t('lv.w.watching')}</span>
@@ -594,6 +674,9 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
               {hud?.sides[0].sig && <span className="lv-sig" data-tip={t('lv.hud.sigTip', { move: t('lv.sk.' + hud.sides[0].sig) })}>★ {t('lv.sk.' + hud.sides[0].sig)}</span>}
               <span className="stam" title={t('stamina')}><i style={{ width: `${(hud?.sides[0].stamina ?? 1) * 100}%` }} /></span>
               {duo && <><span className="lv-p p2">P2 {hud?.human[1] ? hud.sides[1].name : t('lv.hud.cpu')}</span><span className="stam p2" title={t('stamina')}><i style={{ width: `${(hud?.sides[1].stamina ?? 1) * 100}%` }} /></span></>}
+              {duo && hud?.human[1] && eng && !done && (
+                <button className="lv-subsbtn p2" onClick={() => openSubs(1)} data-tip={t('lv.fit.tip')} aria-label={`${t('mp.subs')} P2`}>⇄ <FitBars eng={eng} side={1} /></button>
+              )}
               <span>{t('ctl.mentalityShort')}: <b>{t('tac.mentality.' + (hud?.mentality[0] ?? 'balanced'))}</b></span>
             </>
           )}
@@ -608,11 +691,14 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
       <div className="mcanvas">
         <canvas ref={canvas} tabIndex={0} aria-label={t('pitch')} />
         {hud && eng && !hud.intro && <Scoreboard hud={hud} eng={eng} />}
-        {!hud?.intro && <div className="feed lv-feed">{hud?.feed.map((f, i) => <span key={i} style={{ opacity: 1 - i * 0.14 }}>{f}</span>)}</div>}
+        {!hud?.intro && !spOn && <div className="feed lv-feed">{hud?.feed.map((f, i) => <span key={i} style={{ opacity: 1 - i * 0.14 }}>{f}</span>)}</div>}
         {hud?.intro && eng && <Intro eng={eng} setup={setup} onStart={() => eng.endIntro()} />}
         {hud && eng && hud.celebPick != null && !watch && !hud.paused && <CelebPicker eng={eng} g={glyphs[hud.celebPick]} duo={duo} side={hud.celebPick} />}
-        {tut && hud && eng && !hud.intro && !watch && !done && !hud.paused && hud.phase !== 'replay' && <Tutorial eng={eng} hud={hud} g={glyphs[0]} onClose={endTutorial} />}
-        {showKeys && !watch && !showPad && hud && !hud.intro && hud.sides[0].ctx !== 'none' && (
+        {/* kept mounted while hidden, so a pause, a replay or a set piece doesn't send the tutorial back to its first step */}
+        {tut && hud && eng && !hud.intro && !watch && !done && (
+          <div className="lv-tutwrap" hidden={hud.paused || hud.phase === 'replay' || spOn}><Tutorial eng={eng} hud={hud} g={glyphs[0]} onClose={endTutorial} /></div>
+        )}
+        {showKeys && !watch && !showPad && !spOn && hud && !hud.intro && hud.sides[0].ctx !== 'none' && (
           <div className="keys lv-keys">
             <CtlList group={hud.sides[0].ctx} g={glyphs[0]} max={hud.sides[0].ctx === 'att' ? 8 : 9} />
             {duo && hud.human[1] && hud.sides[1].ctx !== 'none' && <><i className="p2">P2</i><CtlList group={hud.sides[1].ctx} g={glyphs[1]} max={6} /></>}
@@ -622,19 +708,24 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
         {hud?.so && <Shootout so={hud.so} names={[user.club.short, cpu.club.short]} />}
         {hud?.banner && <div className={'banner' + (hud.phase === 'goal' ? ' lv-goal' : '')}>{hud.banner}</div>}
         {!hud?.paused && prompts.map(s => (
-          <div key={s} className={'setpiece lv-prompt p' + (s + 1) + (prompts.length > 1 ? ' two' : '')}>
-            {duo && <b>P{s + 1} </b>}{t('lv.p.' + hud!.sides[s].prompt, params(s))}
+          <div key={s} className={'setpiece lv-prompt p' + (s + 1) + (prompts.length > 1 ? ' two' : '') + (spOn ? ' sp' : '')}>
+            {duo && <b>P{s + 1} </b>}{t('lv.p.' + promptKey(hud!.sides[s].prompt), params(s))}
           </div>
         ))}
-        {!hud?.paused && !watch && hud?.sides[0].injured && <div className="lv-injury">✚ {t('lv.hud.injured', { name: hud.sides[0].injured })}</div>}
+        {tip && hud && eng && !hud.paused && !spOn && !done && !prompts.length && (
+          <SubTip tip={tip} g={glyphs[tip.side]} duo={duo} left={1 - (eng.clock - tip.at) / TIP_S} onSub={() => acceptTipRef.current()} onClose={hideTip} />
+        )}
         {!hud?.paused && duo && hud && !hud.human[1] && <div className="lv-join">{t('lv.hud.p2join')}</div>}
         {skipping && <div className="setpiece">{t('lv.w.skipping')}</div>}
         {menuOpen && subsFor == null && eng && (
           <PauseMenu eng={eng} hud={hud!} tab={tab} setTab={setTab} duo={duo} watch={watch} glyph={glyphs[0]} camMode={camMode} onCam={changeCam}
-            onResume={resume} onSubs={openSubs} onLeave={onLeave} tts={tts} setTts={setTts} names={names} setNames={setNames} mini={mini} setMini={setMini} showKeys={showKeys} setShowKeys={setShowKeys}
+            onResume={resume} onSubs={s => openSubs(s, null, 'menu')} onLeave={onLeave} tts={tts} setTts={setTts} names={names} setNames={setNames} mini={mini} setMini={setMini} showKeys={showKeys} setShowKeys={setShowKeys}
             onTutorial={startTutorial} difficulty={difficulty} />
         )}
-        {subsFor != null && eng && <SubsPanel eng={eng} side={subsFor} duo={duo || watch} onSide={setSubsFor} onClose={() => setSubsFor(null)} />}
+        {subsFor != null && eng && (
+          <SubsPanel key={subPre ? `${subPre.out}:${subPre.in}` : 'subs'} eng={eng} side={subsFor} duo={duo || watch} pre={subPre}
+            onSide={s => { setSubPre(null); setSubsFor(s) }} onClose={() => { if (subsFrom === 'menu') { setSubPre(null); setSubsFor(null) } else resume() }} />
+        )}
         {hud?.paused && hud.pauseReason === 'disconnect' && disc && eng && !done && (
           <div className="overlay">
             <div className="card" style={{ alignItems: 'center', textAlign: 'center', width: 'min(520px, 100%)' }}>
@@ -809,51 +900,72 @@ function SignatureList({ eng }: { eng: Engine }) {
   )
 }
 
-function SubsPanel({ eng, side, duo, onSide, onClose }: { eng: Engine; side: Side; duo: boolean; onSide: (s: Side) => void; onClose: () => void }) {
+function SubsPanel({ eng, side, duo, pre, onSide, onClose }: {
+  eng: Engine; side: Side; duo: boolean; pre?: { out: number; in: number } | null; onSide: (s: Side) => void; onClose: () => void
+}) {
   const { t } = useI18n()
-  const [out, setOut] = useState<number | null>(null)
+  // a substitution tip opens the bench with both players picked: one press of the big button makes the change
+  const [out, setOut] = useState<number | null>(pre?.out ?? null)
+  const [pick, setPick] = useState<number | null>(pre?.in ?? null)
   const [, force] = useState(0)
   const onPitch = [...eng.teams[side]].sort((a, b) => Number(b.injured) - Number(a.injured) || a.stamina - b.stamina)
   const outP = onPitch.find(p => p.data.id === out)
-  const bench = [...eng.bench[side]].sort((a, b) =>
-    outP ? (Number(b.position === outP.cat) - Number(a.position === outP.cat)) || b.overall - a.overall : b.overall - a.overall)
+  const bench = benchOrder(eng.bench[side], outP)
+  const sugg = outP ? suggestSub(eng, side, outP)?.id ?? null : null
+  const pickP = bench.find(p => p.id === pick) ?? null
   const left = eng.subsLeft(side)
   const pct = (v: number) => Math.round(v * 100)
+  const swap = (inId: number) => { if (out != null && eng.substitute(side, out, inId)) { setOut(null); setPick(null); force(x => x + 1) } }
+  const chooseOut = (id: number) => {
+    setOut(id)
+    const p = eng.teams[side].find(q => q.data.id === id)
+    setPick(p ? suggestSub(eng, side, p)?.id ?? null : null)
+  }
   return (
     <div className="overlay subs" onKeyDown={e => e.stopPropagation()}>
-      <div className="card" style={{ width: 'min(720px, 100%)', maxHeight: '86%', overflow: 'auto' }}>
+      <div className="card" style={{ width: 'min(760px, 100%)', maxHeight: '86%', overflow: 'auto' }}>
         <div className="row spread">
           <h3 style={{ margin: 0 }}>⇄ {t('mp.subs')} · {eng.shorts[side]} · {t('mp.subsLeft', { n: left })}</h3>
           <span className="row" style={{ gap: 6 }}>
-            {duo && <button onClick={() => { setOut(null); onSide(side === 0 ? 1 : 0) }}>⇆ {eng.shorts[side === 0 ? 1 : 0]}</button>}
-            <button className="primary" onClick={onClose}>{t('mp.backToMatch')}</button>
+            {duo && <button onClick={() => { setOut(null); setPick(null); onSide(side === 0 ? 1 : 0) }}>⇆ {eng.shorts[side === 0 ? 1 : 0]}</button>}
+            <button className={outP && pickP && left > 0 ? '' : 'primary'} onClick={onClose}>{t('mp.backToMatch')}</button>
           </span>
         </div>
-        <p className="muted" style={{ margin: '4px 0 8px', fontSize: 13 }}>{out == null ? t('mp.pickOut') : t('mp.pickIn', { name: outP?.data.name ?? '' })}</p>
+        {outP && pickP && left > 0 ? (
+          <button className="primary lv-subgo" onClick={() => swap(pickP.id)}>
+            ⇄ {t('lv.subs.do', { in: pickP.name, out: outP.data.name })}
+            <small>{pct(outP.stamina)}% → {Math.round(pickP.fitness)}%</small>
+          </button>
+        ) : (
+          <p className="muted" style={{ margin: '4px 0 8px', fontSize: 13 }}>{out == null ? t('mp.pickOut') : t('mp.pickIn', { name: outP?.data.name ?? '' })}</p>
+        )}
         <div className="grid g2" style={{ gap: 12 }}>
           <div>
             <b>{t('mp.onPitch')}</b>
-            <table className="compact"><tbody>
+            <table className="compact lv-subs"><tbody>
               {onPitch.map(p => (
-                <tr key={p.data.id} className={'click' + (out === p.data.id ? ' sel' : '')} onClick={() => setOut(p.data.id)}>
+                <tr key={p.data.id} className={'click' + (out === p.data.id ? ' sel' : '')} onClick={() => chooseOut(p.data.id)}>
                   <td><PosTag p={p.data.position} role={p.role} /></td>
-                  <td>{p.data.name}{p.injured ? ' ✚' : ''}{p.yellow ? ' 🟨' : ''}</td>
-                  <td className="r num" style={{ width: 90 }}><Bar v={pct(p.stamina)} /></td>
-                  <td className="r num muted">{pct(p.stamina)}%</td>
+                  <td>
+                    {p.data.name}{p.yellow ? ' 🟨' : ''}
+                    {p.injured ? <em className="lv-tag inj">✚ {t('lv.subs.hurt')}</em> : !p.isGK && p.stamina < TIRED ? <em className="lv-tag low">{t('lv.subs.tired')}</em> : null}
+                  </td>
+                  <td className="r num" style={{ width: 80 }}><Bar v={pct(p.stamina)} /></td>
+                  <td className={'r num lv-pct ' + staminaTone(p)}>{pct(p.stamina)}%</td>
                 </tr>
               ))}
             </tbody></table>
           </div>
           <div>
             <b>{t('mp.bench')}</b>
-            <table className="compact"><tbody>
+            <table className="compact lv-subs"><tbody>
               {bench.map(p => (
-                <tr key={p.id} className={out != null && left > 0 ? 'click' : ''} style={{ opacity: out == null ? 0.6 : 1 }}
-                  onClick={() => { if (out != null && eng.substitute(side, out, p.id)) { setOut(null); force(x => x + 1) } }}>
+                <tr key={p.id} className={(out != null && left > 0 ? 'click' : '') + (pick === p.id ? ' sel' : '')} style={{ opacity: out == null ? 0.6 : 1 }}
+                  onClick={() => swap(p.id)}>
                   <td><PosTag p={p.position} role={p.role} /></td>
-                  <td>{p.name}</td>
+                  <td>{p.name}{sugg === p.id && <em className="lv-tag pick">★ {t('lv.subs.pick')}</em>}</td>
                   <td className="r"><Ovr v={p.overall} /></td>
-                  <td className="r num muted">{Math.round(p.fitness)}%</td>
+                  <td className={'r num lv-pct ' + staminaTone({ stamina: p.fitness / 100, injured: p.injury > 0 })}>{Math.round(p.fitness)}%</td>
                 </tr>
               ))}
               {bench.length === 0 && <tr><td className="muted">{t('mp.noBench')}</td></tr>}

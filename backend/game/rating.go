@@ -125,6 +125,9 @@ func fitFactor(p *Player, role string) float64 {
 	if cat == "GK" || p.Position == "GK" {
 		return 0.55
 	}
+	if roleFits(NaturalRole(p), role) {
+		return 1 // a winger on the flank of a midfield four (LW in an LM slot), or the other way round
+	}
 	if d := catOrder[cat] - catOrder[p.Position]; d == 1 || d == -1 {
 		return 0.92
 	}
