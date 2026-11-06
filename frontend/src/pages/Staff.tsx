@@ -43,6 +43,7 @@ export default function Staff({ ctx }: { ctx: Ctx }) {
         onHire={() => setHireRole(s.role)} onMentor={() => setMentorFor(s.coach!.id)}
         onUnmentor={(playerId, name) => act({ action: 'unmentor', playerId }, () => t('sr.mentor.stopped', { name }))}
         onBonus={() => act({ action: 'bonus', coachId: s.coach!.id }, () => t('sr.bonused', { name: s.coach!.name }))}
+        onCourse={() => act({ action: 'course', coachId: s.coach!.id }, r => t('sr.coursed', { name: s.coach!.name, n: r.ceil ?? s.coach!.courseCeil }))}
         onFire={() => act({ action: 'fire', coachId: s.coach!.id }, () => t('sr.fired', { name: (s.coach as StaffCard).name }), () => true)} />
     : <VacantCard key={s.role} slot={s} disabled={!!st.career.ended} onHire={() => setHireRole(s.role)} />
 

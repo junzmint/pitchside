@@ -7,9 +7,10 @@ import { useI18n } from '../../i18n'
 import { ConfirmButton, Icon } from '../../ui'
 import { Meter, MoraleMeter, PerkChips, Portrait, RoleBadge, SkillLine, StyleChip, TraitChip, roleDoes, roleName, tn } from './parts'
 
-export function MemberCard({ c, slot, ctx, busy, onHire, onMentor, onUnmentor, onBonus, onFire }: {
+export function MemberCard({ c, slot, ctx, busy, onHire, onMentor, onUnmentor, onBonus, onCourse, onFire }: {
   c: StaffCard; slot: RoleSlot; ctx: Ctx; busy: boolean
-  onHire: () => void; onMentor: () => void; onUnmentor: (playerId: number, name: string) => void; onBonus: () => void; onFire: () => void
+  onHire: () => void; onMentor: () => void; onUnmentor: (playerId: number, name: string) => void; onBonus: () => void
+  onCourse: () => void; onFire: () => void
 }) {
   const { t } = useI18n()
   const st = ctx.st
@@ -37,7 +38,8 @@ export function MemberCard({ c, slot, ctx, busy, onHire, onMentor, onUnmentor, o
         </div>
       </div>
       <SkillLine skill={c.skill} ceil={c.ceil} mood={c.mood} />
-      {c.skill < c.ceil && <Meter icon="rocket" label={t('sr.xp')} value={c.xp} max={c.xpNeed} cls="xp" right={`${c.xp}/${c.xpNeed}`} tip={t('sr.xpTip')} />}
+      {c.skill < 20 && <Meter icon="rocket" label={t('sr.xp')} value={c.xp} max={c.xpNeed} cls={'xp' + (c.pastPeak ? ' peak' : '')}
+        right={`${c.xp}/${c.xpNeed}`} tip={t(c.pastPeak ? 'sr.xpTipPeak' : 'sr.xpTip')} />}
       <MoraleMeter morale={c.morale} />
       <div className="sr-meta">
         <span className={'chip' + (last ? ' warn' : '')} data-tip={t('sr.endsTip')}><Icon name="contract" size={12} /> {last ? t('sr.lastYear') : t('sr.ends', { n: c.ends })}</span>
@@ -64,6 +66,14 @@ export function MemberCard({ c, slot, ctx, busy, onHire, onMentor, onUnmentor, o
           data-tip={c.bonusIn > 0 ? tn(t, 'sr.bonusWait', c.bonusIn) : t('sr.bonusTip')}>
           <Icon name="bonus" size={14} /> {c.bonusIn > 0 ? tn(t, 'sr.bonusWait', c.bonusIn) : t('sr.bonus', { v: money(c.bonusCost) })}
         </button>
+        {c.course === 'open' && (
+          <span data-tip={t('sr.courseTip')}>
+            <ConfirmButton className="small" disabled={busy || st.club.budget < c.courseCost}
+              label={<><Icon name="up" size={14} /> {t('sr.course', { v: money(c.courseCost) })}</>}
+              confirm={t('sr.courseConfirm', { name: c.name, from: c.ceil, to: c.courseCeil })} onConfirm={onCourse} />
+          </span>
+        )}
+        {c.course === 'done' && <button className="small" disabled data-tip={t('sr.courseTip')}><Icon name="check" size={14} /> {t('sr.courseDone')}</button>}
         <button className="small" disabled={busy} onClick={onHire}><Icon name="search" size={14} /> {t('sr.replace')} · {slot.candidates.length}</button>
         <ConfirmButton className="small danger" disabled={busy} label={<><Icon name="fire" size={14} /> {t('sr.fire')}</>} confirm={t('sr.fireConfirm', { name: c.name })} onConfirm={onFire} />
       </div>

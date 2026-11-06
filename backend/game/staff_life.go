@@ -50,6 +50,11 @@ const (
 	RetireAge        = 64   // from this age a coach may decide to retire
 	StaffMaxYears    = 4    // the longest contract, in seasons
 	CaretakerAfter   = 6    // matchdays a role can stay empty before the board appoints a stand-in
+	MaxCoachSkill    = 20   // the top of the scale
+	PastPeakCost     = 3    // at or past his ceiling a skill point takes three times the experience
+	CourseWeeks      = 12   // an advanced course costs twelve weeks of his wage...
+	CourseMorale     = 6    // ...lifts his morale a little (the experience he banked at his peak counts at once)...
+	CourseYoungAge   = 50   // ...and lifts his ceiling by 2 below this age, by 1 from it; once a season
 )
 
 // Mentor: who mentors a young player and how much faster he grows (shown on the player).
@@ -79,6 +84,7 @@ type CoachLife struct {
 	Leaving    bool    `json:"leaving,omitempty"` // contract not renewed: leaves at the end of the season
 	Asked      int     `json:"asked,omitempty"`   // season his renewal talks opened
 	RetireAsk  int     `json:"retireAsk,omitempty"`
+	Course     int     `json:"course,omitempty"` // season of his last advanced course (one a season)
 }
 
 // StaffBoost: a short burst of faster growth (a training camp, a clinic, a vote of confidence).
@@ -290,7 +296,7 @@ func coachCeil(skill, id, age int) int {
 	case age < 60:
 		up = h % 3
 	}
-	return min(20, skill+up)
+	return min(MaxCoachSkill, skill+up)
 }
 
 func newCoachLife(c *Coach, skill, now, tick, years int, morale float64) *CoachLife {
@@ -858,19 +864,62 @@ func (sr *staffRun) daily() error {
 	return nil
 }
 
-// gainXP: experience, and a skill point when the bar is full (until he reaches his ceiling).
+// gainXP: experience, and a skill point when the bar is full. His ceiling is a guide, not a wall: at or past
+// it a point takes PastPeakCost times the experience (coachXPNeed) and his ceiling moves up with him. Only the
+// top of the scale stops him.
 func (sr *staffRun) gainXP(co *Coach, l *CoachLife, xp int) error {
 	base := sr.st.baseSkill(co)
-	if base >= l.Ceil {
+	if base >= MaxCoachSkill {
 		l.XP = 0
 		return nil
 	}
 	l.XP += xp
-	if need := xpNeed(base); l.XP >= need {
+	if need := coachXPNeed(base, l.Ceil); l.XP >= need {
 		l.XP -= need
+		l.Ceil = max(l.Ceil, base+1)
+		if base+1 >= MaxCoachSkill {
+			l.XP = 0
+		}
 		return sr.levelUp(co, l, base+1)
 	}
 	return nil
+}
+
+// coachXPNeed: experience for his next skill point: xpNeed below his ceiling, PastPeakCost times it at or past it.
+func coachXPNeed(skill, ceil int) int {
+	if skill >= ceil {
+		return xpNeed(skill) * PastPeakCost
+	}
+	return xpNeed(skill)
+}
+
+// courseState: whether he can go on an advanced course: "open" at his ceiling or one point below it (the course
+// lifts it), "done" once he has been on one this season, "" when it would not help (his ceiling is the top of
+// the scale already, or he still has room to grow on his own).
+func courseState(base int, l *CoachLife, season int) string {
+	switch {
+	case max(l.Ceil, base) >= MaxCoachSkill || base < l.Ceil-1:
+		return ""
+	case l.Course == season:
+		return "done"
+	}
+	return "open"
+}
+
+// courseGain: how far an advanced course lifts his ceiling (a younger coach takes in more).
+func courseGain(age int) int {
+	if age < CourseYoungAge {
+		return 2
+	}
+	return 1
+}
+
+// courseCost: an advanced course, in weeks of his wage.
+func courseCost(co *Coach) int64 { return roundK(float64(co.Wage) * CourseWeeks) }
+
+// courseCeil: his ceiling after an advanced course.
+func courseCeil(base int, l *CoachLife) int {
+	return min(MaxCoachSkill, max(l.Ceil, base)+courseGain(l.Age))
 }
 
 func (sr *staffRun) levelUp(co *Coach, l *CoachLife, skill int) error {

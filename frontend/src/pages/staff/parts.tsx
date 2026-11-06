@@ -59,12 +59,14 @@ export function Stars({ skill, ceil }: { skill: number; ceil?: number }) {
 
 export function SkillLine({ skill, ceil, mood }: { skill: number; ceil: number; mood?: number }) {
   const { t } = useI18n()
+  const top = skill >= 20
+  const tip = top ? t('sr.skillTipTop', { s: skill }) : ceil > skill ? t('sr.skillTip', { s: skill, c: ceil }) : t('sr.skillTipPeak', { s: skill })
   return (
-    <div className="sr-skill" data-tip={t('sr.skillTip', { s: skill, c: ceil })}>
+    <div className="sr-skill" data-tip={tip}>
       <Stars skill={skill + (mood ?? 0)} ceil={ceil} />
       <span className="sr-skillnum num">{skill}<small>/20</small></span>
       {mood ? <span className={'sr-moodtag ' + (mood > 0 ? 'up' : 'down')}>{t(mood > 0 ? 'sr.mood.up' : 'sr.mood.down')}</span> : null}
-      <span className="sr-ceil">{ceil > skill ? <><Icon name="up" size={12} /> {t('sr.ceil', { n: ceil })}</> : <><Icon name="crown" size={12} /> {t('sr.atBest')}</>}</span>
+      <span className="sr-ceil">{ceil > skill ? <><Icon name="up" size={12} /> {t('sr.ceil', { n: ceil })}</> : <><Icon name="crown" size={12} /> {t(top ? 'sr.atTop' : 'sr.atBest')}</>}</span>
     </div>
   )
 }

@@ -94,6 +94,7 @@ type StaffResult struct {
 	Amount  int64  `json:"amount,omitempty"`
 	Chance  int    `json:"chance,omitempty"`
 	Success *bool  `json:"success,omitempty"` // a gamble: did it work
+	Ceil    int    `json:"ceil,omitempty"`    // course: his new ceiling
 }
 
 func (st *StaffState) open(d *StaffDecision) {

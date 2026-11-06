@@ -92,6 +92,8 @@
 .sr-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; animation: sr-fill 0.5s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes sr-fill { from { width: 0 !important; } }
 .sr-bar.xp > i { background: linear-gradient(90deg, #38e1ff, #ffd23f); box-shadow: 0 0 10px rgba(56, 225, 255, 0.45); }
+/* past his peak: the slow road on, in gold */
+.sr-bar.xp.peak > i { background: linear-gradient(90deg, #ffd23f, #ff8a3d); box-shadow: 0 0 10px rgba(255, 190, 60, 0.5); }
 .sr-bar.mor > i { background: var(--mc, var(--good)); }
 .sr-bar.mor.m5 { --mc: linear-gradient(90deg, #3ee08a, #9cffc9); } .sr-bar.mor.m4 { --mc: #7fd96b; } .sr-bar.mor.m3 { --mc: #ffc23d; }
 .sr-bar.mor.m2 { --mc: #ff9a4d; } .sr-bar.mor.m1 { --mc: #ff5a5f; }

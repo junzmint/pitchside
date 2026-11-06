@@ -13,6 +13,10 @@ export interface StaffCard {
   morale: number; xp: number; xpNeed: number; ends: number; wage: number; market: number
   seasons: number; since: number; leaving: boolean; retiring: boolean; levelUp: boolean
   bonusIn: number; bonusCost: number; slots: number; mentees: MenteeView[]; famous: boolean; quitRisk: boolean
+  /** at or past his ceiling: each point takes three times the experience */
+  pastPeak: boolean
+  /** advanced course: open, done this season, or "" when it would not help */
+  course: '' | 'open' | 'done'; courseCost: number; courseCeil: number
 }
 export interface CandidateView {
   id: number; name: string; nation: string; role: string; style?: string; skill: number; ceil: number; perks: string[]
@@ -44,13 +48,13 @@ export interface StaffRoomView {
   slots: RoleSlot[]; decisions: StaffDecision[]; raises: Demand[]; report: StaffReport; youngsters: YoungView[]
   promises: PromiseView[]; boosts: BoostView[]; log: StaffLog[]; ready: boolean
 }
-export interface StaffResult { outcome: string; name?: string; other?: string; amount?: number; chance?: number; success?: boolean }
+export interface StaffResult { outcome: string; name?: string; other?: string; amount?: number; chance?: number; success?: boolean; ceil?: number }
 export type StaffReq =
   | { action: 'decide'; id: number; choice: string }
   | { action: 'mentor'; coachId: number; playerId: number }
   | { action: 'unmentor'; playerId: number }
   | { action: 'hire'; coachId: number; years: number }
-  | { action: 'fire' | 'bonus'; coachId: number }
+  | { action: 'fire' | 'bonus' | 'course'; coachId: number }
 
 export const staffApi = {
   room: (id: number) => req<StaffRoomView>('GET', careerPath(id) + '/staff'),

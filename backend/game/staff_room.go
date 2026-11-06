@@ -30,34 +30,38 @@ type MenteeView struct {
 
 // StaffCard: one member of the user's staff.
 type StaffCard struct {
-	ID        int          `json:"id"`
-	Name      string       `json:"name"`
-	Nation    string       `json:"nation"`
-	Role      string       `json:"role"`
-	Style     string       `json:"style,omitempty"`
-	Skill     int          `json:"skill"` // his real skill
-	Mood      int          `json:"mood"`  // what morale adds to it today (+1, 0, −1)
-	Ceil      int          `json:"ceil"`
-	Perks     []string     `json:"perks"`
-	Age       int          `json:"age"`
-	Trait     string       `json:"trait"`
-	Morale    int          `json:"morale"`
-	XP        int          `json:"xp"`
-	XPNeed    int          `json:"xpNeed"`
-	Ends      int          `json:"ends"` // last season of his contract
-	Wage      int64        `json:"wage"`
-	Market    int64        `json:"market"`
-	Seasons   int          `json:"seasons"`
-	Since     int          `json:"since"` // season he joined
-	Leaving   bool         `json:"leaving"`
-	Retiring  bool         `json:"retiring"`
-	LevelUp   bool         `json:"levelUp"`
-	BonusIn   int          `json:"bonusIn"` // days until he can have another bonus
-	BonusCost int64        `json:"bonusCost"`
-	Slots     int          `json:"slots"` // mentoring places (0: his role does not mentor)
-	Mentees   []MenteeView `json:"mentees"`
-	Famous    bool         `json:"famous"`
-	QuitRisk  bool         `json:"quitRisk"`
+	ID         int          `json:"id"`
+	Name       string       `json:"name"`
+	Nation     string       `json:"nation"`
+	Role       string       `json:"role"`
+	Style      string       `json:"style,omitempty"`
+	Skill      int          `json:"skill"` // his real skill
+	Mood       int          `json:"mood"`  // what morale adds to it today (+1, 0, −1)
+	Ceil       int          `json:"ceil"`
+	Perks      []string     `json:"perks"`
+	Age        int          `json:"age"`
+	Trait      string       `json:"trait"`
+	Morale     int          `json:"morale"`
+	XP         int          `json:"xp"`
+	XPNeed     int          `json:"xpNeed"`
+	Ends       int          `json:"ends"` // last season of his contract
+	Wage       int64        `json:"wage"`
+	Market     int64        `json:"market"`
+	Seasons    int          `json:"seasons"`
+	Since      int          `json:"since"` // season he joined
+	Leaving    bool         `json:"leaving"`
+	Retiring   bool         `json:"retiring"`
+	LevelUp    bool         `json:"levelUp"`
+	BonusIn    int          `json:"bonusIn"` // days until he can have another bonus
+	BonusCost  int64        `json:"bonusCost"`
+	PastPeak   bool         `json:"pastPeak"`   // at or past his ceiling: each point takes PastPeakCost times the experience
+	Course     string       `json:"course"`     // advanced course: "open", "done" (this season) or "" (it would not help)
+	CourseCost int64        `json:"courseCost"` // what it costs
+	CourseCeil int          `json:"courseCeil"` // his ceiling after it
+	Slots      int          `json:"slots"`      // mentoring places (0: his role does not mentor)
+	Mentees    []MenteeView `json:"mentees"`
+	Famous     bool         `json:"famous"`
+	QuitRisk   bool         `json:"quitRisk"`
 }
 
 type CandidateView struct {
@@ -267,11 +271,13 @@ func (w *world) staffCard(co *Coach, ms []*Player, famous map[string]bool) *Staf
 	l := st.life(co, c.now(), c.Day <= len(Calendar))
 	base := st.baseSkill(co)
 	card := &StaffCard{ID: co.ID, Name: co.Name, Nation: co.Nation, Role: co.Role, Skill: base, Mood: co.Skill - base, Ceil: max(l.Ceil, base),
-		Perks: co.Perks, Age: l.Age, Trait: l.Trait, Morale: int(math.Round(l.Morale)), XP: l.XP, XPNeed: xpNeed(base),
+		Perks: co.Perks, Age: l.Age, Trait: l.Trait, Morale: int(math.Round(l.Morale)), XP: l.XP, XPNeed: coachXPNeed(base, l.Ceil),
 		Ends: contractEnds(c, l.Years), Wage: co.Wage, Market: int64(base) * 10_000, Seasons: l.Seasons, Since: l.Since / 100,
 		Leaving: l.Leaving, Retiring: l.Retiring, LevelUp: l.LevelAt > 0 && st.Tick-l.LevelAt < 3, Slots: mentorSlots(base, l.Trait, co.Role),
 		Famous: famous[co.Name], QuitRisk: l.Morale <= StaffQuit+7, Mentees: []MenteeView{},
-		BonusIn: max(0, l.BonusUntil-st.Tick), BonusCost: roundK(float64(co.Wage) * StaffBonusWeeks)}
+		BonusIn: max(0, l.BonusUntil-st.Tick), BonusCost: roundK(float64(co.Wage) * StaffBonusWeeks),
+		PastPeak: base >= l.Ceil && base < MaxCoachSkill, Course: courseState(base, l, c.Season), CourseCost: courseCost(co),
+		CourseCeil: courseCeil(base, l)}
 	if co.Role == "head" {
 		card.Style = styleFor(co)
 	}
@@ -423,7 +429,7 @@ func (w *world) staffBadge() *StaffBadge {
 // ---------------------------------------------------------------- actions
 
 type StaffReq struct {
-	Action   string `json:"action"` // decide | mentor | unmentor | hire | fire | bonus
+	Action   string `json:"action"` // decide | mentor | unmentor | hire | fire | bonus | course
 	ID       int    `json:"id"`     // decide: the card
 	Choice   string `json:"choice"`
 	CoachID  int    `json:"coachId"`
@@ -547,6 +553,35 @@ func (s *Store) StaffAction(ctx context.Context, careerID int, req StaffReq) (*S
 			sr.moraleRaw(l, StaffBonusMorale)
 			l.BonusUntil = st.Tick + StaffBonusWait
 			out = &StaffResult{Outcome: "bonus", Name: co.Name, Amount: -cost}
+		case "course":
+			co := coachByID(w.coaches[uid], req.CoachID)
+			if co == nil {
+				return userErr("coach_not_yours", "This coach is not at your club")
+			}
+			l := st.People[co.ID]
+			base := st.baseSkill(co)
+			switch courseState(base, l, c.Season) {
+			case "done":
+				return userErr("course_done", "He has been on a course this season")
+			case "":
+				return userErr("course_not_now", "A course would not help him now")
+			}
+			cost := courseCost(co)
+			if user.Budget < cost {
+				return userErr("no_budget", "Not enough budget")
+			}
+			user.Budget -= cost
+			if err := addFinance(ctx, q, c, "staff_course", -cost, co.Name); err != nil {
+				return err
+			}
+			l.Ceil = courseCeil(base, l)
+			l.Course = c.Season
+			sr.moraleRaw(l, CourseMorale)
+			sr.say("staff_course", co.Name, int64(l.Ceil))
+			if err := sr.gainXP(co, l, 0); err != nil { // what he banked at his peak, now at the usual rate
+				return err
+			}
+			out = &StaffResult{Outcome: "course", Name: co.Name, Amount: -cost, Ceil: l.Ceil}
 		default:
 			return userErr("bad_action", "Unknown action")
 		}
