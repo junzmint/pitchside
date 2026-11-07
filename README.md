@@ -5,6 +5,7 @@ A football game that mixes management with playing matches yourself (Vietnamese 
 - **Backend**: Go 1.24 (`net/http`, `pgx`, `bcrypt`), in `backend/`
 - **Frontend**: React 18 + Vite + TypeScript, in `frontend/`. Matches are drawn on a canvas (`frontend/src/match/engine.ts`)
 - **Database**: PostgreSQL 16 in Docker. The schema is created and migrated automatically on start; accounts are kept across upgrades
+  - **What a save keeps**: each new season clears the other clubs' matches of the seasons gone by (about 4,900 fixtures a season across the leagues, cups and Europe) and keeps all of your own, which is all the history book, records and achievements read. Past tables, awards and tournaments are kept as season summaries. Coaches never pile up: one who retires is deleted, and the free pool is replaced every matchday. Saves from before this were cleared once on start (a 10-season save went from 49,065 fixtures to 5,365).
 
 ## Getting started (for new players)
 

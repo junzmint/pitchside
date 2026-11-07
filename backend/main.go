@@ -69,6 +69,10 @@ func main() {
 	if err := store.TidyShirts(ctx); err != nil {
 		log.Printf("shirt numbers: %v", err)
 	}
+	// …and the other clubs' matches of seasons gone by cleared out of old saves, once (fixtures_prune.go)
+	if err := store.PruneOldFixtures(ctx); err != nil {
+		log.Printf("old fixtures: %v", err)
+	}
 	// `pitchside seed` loads demo data and exits; AUTO_SEED=1 seeds a brand-new database on start.
 	if len(os.Args) > 1 && os.Args[1] == "seed" {
 		if err := runSeed(ctx, store); err != nil {

@@ -1152,6 +1152,11 @@ func (s *Store) StartNextSeason(ctx context.Context, careerID int) (*NewSeasonRe
 			return err
 		}
 		lap("club life")
+		// the seasons gone by keep only your own matches (fixtures_prune.go)
+		if _, err := pruneFixtures(ctx, q, c); err != nil {
+			return err
+		}
+		lap("prune fixtures")
 		return saveCareer(ctx, q, c)
 	})
 	lap("commit")
