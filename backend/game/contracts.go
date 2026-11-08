@@ -66,6 +66,11 @@ const LegendGrowth = 0.35
 
 func isLegend(p *Player) bool { return p.Tag == "legend" || p.Tag == "custom" }
 
+// wantsOutAllowed: whether he can ever ask to leave or push for a move. Icons never do: they ask for a raise
+// now and then like anyone, but never for games, a transfer or a walk-out (playing-time talks, a refused
+// raise, a broken promise, unpaid wages).
+func wantsOutAllowed(p *Player) bool { return !isLegend(p) }
+
 // legendCost: upgrade points cost double for a legend.
 func legendCost(p *Player) int {
 	if isLegend(p) {
@@ -414,8 +419,8 @@ func (w *world) refuse(ctx context.Context, q DBTX, r *rand.Rand, d Demand) (str
 		return "", nil
 	}
 	p.Morale = math.Max(0, p.Morale-25)
-	if r.Float64() < 0.3 {
-		// he forces a move: the club gets 60% of his value
+	if wantsOutAllowed(p) && r.Float64() < 0.3 {
+		// he forces a move: the club gets 60% of his value (never an icon: he only sulks)
 		var dest []*Club
 		for _, cl := range w.clubs {
 			if !cl.IsUser && cl.Division > 0 && len(w.players[cl.ID]) < AIMaxSquad && cl.Budget > p.Value {

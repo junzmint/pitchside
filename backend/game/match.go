@@ -1353,7 +1353,8 @@ func at(xs []int, i int) int {
 const UnrestWeeks = 3 // a transfer request turns into a walk-out after this many matchdays
 
 // wageUnrest: while the club is in the red, the best-paid players ask to leave. If nobody buys them
-// within a couple of weeks they move on by themselves and the fee lands in the club's account.
+// within a couple of weeks they move on by themselves and the fee lands in the club's account. Icons
+// never ask (wantsOutAllowed): their wages still drain the budget, so the debt falls on the others.
 func (w *world) wageUnrest(ctx context.Context, q DBTX, r *rand.Rand, rep *DayReport) error {
 	c := w.career
 	user := w.byID[c.UserClubID]
@@ -1369,6 +1370,9 @@ func (w *world) wageUnrest(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRe
 	// existing requests grow; old ones walk out
 	left := 0
 	for _, p := range squad {
+		if !wantsOutAllowed(p) {
+			p.Unrest = 0 // (an icon who asked before this rule)
+		}
 		if p.Unrest == 0 {
 			continue
 		}
@@ -1417,7 +1421,7 @@ func (w *world) wageUnrest(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRe
 	// new requests: best-paid players first, enough to cover the hole (at most three a week)
 	cands := []*Player{}
 	for _, p := range squad {
-		if p.Unrest == 0 && (p.ClubID != nil && *p.ClubID == user.ID) {
+		if p.Unrest == 0 && wantsOutAllowed(p) && (p.ClubID != nil && *p.ClubID == user.ID) {
 			cands = append(cands, p)
 		}
 	}

@@ -18,6 +18,7 @@ export const mailStrings: { vi: Record<string, string>; en: Record<string, strin
     // explicit confirm buttons
     'bid.sellConfirm': 'Bán {name} · {v}', 'bid.sellIconConfirm': 'Bán icon {name} · {v}',
     'dem.releaseConfirm': 'Thanh lý {name}', 'dem.fireConfirm': 'Cho {name} nghỉ', 'talk.sellConfirm': 'Rao bán {name}',
+    'dem.refuseIcon': 'Icon sẽ mất tinh thần, nhưng không bao giờ đòi ra đi. Chắc chứ?',
   },
   en: {
     'mt.who.player': 'Player', 'mt.who.icon': 'Icon', 'mt.who.custom': 'Custom icon',
@@ -33,6 +34,7 @@ export const mailStrings: { vi: Record<string, string>; en: Record<string, strin
     'mt.shop.d': 'You pay to bring an icon to the club.',
     'bid.sellConfirm': 'Sell {name} · {v}', 'bid.sellIconConfirm': 'Sell icon {name} · {v}',
     'dem.releaseConfirm': 'Release {name}', 'dem.fireConfirm': 'Let {name} go', 'talk.sellConfirm': 'List {name} for sale',
+    'dem.refuseIcon': 'The icon will lose morale, but never asks to leave. Sure?',
   },
   ja: {
     'mt.who.player': '選手', 'mt.who.icon': 'アイコン', 'mt.who.custom': 'カスタムアイコン',
@@ -48,5 +50,6 @@ export const mailStrings: { vi: Record<string, string>; en: Record<string, strin
     'mt.shop.d': 'お金を払ってアイコンを獲得します。',
     'bid.sellConfirm': '{name}を売却 · {v}', 'bid.sellIconConfirm': 'アイコン{name}を売却 · {v}',
     'dem.releaseConfirm': '{name}を放出', 'dem.fireConfirm': '{name}を解任', 'talk.sellConfirm': '{name}を移籍リストへ',
+    'dem.refuseIcon': 'アイコンの士気は下がりますが、退団を求めることはありません。よろしいですか？',
   },
 }

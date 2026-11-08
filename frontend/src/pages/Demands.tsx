@@ -100,7 +100,7 @@ export function DemandCard({ d, ctx }: { d: Demand; ctx: Ctx }) {
       )}
       <div className="row" style={{ gap: 6 }}>
         <button className="primary small" disabled={busy} onClick={() => go('accept')}><Icon name="check" size={14} /> {t('dem.accept', { v: money(d.ask) })}</button>
-        <ConfirmButton className="small" label={t(d.renewal ? 'ct.letGo' : 'dem.refuse')} confirm={t(d.renewal ? 'ct.letGoConfirm' : d.kind === 'coach' ? 'dem.refuseCoach' : 'dem.refusePlayer')} onConfirm={() => go('refuse')} />
+        <ConfirmButton className="small" label={t(d.renewal ? 'ct.letGo' : 'dem.refuse')} confirm={t(d.renewal ? 'ct.letGoConfirm' : d.kind === 'coach' ? 'dem.refuseCoach' : who === 'player' ? 'dem.refusePlayer' : 'dem.refuseIcon')} onConfirm={() => go('refuse')} />
         <ConfirmButton className="small danger" label={t(d.kind === 'coach' ? 'dem.fire' : 'dem.release')} confirm={t(d.kind === 'coach' ? 'dem.fireConfirm' : 'dem.releaseConfirm', { name: d.name })} onConfirm={terminate} />
       </div>
     </div>

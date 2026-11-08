@@ -62,3 +62,60 @@ func TestShirtsPast99(t *testing.T) {
 		t.Errorf("the daily tidy moved %d players", len(again))
 	}
 }
+
+// An icon on the bench never asks for games; a regular in the same spot does (now and then).
+func TestIconNeverAsksForGames(t *testing.T) {
+	talked := func(tag string) int {
+		n := 0
+		for seed := int64(1); seed <= 40; seed++ {
+			r := rand.New(rand.NewSource(seed))
+			squad := GenSquad(rand.New(rand.NewSource(7)), []string{"EN"}, 74, nil)
+			uid := 1
+			for i, p := range squad {
+				p.ID = i + 1
+				p.ClubID = &uid
+			}
+			club := &Club{ID: uid, IsUser: true, Formation: "4-4-2"}
+			club.Lineup = BestLineup(squad, club.Formation)
+			inXI := map[int]bool{}
+			for _, id := range club.Lineup {
+				inXI[id] = true
+			}
+			// a bench player as good as the starter in his position, out for six matches
+			var star, b *Player
+			for _, p := range squad {
+				if inXI[p.ID] && p.Position == "MF" && star == nil {
+					star = p
+				}
+			}
+			for _, p := range squad {
+				if !inXI[p.ID] && p.Position == "MF" && b == nil {
+					b = p
+				}
+			}
+			b.Pace, b.Shooting, b.Passing, b.Dribbling, b.Defending, b.Physical = star.Pace, star.Shooting, star.Passing, star.Dribbling, star.Defending, star.Physical
+			b.Age, b.Tag = 25, tag
+			b.Fill()
+			c := &Career{UserClubID: uid, Season: 1, Day: 10}
+			c.Events.TalkSeason = 1
+			c.Events.Bench = map[int]int{b.ID: 6}
+			w := &world{career: c, byID: map[int]*Club{uid: club}, players: map[int][]*Player{uid: squad}}
+			w.newTalks(r, &DayReport{})
+			for _, k := range c.Events.Talks {
+				if k.PlayerID == b.ID {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	if n := talked(""); n == 0 {
+		t.Fatal("a regular never asked for games: the test proves nothing")
+	}
+	if n := talked("legend"); n != 0 {
+		t.Errorf("an icon asked for games %d times", n)
+	}
+	if wantsOutAllowed(&Player{Tag: "legend"}) || wantsOutAllowed(&Player{Tag: "custom"}) || !wantsOutAllowed(&Player{}) {
+		t.Error("wantsOutAllowed: icons must never ask to leave, regulars may")
+	}
+}

@@ -104,7 +104,7 @@ func (w *world) countBench(uo *matchOutcome, rep *DayReport) {
 			p.Morale = clamp(p.Morale-18, 20, 100)
 			w.squadMorale(-2) // the dressing room notices
 			es.Quiet[p.ID] = c.now() + 15
-			if rand.Float64() < 0.3 {
+			if wantsOutAllowed(p) && rand.Float64() < 0.3 {
 				es.Listed[p.ID] = c.now() + 10 // he wants out
 				w.happen(rep, "promise_broken_out", p.Name, 0)
 			} else {
@@ -161,7 +161,8 @@ func (w *world) newTalks(r *rand.Rand, rep *DayReport) {
 		if !ok || p.Overall < ws-3 {
 			continue
 		}
-		if es.Bench[p.ID] < BenchLimit || p.Overall < cut-2 || p.Age < 18 || !available(p) || w.isLoanee(p.ID) ||
+		// (an icon never asks for games: wantsOutAllowed)
+		if !wantsOutAllowed(p) || es.Bench[p.ID] < BenchLimit || p.Overall < cut-2 || p.Age < 18 || !available(p) || w.isLoanee(p.ID) ||
 			es.Quiet[p.ID] > c.now() || es.Listed[p.ID] > c.now() || es.promiseFor(p.ID) >= 0 {
 			continue
 		}
