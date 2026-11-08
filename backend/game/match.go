@@ -205,6 +205,13 @@ func (w *world) sheet(clubID int) TeamSheet {
 		if rot = rotate(w.career.Care.Rotate, st, roles, bench); len(rot) > 0 {
 			bench = benchOf(st, w.players[clubID])
 		}
+		// development rotation: the bench players who have waited longest start (never in a big tie)
+		if f := w.userFixture(); f != nil && !bigTie(f) {
+			if dev := devRotate(w.career.Care.Develop, st, roles, bench, w.career.Events.Bench); len(dev) > 0 {
+				rot = append(rot, dev...)
+				bench = benchOf(st, w.players[clubID])
+			}
+		}
 	}
 	ps := w.perks(clubID)
 	fit := ComputeCoachFit(head, cl.Formation, cl.Tactic, st)

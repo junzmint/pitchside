@@ -898,6 +898,18 @@ small.wrap, span.wrap { display: block; }
 .chip.bringcount.on { color: #3ee08a; border-color: rgba(62, 224, 138, 0.45); }
 small.warnc { color: var(--warn); }
 .bringrep { color: #3ee08a; font-size: 12px; }
+.bringlist { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 8px; }
+.bringchip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px 2px 8px; border-radius: 999px; font-size: 13px;
+  color: #3ee08a; background: rgba(62, 224, 138, 0.1); border: 1px solid rgba(62, 224, 138, 0.45); }
+.bringchip > b { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 9px; font-size: 11px; color: #08140d; background: #3ee08a; }
+.bringchip small { color: var(--muted); }
+.bringchip .x { padding: 2px; min-height: 0; border-radius: 50%; background: transparent; border: 0; color: inherit; line-height: 0; }
+.bringchip .x:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); box-shadow: none; }
+.bringchip.resting, .flag.bring.resting { opacity: 0.6; border-style: dashed; }
+/* development rotation (pages/DevRotation.tsx) on the Tactics page */
+.devrot { max-width: 760px; margin: 0 0 12px; gap: 8px; }
+.devrot.on { border-left: 3px solid #3ee08a; }
+.devrot-next .notes { margin: 4px 0 0; }
 .icon-head { display: flex; gap: 10px; align-items: center; }
 .icon-head > div { display: grid; gap: 2px; min-width: 0; }
 .icon-name { font-family: var(--display); font-size: 19px; font-style: italic; text-transform: uppercase; overflow-wrap: anywhere; line-height: 1.15; }

@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -13,12 +14,13 @@ import (
 
 // Care holds the user's per-player fitness choices.
 type Care struct {
-	Load   map[int]string `json:"load"`             // player id → rest | recovery | intense (missing: follow the team plan)
-	Rush   map[int]bool   `json:"rush"`             // players one week from fitness cleared to play anyway
-	Rotate int            `json:"rotate"`           // 0: off; otherwise starters below this fitness are rested before a match
-	AutoXI bool           `json:"autoXi"`           // the assistant picks the strongest available eleven before every match
-	Bring  map[int]bool   `json:"bring,omitempty"`  // bench players to bring on first, so they get minutes and improve (autoSubs)
-	Breaks map[int]int    `json:"breaks,omitempty"` // player id → season he last broke his limit (club.go)
+	Load    map[int]string `json:"load"`              // player id → rest | recovery | intense (missing: follow the team plan)
+	Rush    map[int]bool   `json:"rush"`              // players one week from fitness cleared to play anyway
+	Rotate  int            `json:"rotate"`            // 0: off; otherwise starters below this fitness are rested before a match
+	Develop int            `json:"develop,omitempty"` // development rotation: 0 off, 1 light, 2 medium, 3 heavy (devRotate)
+	AutoXI  bool           `json:"autoXi"`            // the assistant picks the strongest available eleven before every match
+	Bring   map[int]bool   `json:"bring,omitempty"`   // bench players to bring on first, so they get minutes and improve (autoSubs)
+	Breaks  map[int]int    `json:"breaks,omitempty"`  // player id → season he last broke his limit (club.go)
 }
 
 var PlayerLoads = map[string]bool{"rest": true, "recovery": true, "intense": true}
@@ -196,6 +198,24 @@ func (s *Store) SetAutoXI(ctx context.Context, careerID int, on bool) error {
 	})
 }
 
+// SetDevelop sets the development rotation (0 off … 3 heavy): see devRotate.
+func (s *Store) SetDevelop(ctx context.Context, careerID, level int) error {
+	if level < 0 || level >= len(DevRotation) {
+		return userErr("bad_rotation", "Unknown rotation setting")
+	}
+	return s.tx(ctx, func(q pgx.Tx) error {
+		if _, err := q.Exec(ctx, `SELECT 1 FROM careers WHERE id=$1 FOR UPDATE`, careerID); err != nil {
+			return err
+		}
+		c, err := getCareer(ctx, q, careerID)
+		if err != nil {
+			return err
+		}
+		c.Care.Develop = level
+		return saveCareer(ctx, q, c)
+	})
+}
+
 // SetRotation turns automatic squad rotation on (a fitness threshold) or off (0).
 func (s *Store) SetRotation(ctx context.Context, careerID, threshold int) error {
 	if !RotateOptions[threshold] {
@@ -220,6 +240,7 @@ type SwapNote struct {
 	InFit  float64 `json:"inFit"`
 	Minute int     `json:"minute,omitempty"`
 	Bring  bool    `json:"bring,omitempty"` // a substitution: he came on because you marked him to bring on
+	Why    string  `json:"why,omitempty"`   // a change before kick-off: "dev" for development rotation (else tired)
 }
 
 // rotate rests tired starters, bringing in the best fresh player for the same slot.
@@ -256,6 +277,96 @@ func rotate(threshold int, starters []*Player, roles []string, bench []*Player) 
 		notes = append(notes, SwapNote{Out: p.Name, In: best.Name, OutFit: math.Round(p.Fitness), InFit: math.Round(best.Fitness)})
 	}
 	return notes
+}
+
+// ---------------------------------------------------------------- development rotation
+
+// DevRotation: the levels of the development rotation (Care.Develop): starters swapped per match, how close
+// the newcomer must be to the man rested (Effective), and after how many matches without a game the reserve
+// keeper starts (0: never).
+var DevRotation = [4]struct {
+	Swaps  int
+	Floor  float64
+	Keeper int
+}{{}, {1, 0.9, 0}, {2, 0.85, 5}, {3, 0.8, 4}}
+
+// devRotate: rotation for development. Before a match the bench players who have waited longest for a game
+// (waited: Events.Bench) start in place of the most tired starter of their line (a keeper for the keeper, now
+// and then), so the whole squad plays and improves; a newcomer far below the man he would rest stays out.
+// Deterministic: the pre-match screen shows the same changes the match then makes.
+func devRotate(level int, starters []*Player, roles []string, bench []*Player, waited map[int]int) (notes []SwapNote) {
+	if level <= 0 || level >= len(DevRotation) {
+		return nil
+	}
+	cfg := DevRotation[level]
+	var cands []*Player
+	for _, b := range bench {
+		if b.Injury == 0 && !b.Rushed && b.Fitness >= 70 {
+			cands = append(cands, b)
+		}
+	}
+	// longest wait first, then the most room to grow, then the younger
+	sort.SliceStable(cands, func(i, j int) bool {
+		a, b := cands[i], cands[j]
+		if waited[a.ID] != waited[b.ID] {
+			return waited[a.ID] > waited[b.ID]
+		}
+		if ga, gb := a.Potential-a.Overall, b.Potential-b.Overall; ga != gb {
+			return ga > gb
+		}
+		if a.Age != b.Age {
+			return a.Age < b.Age
+		}
+		return a.ID < b.ID
+	})
+	changed := map[int]bool{}
+	for _, in := range cands {
+		if len(notes) >= cfg.Swaps {
+			break
+		}
+		gk := in.Position == "GK"
+		if gk && (cfg.Keeper == 0 || waited[in.ID] < cfg.Keeper) {
+			continue
+		}
+		slot := -1
+		for i, role := range roles {
+			out := starters[i]
+			if out == nil || changed[i] || (role == "GK") != gk || (!gk && RoleCat(role) != in.Position) {
+				continue
+			}
+			if Effective(in, role) < Effective(out, role)*cfg.Floor {
+				continue
+			}
+			// the most tired; between equally fresh men, the one whose rest costs the side least
+			if slot < 0 || out.Fitness < starters[slot].Fitness ||
+				(out.Fitness == starters[slot].Fitness && Effective(out, role) < Effective(starters[slot], roles[slot])) {
+				slot = i
+			}
+		}
+		if slot < 0 {
+			continue
+		}
+		out := starters[slot]
+		starters[slot] = in
+		changed[slot] = true
+		notes = append(notes, SwapNote{Out: out.Name, In: in.Name, OutFit: math.Round(out.Fitness), InFit: math.Round(in.Fitness), Why: "dev"})
+	}
+	return notes
+}
+
+// bigTie: a match the development rotation leaves alone: cup ties from the quarter-finals on and European
+// knockout ties.
+func bigTie(f *Fixture) bool {
+	if f == nil {
+		return false
+	}
+	switch f.Comp {
+	case "cup":
+		return f.Stage == "QF" || f.Stage == "SF" || f.Stage == "F"
+	case "cl":
+		return !strings.HasPrefix(f.Stage, "G")
+	}
+	return false
 }
 
 // ---------------------------------------------------------------- substitutions

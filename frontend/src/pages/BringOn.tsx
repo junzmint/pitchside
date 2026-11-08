@@ -21,14 +21,13 @@ export function bringTooWeak(p: Player, starters: (Player | undefined)[]): boole
   return line.length > 0 && p.overall < Math.min(...line.map(s => s.overall)) * BRING_FLOOR
 }
 
-/** Mark or unmark him. compact: the small button of the bench table. */
-export function BringToggle({ ctx, p, compact }: { ctx: Ctx; p: Player; compact?: boolean }) {
+/** Marking and unmarking, with the toast; shared by the button, the list of marked players and the flags. */
+function useBringFlip(ctx: Ctx, p: Player) {
   const { t } = useI18n()
   const [busy, setBusy] = useState(false)
   const on = isMarked(p)
-  const full = !on && bringCount(ctx.st.squad) >= BRING_MAX
-  async function flip(e: MouseEvent) {
-    e.stopPropagation() // (a bench row assigns the player when clicked)
+  async function flip(e?: MouseEvent) {
+    e?.stopPropagation() // (a bench row assigns the player when clicked)
     setBusy(true)
     try {
       await api.setCare(ctx.id, p.id, { bring: !on })
@@ -36,6 +35,14 @@ export function BringToggle({ ctx, p, compact }: { ctx: Ctx; p: Player; compact?
       ctx.toast(t(on ? 'bring.unset' : 'bring.set', { name: p.name }))
     } catch (err) { ctx.toast(errText(t, err), true) } finally { setBusy(false) }
   }
+  return { on, busy, flip }
+}
+
+/** Mark or unmark him. compact: the small button of the bench table. */
+export function BringToggle({ ctx, p, compact }: { ctx: Ctx; p: Player; compact?: boolean }) {
+  const { t } = useI18n()
+  const { on, busy, flip } = useBringFlip(ctx, p)
+  const full = !on && bringCount(ctx.st.squad) >= BRING_MAX
   return (
     <button className={'bringbtn' + (on ? ' on' : '') + (compact ? ' small' : '')} aria-pressed={on} disabled={busy || full || !!ctx.st.career.ended}
       data-tip={full ? t('err.bring_max') : t('bring.tip')} onClick={flip}>
@@ -45,9 +52,40 @@ export function BringToggle({ ctx, p, compact }: { ctx: Ctx; p: Player; compact?
   )
 }
 
-/** The small mark next to his name on the squad list and cards. */
-export function BringFlag({ p }: { p: Player }) {
+/** Everyone marked, in the order they come on, each with a button to take the mark off. A starter keeps his
+ *  mark (it counts again once he is back on the bench) but shows it as resting, and can be unmarked here too. */
+export function BringList({ ctx, starters }: { ctx: Ctx; starters: Set<number> }) {
+  const { t } = useI18n()
+  const marked = ctx.st.squad.filter(isMarked).sort((a, b) => (a.bring ?? 0) - (b.bring ?? 0))
+  if (marked.length === 0) return null
+  return (
+    <div className="bringlist">
+      <span className="muted"><Icon name="up" size={13} /> {t('bring.list')}</span>
+      {marked.map(p => <BringChip key={p.id} ctx={ctx} p={p} starter={starters.has(p.id)} />)}
+    </div>
+  )
+}
+
+function BringChip({ ctx, p, starter }: { ctx: Ctx; p: Player; starter: boolean }) {
+  const { t } = useI18n()
+  const { busy, flip } = useBringFlip(ctx, p)
+  return (
+    <span className={'bringchip' + (starter ? ' resting' : '')} data-tip={starter ? t('bring.starter') : t('bring.order', { n: p.bring ?? 0 })}>
+      <b className="num">{p.bring}</b> {p.name}{starter ? <small> · {t('bring.starterShort')}</small> : null}
+      <button className="x" disabled={busy || !!ctx.st.career.ended} onClick={flip} aria-label={`${t('bring.unmark')}: ${p.name}`} data-tip={t('bring.unmark')}>
+        <Icon name="close" size={12} />
+      </button>
+    </span>
+  )
+}
+
+/** The small mark next to his name on the squad list and cards (dimmed while he starts: it only counts on the bench). */
+export function BringFlag({ p, starter }: { p: Player; starter?: boolean }) {
   const { t } = useI18n()
   if (!isMarked(p)) return null
-  return <span className="flag bring" data-tip={`${t('bring.order', { n: p.bring ?? 0 })} · ${t('bring.tip')}`}><Icon name="up" size={12} /> {t('bring.short')} {p.bring}</span>
+  return (
+    <span className={'flag bring' + (starter ? ' resting' : '')} data-tip={`${t('bring.order', { n: p.bring ?? 0 })} · ${starter ? t('bring.starter') : t('bring.tip')}`}>
+      <Icon name="up" size={12} /> {t('bring.short')} {p.bring}
+    </span>
+  )
 }

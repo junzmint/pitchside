@@ -512,6 +512,15 @@ func routes(s *game.Store) *http.ServeMux {
 		}
 		return nil, s.SetRotation(r.Context(), id, req.Threshold)
 	}))
+	mux.HandleFunc("PUT /api/careers/{id}/develop", career(s, func(r *http.Request, id int) (any, error) {
+		var req struct {
+			Level int `json:"level"`
+		}
+		if err := decode(r, &req); err != nil {
+			return nil, err
+		}
+		return nil, s.SetDevelop(r.Context(), id, req.Level)
+	}))
 	mux.HandleFunc("POST /api/careers/{id}/players/{pid}/upgrade", career(s, func(r *http.Request, id int) (any, error) {
 		pid, err := intParam(r, "pid")
 		if err != nil {

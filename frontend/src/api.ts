@@ -69,6 +69,7 @@ export const api = {
 
   setCare: (id: number, pid: number, body: { load?: string; rush?: boolean; bring?: boolean }) => req('PUT', `${c(id)}/players/${pid}/care`, body),
   setRotation: (id: number, threshold: number) => req('PUT', c(id) + '/rotation', { threshold }),
+  setDevelop: (id: number, level: number) => req('PUT', c(id) + '/develop', { level }),
   setAutoXi: (id: number, on: boolean) => req('PUT', c(id) + '/autoxi', { on }),
   upgradeFacility: (id: number, kind: string) => req('POST', `${c(id)}/facilities/${kind}`),
   renovateFacility: (id: number, kind: string) => req('POST', `${c(id)}/facilities/${kind}/renovate`),

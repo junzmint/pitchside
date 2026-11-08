@@ -1107,7 +1107,7 @@ export function Report({ r, clubId, onClose, live }: { r: DayReport; clubId: num
       subs.length ? <i key="sh">{t('rep.subs')}</i> : null,
       ...subs.map((x, i) => <span key={'s' + i}><b className="num">{x.minute ?? 0}'</b> {t('lv.rep.subLine', { in: x.in, out: x.out })}{x.bring ? <span className="bringrep"> ⬆ {t('bring.rep')}</span> : null}</span>),
       r.rotated?.length ? <i key="rh">{t('rep.rotated')}</i> : null,
-      ...(r.rotated ?? []).map((x, i) => <span key={'r' + i}>↻ {t('lv.rep.rotLine', { in: x.in, out: x.out, fit: x.outFit })}</span>),
+      ...(r.rotated ?? []).map((x, i) => <span key={'r' + i}>↻ {t(x.why === 'dev' ? 'lv.rep.devLine' : 'lv.rep.rotLine', { in: x.in, out: x.out, fit: x.outFit })}</span>),
       r.congested ? <span key="cg" className="muted">{t('rep.congested')}</span> : null,
       r.injuries?.length ? <i key="ih">{t('rep.injuries')}</i> : null,
       ...(r.injuries ?? []).map((x, i) => <span key={'i' + i} style={tone('bad')} data-inj={x.kind || undefined} data-tip={x.kind ? t('inj.' + x.kind + '.d') : undefined}>✚ {x.name}{x.kind ? ` · ${t('inj.' + x.kind)}` : ''} · {x.weeks} {t('wk')}</span>),

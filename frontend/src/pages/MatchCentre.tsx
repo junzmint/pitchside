@@ -401,7 +401,7 @@ function PreMatchNotes({ setup }: { setup: MatchSetup }) {
             {me.congested && <li className="warn">{t('mc.congested')}</li>}
             {tiredMine.map(p => <li key={'t' + p.id} className={p.fitness < 55 ? 'bad' : 'warn'}>{t(p.fitness < 55 ? 'mc.tiredRisk' : 'mc.tired', { name: p.name, f: Math.round(p.fitness) })}</li>)}
             {rushedMine.map(p => <li key={'r' + p.id} className="bad">{t('mc.rushed', { name: p.name })}</li>)}
-            {(me.rotated ?? []).map(x => <li key={'o' + x.out} className="good">{t('mc.rotatedLine', { out: x.out, of: x.outFit, in: x.in, if: x.inFit })}</li>)}
+            {(me.rotated ?? []).map(x => <li key={'o' + x.out} className="good">{t(x.why === 'dev' ? 'mc.devLine' : 'mc.rotatedLine', { out: x.out, of: x.outFit, in: x.in, if: x.inFit })}</li>)}
             {weak.length === 0 && tiredMine.length === 0 && rushedMine.length === 0 && !me.congested && <li className="good">{t('mc.noIssues')}</li>}
           </ul>
           {(tiredMine.length > 0 || me.congested) && <span className="muted" style={{ fontSize: 13 }}>{t('mc.fitTip', { n: benchFresh })}</span>}

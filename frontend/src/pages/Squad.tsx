@@ -128,7 +128,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
                   <tr className="click" onClick={() => setOpen(open === p.id ? null : p.id)} style={{ opacity: p.injury > 0 ? 0.6 : 1 }}>
                     <td className="num">{p.shirt}</td>
                     <td className="namecell"><div className="pname">
-                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} /> <BringFlag p={p} />
+                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} /> <BringFlag p={p} starter={xi.has(p.id)} />
                       {p.injury > 0 && <span className="inj"><Icon name="injury" size={13} /> {p.injury}{t('wk')}</span>}
                       {p.injury === 1 && (
                         <button className={'small rush' + (p.rushed ? ' on' : '')} title={t('rush.help')}
@@ -293,7 +293,7 @@ function PlayerFlags({ p, slot, loanee, listed, clubName }: { p: Player; slot: s
       {p.unrest > 0 && <span className="flag bad" data-tip={t('sq.unrestHint')}><Icon name="warn" size={12} /> {t('sq.unrest', { n: Math.max(0, 4 - p.unrest) })}</span>}
       {p.contract === 1 && <span className="flag warn"><Icon name="contract" size={12} /> {t('ct.left', { n: 1 })}</span>}
       {p.load && <span className="flag">{t('load.' + p.load)}</span>}
-      <BringFlag p={p} />
+      <BringFlag p={p} starter={slot != null} />
       <MentorFlag p={p} />
       <TagChip p={p} />
       <HomeMark p={p} clubName={clubName} />

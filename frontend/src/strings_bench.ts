@@ -1,5 +1,5 @@
 // UI strings of "bring on first" (pages/BringOn.tsx): bench players you mark so the assistant brings them on and
-// they improve by playing. Merged into STRINGS by strings.ts; keep vi, en and ja in sync.
+// they improve by playing; and of the development rotation (pages/DevRotation.tsx). Merged into STRINGS by strings.ts; keep vi, en and ja in sync.
 export const benchStrings: { vi: Record<string, string>; en: Record<string, string>; ja: Record<string, string> } = {
   vi: {
     'bring.on': 'Ưu tiên vào sân', 'bring.short': 'Vào sân',
@@ -11,7 +11,14 @@ export const benchStrings: { vi: Record<string, string>; en: Record<string, stri
     'bring.starter': 'Đang đá chính: chỉ có tác dụng khi ngồi dự bị',
     'bring.order': 'Thứ tự vào sân: {n}', 'bring.rep': '(ưu tiên vào sân)',
     'err.bring_max': 'Chỉ ưu tiên được tối đa 5 cầu thủ cùng lúc.',
+    'bring.list': 'Đang ưu tiên vào sân:', 'bring.unmark': 'Bỏ ưu tiên vào sân', 'bring.starterShort': 'đang đá chính',
     'lv.tip.bring': 'Tung {in} vào thay {out} ({n}%) để cậu ấy có phút thi đấu?',
+    'dev.label': 'Xoay tua phát triển', 'dev.0': 'Tắt', 'dev.1': 'Nhẹ', 'dev.2': 'Vừa', 'dev.3': 'Mạnh',
+    'dev.help': 'Trước mỗi trận, trợ lý cho cầu thủ dự bị chờ lâu nhất được đá chính, thay người mệt nhất cùng tuyến, để cả đội được ra sân và lên chỉ số. Nhẹ: 1 người mỗi trận. Vừa: 2 người, thủ môn dự bị cứ 5 trận đá 1. Mạnh: 3 người, thủ môn dự bị cứ 4 trận đá 1. Người vào không được kém quá xa người nghỉ (90%, 85%, 80%). Không xoay tua từ tứ kết cúp trở đi và ở vòng loại trực tiếp cúp châu lục. Đội hình bạn lưu không bị đổi.',
+    'dev.next': 'Trận tới:', 'dev.item': '{in} đá chính thay {out}', 'dev.itemFit': '{in} đá chính thay {out} (cho nghỉ vì mệt)',
+    'dev.nextNone': 'không xoay tua (không có trận, là trận loại trực tiếp lớn, hoặc không ai đủ sức thay).',
+    'dev.set': 'Xoay tua phát triển: {level}', 'mc.devLine': 'Xoay tua phát triển: {in} đá chính thay {out}',
+    'lv.rep.devLine': '{in} đá chính thay {out} (xoay tua phát triển)',
   },
   en: {
     'bring.on': 'Bring on first', 'bring.short': 'Bring on',
@@ -23,7 +30,14 @@ export const benchStrings: { vi: Record<string, string>; en: Record<string, stri
     'bring.starter': 'In the starting XI: it only counts when he is on the bench',
     'bring.order': 'Comes on {n}', 'bring.rep': '(marked to bring on)',
     'err.bring_max': 'You can mark at most 5 players at a time.',
+    'bring.list': 'Marked to bring on:', 'bring.unmark': 'Take the mark off', 'bring.starterShort': 'starting',
     'lv.tip.bring': 'Bring {in} on for {out} ({n}%) to give him some minutes?',
+    'dev.label': 'Development rotation', 'dev.0': 'Off', 'dev.1': 'Light', 'dev.2': 'Medium', 'dev.3': 'Heavy',
+    'dev.help': 'Before each match your assistant starts the bench players who have waited longest, in place of the most tired man in their line, so the whole squad plays and improves. Light: 1 a match. Medium: 2, and the reserve keeper every 5th match. Heavy: 3, and the reserve keeper every 4th. A newcomer can’t be far below the man rested (90%, 85%, 80%). No rotation from the cup quarter-finals on, nor in European knockout ties. Your saved lineup stays as it is.',
+    'dev.next': 'Next match:', 'dev.item': '{in} starts instead of {out}', 'dev.itemFit': '{in} starts instead of {out} (rested, tired)',
+    'dev.nextNone': 'no rotation (no match, a big knockout tie, or nobody close enough to step in).',
+    'dev.set': 'Development rotation: {level}', 'mc.devLine': 'Development rotation: {in} starts instead of {out}',
+    'lv.rep.devLine': '{in} started instead of {out} (development rotation)',
   },
   ja: {
     'bring.on': '優先して途中出場', 'bring.short': '投入',
@@ -35,6 +49,13 @@ export const benchStrings: { vi: Record<string, string>; en: Record<string, stri
     'bring.starter': '先発出場中：ベンチにいるときだけ有効です',
     'bring.order': '投入順 {n}', 'bring.rep': '（優先投入）',
     'err.bring_max': '同時に指定できるのは5人までです。',
+    'bring.list': '優先投入：', 'bring.unmark': '優先投入を解除', 'bring.starterShort': '先発中',
     'lv.tip.bring': '{out}（{n}%）に代えて{in}を投入し、出場機会を与えますか？',
+    'dev.label': '育成ローテーション', 'dev.0': 'オフ', 'dev.1': '弱', 'dev.2': '中', 'dev.3': '強',
+    'dev.help': '各試合の前に、出場を一番長く待っている控え選手を、同じポジションで最も疲れている先発の代わりに起用し、チーム全員が試合に出て成長できるようにします。弱：1試合1人。中：2人、控えGKは5試合に1回。強：3人、控えGKは4試合に1回。休む選手より大きく劣る選手は起用しません（90%・85%・80%）。カップ準々決勝以降と欧州カップのノックアウトではローテーションしません。保存したラインナップは変わりません。',
+    'dev.next': '次の試合：', 'dev.item': '{out}に代わり{in}が先発', 'dev.itemFit': '{out}に代わり{in}が先発（疲労で休養）',
+    'dev.nextNone': 'ローテーションなし（試合がない、重要なノックアウト戦、または代わりに出られる選手がいない）。',
+    'dev.set': '育成ローテーション：{level}', 'mc.devLine': '育成ローテーション：{out}に代わり{in}が先発',
+    'lv.rep.devLine': '{in}が{out}に代わって先発（育成ローテーション）',
   },
 }

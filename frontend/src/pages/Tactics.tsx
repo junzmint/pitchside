@@ -8,7 +8,8 @@ import { errText, useI18n } from '../i18n'
 import { eventsApi, eventsOf } from '../api_events'
 import { personKeys, twoVersions } from '../legendVersions'
 import { HomeMark } from '../LegendBits'
-import { BRING_MAX, BringToggle, bringCount, bringTooWeak, isMarked } from './BringOn'
+import { BRING_MAX, BringList, BringToggle, bringCount, bringTooWeak, isMarked } from './BringOn'
+import { DevRotation } from './DevRotation'
 
 function chemColor(c: number) {
   return c >= 7 ? '#3fcf7a' : c >= 5 ? '#e8c547' : '#ef6a55'
@@ -119,6 +120,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
         <Icon name="board" size={18} /><span>{t('tac.autoXi')}</span>
         <i className="sw" aria-hidden="true"><b /></i><small>{autoXi ? t('set.on') : t('set.off')}</small>
       </button>
+      <DevRotation ctx={ctx} />
 
       <div className="grid g2" style={{ alignItems: 'start' }}>
         <section className="panel stack">
@@ -216,6 +218,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
               <span className={'chip bringcount' + (bringCount(st.squad) ? ' on' : '')}><Icon name="up" size={13} /> {t('bring.count', { n: bringCount(st.squad), max: BRING_MAX })}</span>
             </div>
             {!selRole && <Hint text={t('bring.help')} />}
+            {!selRole && <BringList ctx={ctx} starters={xi} />}
             <div className="scroll">
               <table className="compact">
                 <thead><tr><th>{t('player')}</th><th><Abbr k="pos" /></th><th className="r"><Abbr k="ovr" /></th>{selRole && <th className="r">{t('tac.atRole', { role: selRole })}</th>}<th>{t('fitness')}</th></tr></thead>

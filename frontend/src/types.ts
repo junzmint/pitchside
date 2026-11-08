@@ -151,6 +151,8 @@ export interface Sponsor {
 
 export interface CareerState {
   alerts?: Alert[]
+  /** today's changes before kick-off: tired starters rested and the development rotation */
+  rotated?: SwapNote[] | null
   eventsView?: unknown
   exploreView?: unknown
   hotBonus: HotBonus | null
@@ -192,7 +194,9 @@ export interface SideSetup {
   unavailable?: Player[]
 }
 
-export interface SwapNote { out: string; in: string; outFit: number; inFit: number; minute?: number; bring?: boolean }
+export interface SwapNote { out: string; in: string; outFit: number; inFit: number; minute?: number; bring?: boolean
+  /** a change before kick-off: 'dev' for the development rotation (else a tired starter rested) */
+  why?: string }
 export interface Demand { kind: 'player' | 'coach'; id: number; name: string; role: string; current: number; ask: number; until: number; tries: number; reason: 'improved' | 'star' | 'senior' | 'coach' | 'renewal'; easy?: boolean; renewal?: boolean }
 export interface IconOption { templateId: number; name: string; position: Pos; overall: number; version: string; price: number; home: boolean }
 export interface IconPick { season: number; day: number; until: number; done: boolean; options: IconOption[] | null }
@@ -207,7 +211,9 @@ export interface ComEvent { key: string; name?: string; amount?: number }
 export interface SharesInfo { sold: number; raised: number; valuation: number; sellPrice: number; ask: number; fair: number; tries: number; dividend: number }
 export interface LoanOption { amount: number; weeks: number; rate: number; weekly: number; total: number }
 export interface AgeNote { name: string; age: number; before: number; after: number }
-export interface Care { load: Record<string, string> | null; rush: Record<string, boolean> | null; rotate: number; autoXi?: boolean }
+export interface Care { load: Record<string, string> | null; rush: Record<string, boolean> | null; rotate: number; autoXi?: boolean
+  /** development rotation: 0 off, 1 light, 2 medium, 3 heavy */
+  develop?: number }
 
 export interface MatchSetup { fixture: FixtureView; home: SideSetup; away: SideSetup; userIsHome: boolean; knockout: boolean
   /** events stream: clear | rain | snow | heat, stable per fixture */
