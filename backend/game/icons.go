@@ -173,13 +173,7 @@ func (s *Store) PickIcon(ctx context.Context, careerID, templateID int) (*IconSi
 		if err != nil {
 			return err
 		}
-		n, _, err := nextShirt(ctx, q, club.ID, nil)
-		if err != nil {
-			return err
-		}
-		if n >= MaxSquad {
-			return userErr("squad_full", "Your squad is full")
-		}
+		// (an icon never counts towards the squad cap: see squadFull)
 		if club.Budget < opt.Price {
 			return userErr("no_budget", "Not enough budget")
 		}

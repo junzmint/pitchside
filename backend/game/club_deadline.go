@@ -44,6 +44,7 @@ type Bargain struct {
 	Reason    string `json:"reason"` // debt | rebuild | wages
 	Sold      bool   `json:"sold"`
 	Signed    bool   `json:"signed,omitempty"` // the user bought him (Sold alone may mean he went elsewhere)
+	Icon      bool   `json:"icon,omitempty"`   // a legend card: the squad cap doesn't apply to him
 }
 
 func (life *ClubLife) deadlineActive(c *Career) bool {
@@ -265,7 +266,7 @@ func (w *world) panicSales(r *rand.Rand, mine []*Player, squads map[int][]*Playe
 		}
 		out = append(out, Bargain{PlayerID: x.p.ID, Name: x.p.Name, Position: x.p.Position, Role: x.p.Role, Overall: x.p.Overall,
 			Potential: x.p.Potential, Age: x.p.Age, Nation: x.p.Nation, ClubID: x.cl.ID, Club: x.cl.Name, Short: x.cl.Short,
-			Color: x.cl.Color, Color2: x.cl.Color2, Full: x.full, Price: x.price, Reason: reason})
+			Color: x.cl.Color, Color2: x.cl.Color2, Full: x.full, Price: x.price, Reason: reason, Icon: isLegend(x.p)})
 		used[x.cl.ID] = true
 	}
 	// affordable first; a club short of money still sees one bargain to sell for
@@ -410,7 +411,7 @@ func (w *world) buyBargain(ctx context.Context, q DBTX, life *ClubLife, pid int)
 		return nil, 0, userErr("bargain_gone", "This bargain has gone")
 	}
 	squad := w.userSquad()
-	if len(squad) >= MaxSquad {
+	if squadFull(regulars(squad), p) {
 		return nil, 0, userErr("squad_full", "Your squad is full")
 	}
 	if user.Budget < b.Price {
@@ -479,7 +480,7 @@ func deadlineView(c *Career, user *Club, squad []*Player, life *ClubLife) *Deadl
 	}
 	d := life.Deadline
 	v := &DeadlineView{Window: d.Window, Day: d.Day, Active: true, Bargains: d.Bargains, Bids: []Bid{}, Deals: d.Deals,
-		SquadFull: len(squad) >= MaxSquad, Next: next}
+		SquadFull: squadFull(regulars(squad), nil), Next: next}
 	ids := map[int]bool{}
 	for _, id := range d.Bids {
 		ids[id] = true

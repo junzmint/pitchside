@@ -374,6 +374,30 @@ func (s *Store) Market(ctx context.Context, careerID int) (*MarketView, error) {
 
 // nextShirt: the squad size and the number p gets joining it (shirts.go: one that suits him, never a retired
 // one); p nil: the size alone.
+// regulars: the players who count towards MaxSquad. Icons (legend cards and your own designs) don't, so a
+// collection of them is limited by wages only.
+func regulars(squad []*Player) int {
+	n := 0
+	for _, p := range squad {
+		if !isLegend(p) {
+			n++
+		}
+	}
+	return n
+}
+
+// squadFull: no room for p (nil: anyone) among the regulars. An icon always fits.
+func squadFull(regular int, p *Player) bool {
+	return regular >= MaxSquad && (p == nil || !isLegend(p))
+}
+
+// regularCount: regulars in the database (the market's own count).
+func regularCount(ctx context.Context, q DBTX, clubID int) (int, error) {
+	var n int
+	err := q.QueryRow(ctx, `SELECT count(*) FROM players WHERE club_id=$1 AND tag NOT IN ('legend', 'custom')`, clubID).Scan(&n)
+	return n, err
+}
+
 func nextShirt(ctx context.Context, q DBTX, clubID int, p *Player) (int, int, error) {
 	var n int
 	if err := q.QueryRow(ctx, `SELECT count(*) FROM players WHERE club_id=$1`, clubID).Scan(&n); err != nil {
@@ -408,12 +432,16 @@ func (s *Store) Buy(ctx context.Context, careerID, playerID int) (*SignResult, e
 		if err := floorCards(ctx, q, careerID, p); err != nil {
 			return err
 		}
-		n, shirt, err := nextShirt(ctx, q, club.ID, p)
+		_, shirt, err := nextShirt(ctx, q, club.ID, p)
 		if err != nil {
 			return err
 		}
-		if n >= MaxSquad {
-			return userErr("squad_full", "Your squad is full (26). Sell someone first")
+		reg, err := regularCount(ctx, q, club.ID)
+		if err != nil {
+			return err
+		}
+		if squadFull(reg, p) {
+			return userErr("squad_full", "Your squad is full (50, icons not counted). Sell someone first")
 		}
 		price := askingPrice(p, c.Season)
 		if club.Budget < price {

@@ -78,7 +78,7 @@ export function DeadlineBanner({ ctx, v }: { ctx: Ctx; v: ClubLifeView }) {
         <div className="cl-dl-col">
           <h4><Icon name="flame" size={16} /> {t('cl.dl.bargains')}</h4>
           {d.bargains.length === 0 && <p className="muted cl-empty">{t('cl.dl.noBargains')}</p>}
-          {d.bargains.map(b => <BargainCard key={b.playerId} b={b} budget={v.budget} full={d.squadFull} busy={busy}
+          {d.bargains.map(b => <BargainCard key={b.playerId} b={b} budget={v.budget} full={d.squadFull && !b.icon} busy={busy}
             onBuy={() => run(async () => {
               const r = await clubApi.act(ctx.id, { action: 'bargain', playerId: b.playerId })
               sfx('cash')

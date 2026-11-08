@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	MaxSquad    = 50 // the user's squad cap; wages are the real limit
+	MaxSquad    = 50 // the user's squad cap, icons not counted (regulars, squadFull); wages are the real limit
 	AIMaxSquad  = 30
 	CollapseAt  = 10 // fewer players than this after walk-outs ends the career
 	MinSquad    = 14

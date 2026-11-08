@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, money, setUnauthorizedHandler } from './api'
 import type { CareerState, User } from './types'
 import { Badge, BusyOverlay, CountUp, Icon, Loading, TooltipLayer, fmtMoney, type IconName } from './ui'
+import { regularCount } from './formations'
 import { errText, useI18n } from './i18n'
 import { SettingsButton } from './pages/Settings'
 import { eventsOf } from './api_events'
@@ -333,7 +334,9 @@ function Hud({ ctx }: { ctx: Ctx }) {
       <HudStat icon="points" label={t('pts')}><CountUp v={row?.pts ?? 0} /></HudStat>
       <HudStat icon="chemistry" label={t('chemistry')}><CountUp v={st.chemistry.team} /></HudStat>
       <HudStat icon="tp" label="TP" tip={t('tp.full')} tone="gold"><CountUp v={st.career.tp} /></HudStat>
-      <HudStat icon="squad" label={t('hud.squad')}>{st.squad.length}<small>/50</small></HudStat>
+      <HudStat icon="squad" label={t('hud.squad')} tip={t('hud.squadTip', { n: regularCount(st.squad), i: st.squad.length - regularCount(st.squad) })}>
+        {regularCount(st.squad)}<small>/50</small>{st.squad.length > regularCount(st.squad) && <small className="hud-icons"> ★{st.squad.length - regularCount(st.squad)}</small>}
+      </HudStat>
       {ev && typeof ev.level === 'number' && (
         <div className="stat lvl" data-tip={`${t('ev.levelTitle', { n: ev.level })}\n${ev.nextXp ? t('ev.xpOf', { x: ev.xp - ev.levelXp, n: Math.max(1, ev.nextXp - ev.levelXp) }) : t('ev.xpMax')}`}>
           <Icon name="legend" size={18} className="hi" />

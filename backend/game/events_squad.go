@@ -378,7 +378,7 @@ func (w *world) youthAnswer(ctx context.Context, q DBTX, id int, choice string) 
 	if choice == "sign" {
 		user := w.byID[c.UserClubID]
 		squad := w.userSquad()
-		if len(squad) >= MaxSquad {
+		if squadFull(regulars(squad), nil) {
 			return userErr("squad_full", "Your squad is full")
 		}
 		p := pr.Player

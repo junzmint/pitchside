@@ -2,7 +2,7 @@ import { Fragment, useState, type ReactNode } from 'react'
 import type { Ctx } from '../App'
 import { api, money } from '../api'
 import type { Player } from '../types'
-import { ATTRS } from '../formations'
+import { ATTRS, regularCount } from '../formations'
 import { tierOf, Bar, ConfirmButton, Ovr, PosTag, Seg, TagChip, TraitChips, Abbr, Icon, PageHead, PlayerCard, Title, ViewSwitch, useViewMode, Empty, Portal, Modal } from '../ui'
 import type { Pos } from '../types'
 import { errText, useI18n } from '../i18n'
@@ -67,7 +67,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
 
   return (
     <>
-      <PageHead icon="squad" eyebrow={t('sq.count', { n: st.squad.length, inj: injured })} title={t('tab.squad')}>
+      <PageHead icon="squad" eyebrow={t(regularCount(st.squad) < st.squad.length ? 'sq.countIcons' : 'sq.count', { n: regularCount(st.squad), i: st.squad.length - regularCount(st.squad), inj: injured })} title={t('tab.squad')}>
         <div className="row">
           <span className="chip num tpchip" data-tip={t('tp.help')}><Icon name="tp" size={14} /> {t('tp.have', { n: st.career.tp })}</span>
           <span className="muted"><Icon name="training" size={14} /> {t('sq.intensity')}</span>
@@ -270,7 +270,7 @@ function ShirtPicker({ ctx, p }: { ctx: Ctx; p: Player }) {
   return (
     <label className="field" data-tip={t('sq.shirtTip')}><span className="muted"><Icon name="kit" size={14} /> {t('sq.shirt')}</span>
       <select value={p.shirt} disabled={busy} aria-label={t('sq.shirt')} onChange={e => void pick(Number(e.target.value))}>
-        {Array.from({ length: 99 }, (_, i) => i + 1).map(n => {
+        {[...Array.from({ length: 99 }, (_, i) => i + 1), ...(p.shirt > 99 ? [p.shirt] : [])].map(n => {
           const who = wearer.get(n), ret = retired.get(n)
           const locked = !!ret && ret.id !== p.id
           const note = n === p.shirt ? '' : locked ? ` · ${t('sq.shirtRetired')}${ret.name ? ' · ' + ret.name : ''}` : who ? ` · ${t('sq.shirtSwap', { name: who.name })}` : ''

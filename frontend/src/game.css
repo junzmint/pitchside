@@ -906,6 +906,8 @@ small.warnc { color: var(--warn); }
 .bringchip .x { padding: 2px; min-height: 0; border-radius: 50%; background: transparent; border: 0; color: inherit; line-height: 0; }
 .bringchip .x:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); box-shadow: none; }
 .bringchip.resting, .flag.bring.resting { opacity: 0.6; border-style: dashed; }
+/* the HUD's squad count: regulars /50, then the icons (no limit) */
+.hud-icons { color: var(--hot); margin-left: 2px; }
 /* development rotation (pages/DevRotation.tsx) on the Tactics page */
 .devrot { max-width: 760px; margin: 0 0 12px; gap: 8px; }
 .devrot.on { border-left: 3px solid #3ee08a; }

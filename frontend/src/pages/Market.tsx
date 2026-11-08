@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Ctx } from '../App'
 import { api, money } from '../api'
 import type { DealQuote, LeagueInfo, MarketView, Player, Pos, ScoutRow, Template } from '../types'
-import { ATTRS, overallAs } from '../formations'
+import { ATTRS, isIcon, overallAs, regularCount } from '../formations'
 import {
   ConfirmButton, Loading, Ovr, PosTag, Seg, TagChip, TraitChips, Hint, Abbr, Icon, PageHead, PlayerCard, Title, ViewSwitch, useViewMode, Empty,
   CountUp, fmtMoney, tierOf, rangeFill, TabBar, Portal, useEscape,
@@ -23,18 +23,20 @@ export default function Market({ ctx }: { ctx: Ctx }) {
   const [m, setM] = useState<MarketView | null>(null)
   const load = useCallback(() => api.market(ctx.id).then(setM).catch(e => ctx.toast(errText(t, e), true)), [ctx.id, ctx.st.career.day])
   useEffect(() => { load() }, [load])
+  // the cap counts regular players only; icons are listed beside them
+  const regular = regularCount(ctx.st.squad), icons = ctx.st.squad.length - regular
 
   return (
     <>
       <PageHead icon="market" eyebrow={t('mk.eyebrow')} title={t('tab.market')}>
         <div className="row">
           <span className="chip num"><Icon name="budget" size={14} /> <CountUp v={ctx.st.club.budget} fmt={fmtMoney} /></span>
-          <span className={'chip num' + (ctx.st.squad.length >= MAX_SQUAD ? ' bad' : '')}><Icon name="squad" size={14} /> {t('mk.squad', { n: ctx.st.squad.length })}</span>
+          <span className={'chip num' + (regular >= MAX_SQUAD ? ' bad' : '')} data-tip={t('mk.capTip')}><Icon name="squad" size={14} /> {t('mk.squad', { n: regular })}{icons > 0 && <> · ★ {icons}</>}</span>
         </div>
       </PageHead>
-      {ctx.st.squad.length >= MAX_SQUAD && (
+      {regular >= MAX_SQUAD && (
         <div className="notice warn row spread">
-          <span className="row" style={{ gap: 6 }}><Icon name="warn" size={16} /> {t('mk.fullNote', { n: ctx.st.squad.length })}</span>
+          <span className="row" style={{ gap: 6 }}><Icon name="warn" size={16} /> {t('mk.fullNote', { n: regular })}</span>
           <button className="small" onClick={() => ctx.go('squad')}><Icon name="squad" size={14} /> {t('mk.toSquad')}</button>
         </div>
       )}
@@ -66,13 +68,17 @@ function FreeAgents({ ctx, m, reload }: { ctx: Ctx; m: MarketView; reload: () =>
   const partner = (p: Player) => mergesWith(p, ctx.st.squad, borrowed, ctx.st.club.name)
   const list = m.players.filter(p => (pos === 'ALL' || p.position === pos) && (!afford || (p.price || p.value) <= ctx.st.club.budget))
     .sort((a, b) => (b.tag ? 1 : 0) - (a.tag ? 1 : 0)) // legends (and your own designs) first: they only stay a few days
-  const full = ctx.st.squad.length >= MAX_SQUAD
-  const action = (p: Player) => (
+  // icons (legend cards and your own designs) don't count towards the cap: they can always be signed
+  const capped = regularCount(ctx.st.squad) >= MAX_SQUAD
+  const action = (p: Player) => {
+    const full = capped && !isIcon(p)
+    return (
     <ConfirmButton className="primary small" label={<><Icon name="buy" size={14} /> {t('mk.buy')}</>} confirm={t('mk.pay', { v: money(p.price || p.value) })}
       disabled={(p.price || p.value) > ctx.st.club.budget || full}
       title={full ? t('err.squad_full') : (p.price || p.value) > ctx.st.club.budget ? t('err.no_budget') : undefined}
       onConfirm={() => buy(p)} />
-  )
+    )
+  }
   return (
     <section className="panel stack">
       <div className="row spread">

@@ -65,6 +65,8 @@ export function arrangeLineup(players: Player[], lineup: number[], roles: string
 
 /** Icon players: legend cards and custom players. */
 export const isIcon = (p: Player) => p.tag === 'legend' || p.tag === 'custom'
+/** Players who count towards the 50-player cap: icons don't (backend regulars). */
+export const regularCount = (squad: Player[]) => squad.filter(p => !isIcon(p)).length
 
 /** Greedy best XI. With preferIcons, legends and custom players win a slot unless someone is clearly (15%+) better. */
 export function bestLineup(squad: Player[], roles: string[], preferIcons = false, clubName?: string): number[] {

@@ -1443,7 +1443,7 @@ func (w *world) wageUnrest(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRe
 func (w *world) academy(ctx context.Context, q DBTX, r *rand.Rand, rep *DayReport) error {
 	user := w.byID[w.career.UserClubID]
 	lvl := max(1, user.Academy)
-	if len(w.players[user.ID]) >= MaxSquad || r.Float64() > 0.035*float64(lvl) {
+	if squadFull(regulars(w.players[user.ID]), nil) || r.Float64() > 0.035*float64(lvl) {
 		return nil
 	}
 	base := divisionLevel(user.League, user.Division)

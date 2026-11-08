@@ -161,7 +161,13 @@ func shirtChoice(p *Player, taken map[int]bool, retired map[int]int, starts bool
 			return n
 		}
 	}
-	return p.Shirt
+	// more than 99 players (a big icon collection): numbers go on from 100 rather than being shared
+	// (free() stops at 99, so the check is done here; taken is finite, so a number is always found)
+	for n := 100; ; n++ {
+		if _, ret := retired[n]; !taken[n] && !ret {
+			return n
+		}
+	}
 }
 
 // pickShirt: the number p gets joining squad (with or without him in it).

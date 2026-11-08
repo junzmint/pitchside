@@ -378,9 +378,6 @@ func (w *world) loanIn(ctx context.Context, q DBTX, pid int) (*LoanDeal, error) 
 	if len(es.LoansIn) >= MaxLoansIn {
 		return nil, userErr("loan_limit", "You already have enough loan players")
 	}
-	if len(w.userSquad()) >= MaxSquad {
-		return nil, userErr("squad_full", "Your squad is full")
-	}
 	var cand *LoanCand
 	for _, lc := range w.loanable() {
 		if lc.Player.ID == pid {
@@ -390,6 +387,9 @@ func (w *world) loanIn(ctx context.Context, q DBTX, pid int) (*LoanDeal, error) 
 	}
 	if cand == nil {
 		return nil, userErr("loan_unavailable", "His club will not lend him")
+	}
+	if squadFull(regulars(w.userSquad()), cand.Player) {
+		return nil, userErr("squad_full", "Your squad is full")
 	}
 	if user.Budget < cand.Fee {
 		return nil, userErr("no_budget", "Not enough budget")

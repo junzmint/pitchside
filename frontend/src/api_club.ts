@@ -21,6 +21,8 @@ export interface TourView { season: number; offers: TourOffer[]; chosen: string;
 export interface Bargain {
   playerId: number; name: string; position: Pos; role: string; overall: number; potential: number; age: number; nation: string
   clubId: number; club: string; short: string; color: string; color2: string; full: number; price: number; reason: string; sold: boolean
+  /** a legend card: the squad cap doesn't apply to him */
+  icon?: boolean
 }
 export interface DeadlineDeal { id: number; player?: string; ovr?: number; age?: number; from?: string; to?: string; fee?: number; big?: boolean }
 export interface DeadlineView { window: '' | 'summer' | 'winter'; day: number; active: boolean; bargains: Bargain[]; bids: Bid[]; deals: DeadlineDeal[]; squadFull: boolean; next: number }

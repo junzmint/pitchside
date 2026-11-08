@@ -163,7 +163,7 @@ func (d *dealCtx) quote(req DealReq) DealQuote {
 		if len(d.theirs) <= AIMinSquad {
 			add("thin_squad", -0.25)
 		}
-		if len(d.mine) >= MaxSquad {
+		if squadFull(regulars(d.mine), d.p) {
 			qt.Blocked = "squad_full"
 		}
 	case "sell":
