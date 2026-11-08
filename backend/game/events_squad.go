@@ -69,9 +69,14 @@ func (w *world) countBench(uo *matchOutcome, rep *DayReport) {
 	c := w.career
 	es := &c.Events
 	user := w.byID[c.UserClubID]
-	inXI := map[int]bool{}
-	for _, id := range user.Lineup {
-		inXI[id] = true
+	// who really started: a player rotated into the side counts for a promise of starts; one rested from the
+	// saved lineup who only came off the bench does not
+	inXI := uo.starters
+	if inXI == nil {
+		inXI = map[int]bool{}
+		for _, id := range user.Lineup {
+			inXI[id] = true
+		}
 	}
 	for _, p := range w.userSquad() {
 		if _, ok := uo.ratings[p.ID]; ok {

@@ -178,3 +178,34 @@ func TestBigTie(t *testing.T) {
 		t.Error("no fixture counted as a big tie")
 	}
 }
+
+// A promise of starts counts the eleven who really kicked off: a player rotated into the side gets his start,
+// one rested from the saved lineup who only came off the bench does not, and the bench streak follows who played.
+func TestPromiseCountsRealStarts(t *testing.T) {
+	uid := 1
+	mk := func(id int) *Player {
+		cid := uid
+		return &Player{ID: id, Name: "P", ClubID: &cid, Morale: 60, Fitness: 90}
+	}
+	kept, rested, rotated, unused := mk(1), mk(2), mk(3), mk(4)
+	club := &Club{ID: uid, IsUser: true, Lineup: []int{1, 2}} // the saved lineup: 1 and 2
+	c := &Career{UserClubID: uid, Season: 1, Day: 5}
+	c.Events.Bench = map[int]int{}
+	for _, id := range []int{1, 2, 3, 4} {
+		c.Events.Promises = append(c.Events.Promises, Promise{PlayerID: id, Name: "P", Need: 3, Left: 4})
+	}
+	w := &world{career: c, byID: map[int]*Club{uid: club}, players: map[int][]*Player{uid: {kept, rested, rotated, unused}}}
+	// 2 was rested by the rotation and came on as a substitute; 3 was rotated in; 4 never played
+	uo := &matchOutcome{ratings: map[int]float64{1: 6.5, 2: 6.1, 3: 7.0}, starters: map[int]bool{1: true, 3: true}}
+	w.countBench(uo, &DayReport{})
+	got := map[int]int{}
+	for _, pr := range c.Events.Promises {
+		got[pr.PlayerID] = pr.Got
+	}
+	if got[1] != 1 || got[2] != 0 || got[3] != 1 || got[4] != 0 {
+		t.Errorf("starts counted %v, want 1:1 2:0 3:1 4:0", got)
+	}
+	if c.Events.Bench[3] != 0 || c.Events.Bench[4] != 1 {
+		t.Errorf("bench streaks %v", c.Events.Bench)
+	}
+}

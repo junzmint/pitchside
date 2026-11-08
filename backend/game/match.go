@@ -474,6 +474,7 @@ type matchOutcome struct {
 	f        *Fixture
 	res      SimResult
 	ratings  map[int]float64
+	starters map[int]bool // the user's eleven at kick-off: the saved lineup after fitness and development rotation
 	goals    map[int]int
 	injured  map[int]bool
 	userSide int // 0 home, 1 away, -1 none
@@ -658,6 +659,16 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 		f.PensHome, f.PensH, f.PensA = &ph, &pa, &pb
 	}
 	o := &matchOutcome{f: f, res: res, ratings: map[int]float64{}, goals: map[int]int{}, injured: map[int]bool{}, userSide: -1}
+	for _, sh := range []TeamSheet{home, away} {
+		if sh.Club.ID == w.career.UserClubID {
+			o.starters = map[int]bool{}
+			for _, p := range sh.Starters {
+				if p != nil {
+					o.starters[p.ID] = true
+				}
+			}
+		}
+	}
 	assists := map[int]int{}
 	for i, id := range res.Scorers {
 		o.goals[id]++
