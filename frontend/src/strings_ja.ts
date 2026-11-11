@@ -56,6 +56,7 @@ export const ja: Record<string, string> = {
   'nation.LR': 'リベリア', 'nation.MA': 'モロッコ', 'nation.ML': 'マリ', 'nation.MX': 'メキシコ', 'nation.NI': '北アイルランド', 'nation.PE': 'ペルー',
   'nation.RU': 'ロシア', 'nation.SK': 'スロバキア', 'nation.SN': 'セネガル', 'nation.UA': 'ウクライナ',
   'loading': '読み込み中…',
+  'loadingSlow': 'サーバーの応答がいつもより遅れています（パソコンが他の作業で忙しいのかもしれません）。読み込み中… {n}秒',
   'wait': '処理中…',
   'retry': '再試行',
   'cancel': 'キャンセル',

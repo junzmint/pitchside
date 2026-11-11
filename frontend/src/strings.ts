@@ -36,7 +36,7 @@ const prefix = (p: string, o: Record<string, string>) => Object.fromEntries(Obje
 
 const vi: Record<string, string> = {
   ...prefix('nation.', nationsVi),
-  loading: 'Đang tải…', wait: 'Đang xử lý…', retry: 'Thử lại', cancel: 'Huỷ', close: 'Đóng', confirm: 'Xác nhận', delete: 'Xoá', back: 'Quay lại',
+  loading: 'Đang tải…', loadingSlow: 'Máy chủ trả lời chậm hơn bình thường (máy tính có thể đang bận việc khác). Vẫn đang tải… {n} giây', wait: 'Đang xử lý…', retry: 'Thử lại', cancel: 'Huỷ', close: 'Đóng', confirm: 'Xác nhận', delete: 'Xoá', back: 'Quay lại',
   continue: 'Tiếp tục', change: 'đổi', details: 'Chi tiết', saved: 'Đã lưu', saveChanges: 'Lưu thay đổi', empty: 'Trống', all: 'Tất cả',
   loadFailed: 'Không tải được dữ liệu', backToSaves: 'Về danh sách sự nghiệp', saves: 'Sự nghiệp', logout: 'Đăng xuất',
   seasonN: 'Mùa giải {n}', season: 'Mùa giải', seasonShort: 'M', dayOf: 'Ngày thi đấu {d}/{n}', dayShort: 'N', offseason: 'Nghỉ hè',
@@ -477,7 +477,7 @@ const vi: Record<string, string> = {
 
 const en: Record<string, string> = {
   ...prefix('nation.', nationsEn),
-  loading: 'Loading…', wait: 'Working…', retry: 'Retry', cancel: 'Cancel', close: 'Close', confirm: 'Confirm', delete: 'Delete', back: 'Back',
+  loading: 'Loading…', loadingSlow: 'The server is answering more slowly than usual (the computer may be busy with other work). Still loading… {n} s', wait: 'Working…', retry: 'Retry', cancel: 'Cancel', close: 'Close', confirm: 'Confirm', delete: 'Delete', back: 'Back',
   continue: 'Continue', change: 'change', details: 'Details', saved: 'Saved', saveChanges: 'Save changes', empty: 'Empty', all: 'All',
   loadFailed: 'Could not load your career', backToSaves: 'Back to careers', saves: 'Careers', logout: 'Log out',
   seasonN: 'Season {n}', season: 'Season', seasonShort: 'S', dayOf: 'Matchday {d}/{n}', dayShort: 'D', offseason: 'Off-season',

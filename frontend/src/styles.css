@@ -304,6 +304,7 @@ tr.z-down td:first-child { box-shadow: inset 4px 0 0 var(--bad); }
 .busycard { display: flex; align-items: center; gap: 14px; padding: 18px 22px; border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 10px 40px rgba(0,0,0,0.3); font-size: 15px; max-width: min(420px, 90vw); }
 .spinner { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--club); animation: spin 0.8s linear infinite; flex: none; }
 .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 24px 4px; }
+.loading-slow { display: block; margin-top: 4px; font-size: 12px; color: var(--warn); max-width: 420px; }
 .loading .spinner { width: 18px; height: 18px; border-width: 2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: spin 2s linear infinite !important; } }

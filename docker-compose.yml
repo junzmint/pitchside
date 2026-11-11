@@ -3,6 +3,9 @@ name: pitchside
 services:
   db:
     image: postgres:16-alpine
+    # CPU weight (Docker's default is 1024): when other work keeps the computer's cores busy, the game's requests
+    # still get their share. It only matters while the game is busy; idle, it takes nothing from anyone.
+    cpu_shares: 4096
     shm_size: 256mb # Postgres' parallel workers share memory through /dev/shm (Docker's default 64 MB is too small)
     # The game's database is small and read on every request: room to keep all of it in memory, and no parallel
     # query workers (starting one costs more than the small queries they would split)
@@ -23,6 +26,7 @@ services:
 
   api:
     build: ./backend
+    cpu_shares: 4096 # (see db)
     environment:
       DATABASE_URL: postgres://pitch:pitch@db:5432/pitchside?sslmode=disable
       PORT: "8095"

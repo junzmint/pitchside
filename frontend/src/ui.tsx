@@ -140,7 +140,20 @@ export function BusyOverlay({ message }: { message: string }) {
 
 export function Loading({ text }: { text?: string }) {
   const { t } = useI18n()
-  return <p className="loading" role="status"><Icon name="play" size={20} className="spinball" />{text ?? t('loading')}</p>
+  // after a few seconds, say why it takes so long and for how long it has been waiting (the server answers slowly
+  // when the computer is busy with other work), instead of a spinner that looks stuck
+  const [sec, setSec] = useState(0)
+  useEffect(() => {
+    const t0 = Date.now()
+    const iv = window.setInterval(() => setSec(Math.floor((Date.now() - t0) / 1000)), 1000)
+    return () => window.clearInterval(iv)
+  }, [])
+  return (
+    <p className="loading" role="status">
+      <Icon name="play" size={20} className="spinball" />
+      <span>{text ?? t('loading')}{sec >= 4 && <small className="loading-slow">{t('loadingSlow', { n: sec })}</small>}</span>
+    </p>
+  )
 }
 
 /** Player traits; unrevealed ones show as "?". */
