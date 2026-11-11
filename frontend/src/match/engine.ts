@@ -483,6 +483,8 @@ export class Engine {
   private markNext: [number, number] = [0, 0]
   private statics_: Statics
   private lastBallZ = 0
+  /** seconds a loose, still ball has had a man standing over it without anyone taking it (unstick) */
+  private stuckT = 0
   private sayT = 0
 
   constructor(readonly setup: EngineSetup, readonly opts: EngineOpts, onEnd: (o: MatchOutcome) => void) {
@@ -1186,8 +1188,29 @@ export class Engine {
     this.aiTackles(dt)
     if (this.phase !== 'play') return
     this.checkBounds()
+    if (this.phase !== 'play') return
+    this.unstick(dt)
     if (this.tick % 15 === 0) for (const s of [0, 1] as Side[]) if (this.human[s] && this.ball.owner?.team !== s && this.assist.switch) this.autoSwitch(s, false)
     this.updateCam(dt)
+  }
+
+  /** A safety net: a loose ball lying still with a man over it that nobody has taken for 1.5 s (a tangle of players
+   *  pushing each other off it) goes to the nearest outfield man, so play never stands still with the clock running. */
+  private unstick(dt: number) {
+    const b = this.ball
+    if (b.owner || this.so || b.inNet || b.z > 0.3 || hyp(b.vx, b.vy) > 0.5) { this.stuckT = 0; return }
+    let p: MP | null = null, pd = 1.6
+    for (const q of this.players) {
+      if (q.isGK || q.slideT > 0 || q.diveT > 0) continue
+      const d = hyp(q.x - b.x, q.y - b.y)
+      if (d < pd) { pd = d; p = q }
+    }
+    if (!p) { this.stuckT = 0; return }
+    this.stuckT += dt
+    if (this.stuckT < 1.5) return
+    this.stuckT = 0
+    b.tried.clear()
+    this.giveBall(p)
   }
 
   private checkHalfEnd(): boolean {
@@ -2176,8 +2199,11 @@ export class Engine {
     let best: MP | null = null, bestD = 99
     // teammates let a fresh pass run on to its target
     const fresh = b.pass && b.pass.to && this.clock - b.pass.t < 0.8 && hyp(b.vx, b.vy) > 5 ? b.pass : null
+    // one try per man at a moving ball, but a ball that has all but stopped on the ground can be tried again: two
+    // men who had both missed it otherwise stood over a dead ball for good while the clock ran on
+    const settled = hyp(b.vx, b.vy) < 1.5 && b.z < 0.4
     for (const p of this.players) {
-      if (p.stun > 0.05 || p.slideT > 0 || b.tried.has(p)) continue
+      if (p.stun > 0.05 || p.slideT > 0 || (b.tried.has(p) && !settled)) continue
       if (b.kickCd > 0 && p === b.kicker) continue
       if (fresh && p.team === fresh.from.team && p !== fresh.to) continue
       if (b.shot && p.team === b.shot.team && hyp(b.vx, b.vy) > 8) continue // let your own team's shot through
