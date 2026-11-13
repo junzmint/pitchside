@@ -146,9 +146,25 @@ function StatLine({ e, show }: { e: AwardPlayer; show?: StatKey[] }) {
     : e.player.position === 'DF' ? ['apps', 'goals', 'cs', 'rating'] : ['apps', 'goals', 'assists', 'rating'])
   const icon = { apps: 'apps', goals: 'goal', assists: 'assist', ga: 'defense', cs: 'cleanSheet', rating: 'rating' } as const
   const val = { apps: e.apps, goals: e.goals, assists: e.assists, ga: e.gaRate?.toFixed(2) ?? '', cs: e.cs, rating: e.rating.toFixed(2) }
+  // watched and played matches count on the simulation's scale: "≈" marks a converted number, the tip gives the real one
+  const real = e.real
+  const asPlayed: Partial<Record<StatKey, string>> = real ? { goals: String(real.goals), assists: String(real.assists), cs: String(real.cs), rating: real.rating.toFixed(2) } : {}
   return (
     <span className="sg-stats">
-      {keys.map(k => <span key={k} data-tip={t('sg.stat.' + k)}><Icon name={icon[k]} size={14} /><b className="num">{val[k]}</b><small>{t('sg.statS.' + k)}</small></span>)}
+      {keys.map(k => {
+        const r = asPlayed[k]
+        const conv = r != null && r !== String(val[k])
+        return (
+          <span key={k} data-tip={t('sg.stat.' + k) + (conv ? '\n' + t('sg.realVal', { v: r }) : '')}>
+            <Icon name={icon[k]} size={14} /><b className="num">{conv ? '≈' : ''}{val[k]}</b><small>{t('sg.statS.' + k)}</small>
+          </span>
+        )
+      })}
+      {real && (
+        <span tabIndex={0} data-tip={t('sg.convTip', { g: real.goals, a: real.assists, cs: real.cs, r: real.rating.toFixed(2) })}>
+          <Icon name="info" size={13} /><small>{t('sg.conv')}</small>
+        </span>
+      )}
     </span>
   )
 }
@@ -194,7 +210,11 @@ function AwardReveal({ kind, list, night }: { kind: 'boot' | 'glove' | 'boy'; li
       </div>
       <Card e={w} />
       <div className="sg-effects">
-        {kind === 'boot' && <span className="chip special"><Icon name="goal" size={14} /> {t('sg.bootGoals', { n: w.goals })}</span>}
+        {kind === 'boot' && (
+          <span className="chip special" tabIndex={w.real ? 0 : undefined} data-tip={w.real ? t('sg.realGoals', { n: w.real.goals }) : undefined}>
+            <Icon name="goal" size={14} /> {w.real && w.real.goals !== w.goals ? '≈' : ''}{t('sg.bootGoals', { n: w.goals })}
+          </span>
+        )}
         {kind === 'glove' && w.gaRate != null && (
           <span className="chip special" tabIndex={0} data-tip={t('sg.gaTip', { n: w.conceded ?? 0, apps: w.apps })}><Icon name="defense" size={14} /> {t('sg.gloveGa', { n: w.gaRate.toFixed(2) })}</span>
         )}

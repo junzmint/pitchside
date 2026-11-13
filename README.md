@@ -274,7 +274,13 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
   - Saves from before this got their numbers put in order once.
 - **Golden Ball night**: after the last matchday, a ceremony reveals the Golden Boot, Golden Glove, Golden Boy, Manager of the Year and the Golden Ball (10 → 1).
   - A first Golden Ball lifts the winner by about one overall point; every winner gets full morale.
-  - The Golden Glove goes to the keeper who lets in the fewest goals a game (20 games or more); in a close race the one with more games wins, then more clean sheets. Watched and played matches are longer and have more goals at both ends, so for those the goals the simulation expected count instead: watching your matches never costs your keeper the award.
+  - The Golden Glove goes to the keeper who lets in the fewest goals a game (20 games or more); in a close race the one with more games wins, then more clean sheets.
+  - Every award compares players on the simulation's scale. Watched and played matches are longer, with far more goals at both ends and lower ratings for keepers, defenders and midfielders, so for those games the awards count:
+    - goals and assists at the rate the simulation expected for the team (never more than were scored);
+    - clean sheets as the chance of one, and goals against as the simulation expected;
+    - ratings as the simulation would have given them.
+
+    Watching a season neither wins nor loses awards. The ceremony marks converted numbers with "≈", and their tooltips give the real ones. The Stats page keeps the real numbers.
   - It lifts your club's reputation if the winner is yours.
   - Replay the nights in Explore → News.
 - **International tournaments**: a World Cup after seasons 1, 5, 9… and a European Championship after seasons 3, 7….

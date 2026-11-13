@@ -1,6 +1,10 @@
 package game
 
-import "testing"
+import (
+	"math"
+	"math/rand"
+	"testing"
+)
 
 // The Golden Glove goes to the keeper who lets in the fewest goals a game, not to the one with more clean sheets.
 func TestGloveFewestGoalsAGame(t *testing.T) {
@@ -15,7 +19,7 @@ func TestGloveFewestGoalsAGame(t *testing.T) {
 // goals at both ends and few clean sheets, is judged as the simulation would have judged it.
 func TestGloveLiveMatchesUseExpectedGoals(t *testing.T) {
 	watched := awardStat{id: 1, apps: 53, cs: 22, conceded: 69, gaSim: 21.5, rsum: 53 * 6.9} // 1.30 a game live, 0.41 expected
-	ai := awardStat{id: 2, apps: 48, cs: 29, conceded: 26, gaSim: 26, rsum: 48 * 8.1}         // 0.54 a game
+	ai := awardStat{id: 2, apps: 48, cs: 29, conceded: 26, gaSim: 26, rsum: 48 * 8.1}        // 0.54 a game
 	if !gloveLess(watched, ai) {
 		t.Fatalf("the watched season (%.3f expected a game) should beat %.3f", watched.gaRate(), ai.gaRate())
 	}
@@ -40,8 +44,8 @@ func TestGloveGamesCount(t *testing.T) {
 
 // Level on goals a game: more clean sheets a game, then more games.
 func TestGloveTieBreak(t *testing.T) {
-	a := awardStat{id: 1, apps: 40, cs: 25, conceded: 18, gaSim: 18}
-	b := awardStat{id: 2, apps: 40, cs: 22, conceded: 18, gaSim: 18}
+	a := awardStat{id: 1, apps: 40, cs: 25, conceded: 18, gaSim: 18, csSim: 25}
+	b := awardStat{id: 2, apps: 40, cs: 22, conceded: 18, gaSim: 18, csSim: 22}
 	if !gloveLess(a, b) || gloveLess(b, a) {
 		t.Fatal("level on goals: more clean sheets should win")
 	}
@@ -131,4 +135,35 @@ func fx(comp string, home bool, gf, ga int) *Fixture {
 	}
 	f.HomeGoals, f.AwayGoals = &h, &a
 	return f
+}
+
+// simRating is the rating formula record used inline before it was shared with the awards' scale: same numbers.
+func TestSimRatingUnchanged(t *testing.T) {
+	r := rand.New(rand.NewSource(7))
+	cats := []string{"GK", "DF", "MF", "FW"}
+	for i := 0; i < 20000; i++ {
+		eff, g, a := 50+r.Float64()*60, r.Intn(4), r.Intn(3)
+		result := []float64{0.4, 0, -0.3}[r.Intn(3)]
+		noise, share := r.NormFloat64()*0.35, 0.05+r.Float64()*0.95
+		cat, ga := cats[r.Intn(4)], r.Intn(5)
+		// the old inline formula
+		old := 6.3 + (eff-70)/25 + float64(g)*1.0 + float64(a)*0.6 + result + noise
+		old = 6.3 + (old-6.3)*(0.5+0.5*share)
+		cs := 0
+		if ga == 0 && (cat == "GK" || cat == "DF") {
+			cs = 1
+			if cat == "GK" {
+				old += 0.8
+			} else {
+				old += 0.4
+			}
+		}
+		if cat == "GK" || cat == "DF" {
+			old -= float64(ga) * 0.15
+		}
+		got := simRating(6.3+(eff-70)/25, float64(g), float64(a), result, noise, share, cat, float64(cs), float64(ga))
+		if math.Round(clamp(got, 4, 10)*10) != math.Round(clamp(old, 4, 10)*10) {
+			t.Fatalf("case %d: simRating %.6f, old formula %.6f", i, got, old)
+		}
+	}
 }

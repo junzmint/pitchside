@@ -662,6 +662,24 @@ func (s *Store) PlayDay(ctx context.Context, careerID int, req MatchResultReq) (
 	return rep, err
 }
 
+// simRating: the quick sim's rating of a game, before rounding: quality (base), goals and assists, the result and
+// the day's luck, a cameo pulled towards the middle, and for keepers and defenders a clean sheet (cs: one, or the
+// chance of one) and the goals against.
+func simRating(base, goals, assists, result, noise, share float64, cat string, cs, ga float64) float64 {
+	rt := base + goals*1.0 + assists*0.6 + result + noise
+	rt = 6.3 + (rt-6.3)*(0.5+0.5*share) // a short cameo pulls the rating towards the middle
+	switch cat {
+	case "GK":
+		rt += 0.8 * cs
+	case "DF":
+		rt += 0.4 * cs
+	}
+	if cat == "GK" || cat == "DF" {
+		rt -= ga * 0.15
+	}
+	return rt
+}
+
 // record stores a result: player stats, ratings, fatigue, injuries, morale and chemistry growth.
 func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, res SimResult, home, away TeamSheet, injuredToday map[int]bool) *matchOutcome {
 	hg, ag := res.HomeGoals, res.AwayGoals
@@ -715,8 +733,13 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 		}
 		// the goals against as the Golden Glove counts them: in a live match, the ones the quick sim expected
 		gaSim := float64(ga)
+		// and the goals for: the awards count them at the rate the quick sim expected, never above one each
+		kOwn := 1.0
 		if res.XG != nil {
 			gaSim = res.XG[1-side]
+			if gf > 0 {
+				kOwn = math.Min(1, res.XG[side]/float64(gf))
+			}
 		}
 		result := 0.0
 		switch {
@@ -760,21 +783,13 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 		for _, pt := range parts {
 			p := pt.p
 			cat := RoleCat(pt.role)
-			rt := 6.3 + (Effective(p, pt.role)-70)/25 + float64(o.goals[p.ID])*1.0 + float64(assists[p.ID])*0.6 + result + r.NormFloat64()*0.35
-			// a short cameo pulls the rating towards the middle
-			rt = 6.3 + (rt-6.3)*(0.5+0.5*pt.share)
 			cs := 0
 			if ga == 0 && (cat == "GK" || cat == "DF") {
 				cs = 1
-				if cat == "GK" {
-					rt += 0.8
-				} else {
-					rt += 0.4
-				}
 			}
-			if cat == "GK" || cat == "DF" {
-				rt -= float64(ga) * 0.15
-			}
+			base, noise := 6.3+(Effective(p, pt.role)-70)/25, r.NormFloat64()*0.35
+			goals, assisted := float64(o.goals[p.ID]), float64(assists[p.ID])
+			rt := simRating(base, goals, assisted, result, noise, pt.share, cat, float64(cs), float64(ga))
 			if v, ok := res.Ratings[p.ID]; ok { // a live match: the rating the player saw
 				rt = v
 			}
@@ -785,12 +800,29 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 			if cat == "GK" || p.Position == "GK" {
 				conceded, concededSim = ga, gaSim
 			}
-			w.exec(ctx, q, `INSERT INTO player_stats (career_id, player_id, season, comp, club_id, apps, goals, assists, rating_sum, cs, conceded, conceded_sim)
-				VALUES ($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10,$11)
+			// the game on the quick sim's scale, which the season awards compare everyone on (stage_awards.go):
+			// a live match's goals and assists at the rate the sim expected for the team, a clean sheet as the
+			// chance of one, and the rating the sim would have given; any other game as it was
+			gS, aS, csS, rS := goals, assisted, float64(cs), rt
+			if res.XG != nil {
+				gS, aS, csS = goals*kOwn, assisted*kOwn, 0
+				if cat == "GK" || cat == "DF" {
+					csS = math.Exp(-gaSim)
+				}
+				rS = math.Round(clamp(simRating(base, gS, aS, result, noise, pt.share, cat, csS, gaSim), 4, 10)*10) / 10
+			}
+			w.exec(ctx, q, `INSERT INTO player_stats (career_id, player_id, season, comp, club_id, apps, goals, assists, rating_sum, cs, conceded, conceded_sim,
+					goals_sim, assists_sim, rating_sim, cs_sim)
+				VALUES ($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 				ON CONFLICT (player_id, season, comp) DO UPDATE SET apps=player_stats.apps+1, goals=player_stats.goals+$6,
 				assists=player_stats.assists+$7, rating_sum=player_stats.rating_sum+$8, cs=player_stats.cs+$9, club_id=$5,
-				conceded=player_stats.conceded+$10, conceded_sim=player_stats.conceded_sim+$11`,
-				w.career.ID, p.ID, w.career.Season, f.Comp, sh.Club.ID, o.goals[p.ID], assists[p.ID], rt, cs, conceded, concededSim)
+				conceded=player_stats.conceded+$10, conceded_sim=player_stats.conceded_sim+$11,
+				goals_sim=COALESCE(player_stats.goals_sim, player_stats.goals)+$12,
+				assists_sim=COALESCE(player_stats.assists_sim, player_stats.assists)+$13,
+				rating_sim=COALESCE(player_stats.rating_sim, player_stats.rating_sum)+$14,
+				cs_sim=COALESCE(player_stats.cs_sim, player_stats.cs)+$15`,
+				w.career.ID, p.ID, w.career.Season, f.Comp, sh.Club.ID, o.goals[p.ID], assists[p.ID], rt, cs, conceded, concededSim,
+				gS, aS, rS, csS)
 			if w.matchInjury(r, p, sh, f, congested, pt.share, physio) { // injury.go
 				o.injured[p.ID] = true
 				injuredToday[p.ID] = true

@@ -157,6 +157,14 @@ func (s *Store) Migrate(ctx context.Context) error {
 			AND NOT EXISTS (SELECT 1 FROM meta WHERE k = 'conceded_filled')`,
 		`INSERT INTO meta (k, v) VALUES ('conceded_filled', '1') ON CONFLICT (k) DO NOTHING`,
 	)
+	// season awards (stage_awards.go) compare everyone on the quick sim's scale: the game as it counts there
+	// (match.go). Null means the same as goals, assists, rating_sum and cs, as for every game before these.
+	migrations = append(migrations,
+		`ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS goals_sim REAL`,
+		`ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS assists_sim REAL`,
+		`ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS rating_sim REAL`,
+		`ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS cs_sim REAL`,
+	)
 	// Every statement is idempotent, but ALTER TABLE takes an exclusive lock even when there is
 	// nothing to do, which stalls (or deadlocks) a running API. Skip the lot when this exact
 	// schema and list were applied before.

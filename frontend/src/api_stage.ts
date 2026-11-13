@@ -22,6 +22,9 @@ export interface AwardPlayer {
   /** keepers: the goals he let in, and a game as the Golden Glove counts them (watched and played matches at the
    *  quick sim's expected goals); older award nights have neither */
   conceded?: number; gaRate?: number
+  /** goals, assists, cs and rating above are on the awards' scale (the quick sim's); these are the numbers as they
+   *  were, when watched or played matches made them differ */
+  real?: { goals: number; assists: number; cs: number; rating: number }
 }
 
 export interface AwardManager {

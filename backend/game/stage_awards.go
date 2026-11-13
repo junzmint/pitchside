@@ -17,6 +17,10 @@ import (
 //   Golden Glove  the keeper who lets in the fewest goals a game (gloveLess)
 //   Golden Boot   most goals in all competitions
 //   Manager of the Year  the AI head coaches and the user: results against expectation and trophies
+// Everyone is compared on the quick sim's scale. Watched and played matches run on the live engine, whose longer
+// matches bring far more goals at both ends (and lower ratings for keepers, defenders and midfielders), so for
+// those the goals and assists count at the rate the sim expected for the team, clean sheets as the chance of one
+// and ratings as the sim would have given them (match.go): watching a season neither wins nor loses awards.
 // The winner's value rises (about +1 overall, ~14%) and his morale goes to full; a Golden Ball for
 // one of the user's players also lifts the club's reputation by one. Every night is kept for replays.
 
@@ -43,6 +47,16 @@ type AwardPlayer struct {
 	// expected goals); older award nights have neither
 	Conceded int      `json:"conceded,omitempty"`
 	GaRate   *float64 `json:"gaRate,omitempty"`
+	// Goals, Assists, CS and Rating are on the awards' scale (the quick sim's); Real holds the numbers as they
+	// were when watched or played matches made them differ
+	Real *AwardReal `json:"real,omitempty"`
+}
+
+type AwardReal struct {
+	Goals   int     `json:"goals"`
+	Assists int     `json:"assists"`
+	CS      int     `json:"cs"`
+	Rating  float64 `json:"rating"`
 }
 
 type AwardManager struct {
@@ -91,10 +105,15 @@ type AwardNight struct {
 
 type awardStat struct {
 	id, club, apps, goals, assists, cs, conceded int
-	rsum, gaSim                                  float64 // gaSim: player_stats.conceded_sim
+	rsum, gaSim                                  float64 // rsum: ratings as given · gaSim: player_stats.conceded_sim
+	// the season on the quick sim's scale, which the awards compare (player_stats.goals_sim, assists_sim,
+	// cs_sim and rating_sim: watched and played matches as the sim would have had them)
+	gSim, aSim, csSim, rSim float64
 }
 
-func (a awardStat) avg() float64 { return a.rsum / math.Max(1, float64(a.apps)) }
+// avg: the average rating the awards compare (the quick sim's scale); realAvg: as the ratings were given.
+func (a awardStat) avg() float64     { return a.rSim / math.Max(1, float64(a.apps)) }
+func (a awardStat) realAvg() float64 { return a.rsum / math.Max(1, float64(a.apps)) }
 
 // Golden Glove: the keeper who lets in the fewest goals a game, from GloveMinApps games. Watched and played
 // matches run on the live engine, whose longer matches bring more goals at both ends, so for those the goals
@@ -121,7 +140,7 @@ func gloveLess(a, b awardStat) bool {
 	if ra, rb := math.Round(a.gloveRate()*1000), math.Round(b.gloveRate()*1000); ra != rb {
 		return ra < rb
 	}
-	ca, cb := float64(a.cs)/math.Max(1, float64(a.apps)), float64(b.cs)/math.Max(1, float64(b.apps))
+	ca, cb := a.csSim/math.Max(1, float64(a.apps)), b.csSim/math.Max(1, float64(b.apps))
 	if ca != cb {
 		return ca > cb
 	}
@@ -254,7 +273,9 @@ func (w *world) goldenBall(ctx context.Context, q DBTX, r *rand.Rand, st *StageS
 func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*AwardNight, error) {
 	c := w.career
 	rows, err := q.Query(ctx, `SELECT player_id, (array_agg(club_id ORDER BY apps DESC))[1], sum(apps)::int, sum(goals)::int,
-		sum(assists)::int, sum(rating_sum)::float8, sum(cs)::int, sum(conceded)::int, sum(conceded_sim)::float8
+		sum(assists)::int, sum(rating_sum)::float8, sum(cs)::int, sum(conceded)::int, sum(conceded_sim)::float8,
+		sum(COALESCE(goals_sim, goals))::float8, sum(COALESCE(assists_sim, assists))::float8,
+		sum(COALESCE(cs_sim, cs))::float8, sum(COALESCE(rating_sim, rating_sum))::float8
 		FROM player_stats WHERE career_id=$1 AND season=$2 AND comp <> 'friendly' GROUP BY player_id HAVING sum(apps) >= 6`, c.ID, c.Season)
 	if err != nil {
 		return nil, err
@@ -262,7 +283,8 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 	var stats []awardStat
 	for rows.Next() {
 		var a awardStat
-		if err := rows.Scan(&a.id, &a.club, &a.apps, &a.goals, &a.assists, &a.rsum, &a.cs, &a.conceded, &a.gaSim); err != nil {
+		if err := rows.Scan(&a.id, &a.club, &a.apps, &a.goals, &a.assists, &a.rsum, &a.cs, &a.conceded, &a.gaSim,
+			&a.gSim, &a.aSim, &a.csSim, &a.rSim); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -328,9 +350,9 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 	posW := map[string]float64{"FW": 1.0, "MF": 0.96, "DF": 0.84, "GK": 0.8}
 	ballScore := func(a awardStat, p *Player, ts *teamSeason) float64 {
 		vol := math.Min(1, float64(a.apps)/36)
-		s := 10*z(p, a.avg())*posW[p.Position]*(0.55+0.45*vol) + 0.12*float64(a.goals) + 0.07*float64(a.assists)
+		s := 10*z(p, a.avg())*posW[p.Position]*(0.55+0.45*vol) + 0.12*a.gSim + 0.07*a.aSim
 		if p.Position == "DF" || p.Position == "GK" {
-			s += 0.06 * float64(a.cs)
+			s += 0.06 * a.csSim
 		}
 		if ts != nil {
 			s += ts.playerBonus()
@@ -341,8 +363,12 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 	entry := func(a awardStat, p *Player, score float64) AwardPlayer {
 		snap := *p
 		snap.Traits, snap.HiddenTraits, snap.Dev, snap.Load, snap.Rushed = nil, 0, "", "", false
-		ap := AwardPlayer{Player: &snap, ClubID: a.club, Apps: a.apps, Goals: a.goals, Assists: a.assists, CS: a.cs,
-			Rating: math.Round(a.avg()*100) / 100, Score: score, Mine: a.club == userClub}
+		ap := AwardPlayer{Player: &snap, ClubID: a.club, Apps: a.apps, Goals: int(math.Round(a.gSim)), Assists: int(math.Round(a.aSim)),
+			CS: int(math.Round(a.csSim)), Rating: math.Round(a.avg()*100) / 100, Score: score, Mine: a.club == userClub}
+		if real := (AwardReal{Goals: a.goals, Assists: a.assists, CS: a.cs, Rating: math.Round(a.realAvg()*100) / 100}); real.Goals != ap.Goals ||
+			real.Assists != ap.Assists || real.CS != ap.CS || math.Abs(real.Rating-ap.Rating) >= 0.05 {
+			ap.Real = &real
+		}
 		if p.ClubID != nil && *p.ClubID == userClub {
 			ap.Mine = true
 		}
@@ -382,8 +408,8 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 		if a.apps >= GloveMinApps && p.Position == "GK" {
 			glove = append(glove, scored{a, p, math.Round(a.gloveRate()*100) / 100})
 		}
-		if a.goals > 0 {
-			boot = append(boot, scored{a, p, float64(a.goals)})
+		if a.gSim >= 0.5 {
+			boot = append(boot, scored{a, p, math.Round(a.gSim*10) / 10})
 		}
 	}
 	byScore := func(xs []scored) {
@@ -398,8 +424,8 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 	byScore(boy)
 	sort.SliceStable(glove, func(i, j int) bool { return gloveLess(glove[i].a, glove[j].a) })
 	sort.SliceStable(boot, func(i, j int) bool {
-		if boot[i].a.goals != boot[j].a.goals {
-			return boot[i].a.goals > boot[j].a.goals
+		if boot[i].score != boot[j].score { // goals on the awards' scale, to a tenth
+			return boot[i].score > boot[j].score
 		}
 		if boot[i].a.apps != boot[j].a.apps {
 			return boot[i].a.apps < boot[j].a.apps
