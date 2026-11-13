@@ -523,6 +523,10 @@ func (s *Store) PlayDay(ctx context.Context, careerID int, req MatchResultReq) (
 			home, away := w.matchSheets(ctx, q, uf) // the occasion, weather, derby, captain, press conference, home crowd
 			var res SimResult
 			live := req.Mode == "live"
+			var kickoff Odds
+			if live {
+				kickoff = MatchOdds(home, away) // as the match page showed them, before any change in the match
+			}
 			if req.Mode != "forfeit" {
 				for _, sh := range []*TeamSheet{&home, &away} {
 					if live {
@@ -545,6 +549,11 @@ func (s *Store) PlayDay(ctx context.Context, careerID int, req MatchResultReq) (
 				}
 				res = SimResult{HomeGoals: req.HomeGoals, AwayGoals: req.AwayGoals, PossHome: req.PossHome, ShotsHome: req.ShotsHome, ShotsAway: req.ShotsAway,
 					ExtraTime: req.ExtraTime && isKnockout(uf)}
+				xh, xa := kickoff.HomeXG, kickoff.AwayXG
+				if res.ExtraTime { // 120 minutes
+					xh, xa = xh*4/3, xa*4/3
+				}
+				res.XG = &[2]float64{xh, xa}
 				if len(req.Pens) == 2 && isKnockout(uf) && req.HomeGoals == req.AwayGoals && req.Pens[0] != req.Pens[1] &&
 					req.Pens[0] >= 0 && req.Pens[1] >= 0 && req.Pens[0] <= 40 && req.Pens[1] <= 40 {
 					res.Shootout, res.PensH, res.PensA = true, req.Pens[0], req.Pens[1]
@@ -704,6 +713,11 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 		if side == 1 {
 			gf, ga = ag, hg
 		}
+		// the goals against as the Golden Glove counts them: in a live match, the ones the quick sim expected
+		gaSim := float64(ga)
+		if res.XG != nil {
+			gaSim = res.XG[1-side]
+		}
 		result := 0.0
 		switch {
 		case gf > ga:
@@ -766,11 +780,17 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 			}
 			rt = math.Round(clamp(rt, 4, 10)*10) / 10
 			o.ratings[p.ID] = rt
-			w.exec(ctx, q, `INSERT INTO player_stats (career_id, player_id, season, comp, club_id, apps, goals, assists, rating_sum, cs)
-				VALUES ($1,$2,$3,$4,$5,1,$6,$7,$8,$9)
+			// a keeper's goals against: every game he played in (as with his appearances), or the man in goal
+			conceded, concededSim := 0, 0.0
+			if cat == "GK" || p.Position == "GK" {
+				conceded, concededSim = ga, gaSim
+			}
+			w.exec(ctx, q, `INSERT INTO player_stats (career_id, player_id, season, comp, club_id, apps, goals, assists, rating_sum, cs, conceded, conceded_sim)
+				VALUES ($1,$2,$3,$4,$5,1,$6,$7,$8,$9,$10,$11)
 				ON CONFLICT (player_id, season, comp) DO UPDATE SET apps=player_stats.apps+1, goals=player_stats.goals+$6,
-				assists=player_stats.assists+$7, rating_sum=player_stats.rating_sum+$8, cs=player_stats.cs+$9, club_id=$5`,
-				w.career.ID, p.ID, w.career.Season, f.Comp, sh.Club.ID, o.goals[p.ID], assists[p.ID], rt, cs)
+				assists=player_stats.assists+$7, rating_sum=player_stats.rating_sum+$8, cs=player_stats.cs+$9, club_id=$5,
+				conceded=player_stats.conceded+$10, conceded_sim=player_stats.conceded_sim+$11`,
+				w.career.ID, p.ID, w.career.Season, f.Comp, sh.Club.ID, o.goals[p.ID], assists[p.ID], rt, cs, conceded, concededSim)
 			if w.matchInjury(r, p, sh, f, congested, pt.share, physio) { // injury.go
 				o.injured[p.ID] = true
 				injuredToday[p.ID] = true

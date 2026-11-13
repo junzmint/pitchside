@@ -9,6 +9,8 @@ export interface Celebration {
   id: number; kind: 'cup' | 'cl' | 'league' | 'promotion' | 'feat' | 'ach'; key: string; season: number; day: number
   club: string; short: string; color: string; color2: string; league: string; division: number; compName: string
   opp?: string; score?: string; pens?: boolean; scorers?: string[]; points?: number; promoted?: boolean
+  /** perfect season: the league games won (all of them), and every competitive game when all were won too */
+  wins?: number; allWins?: number
 }
 
 /** CareerState.exploreView */

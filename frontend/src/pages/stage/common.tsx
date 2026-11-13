@@ -1,7 +1,7 @@
 // Shared pieces of the world stage: flags, award and trophy art, confetti, sounds, headline texts.
 import { Fragment, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { money } from '../../api'
-import type { NewsItem } from '../../api_stage'
+import type { AwardPlayer, NewsItem } from '../../api_stage'
 import type { Lang } from '../../strings'
 import type { TFn } from '../../i18n'
 import { Badge, Icon, type IconName } from '../../ui'
@@ -323,6 +323,11 @@ export const reduceMotion = () => typeof window !== 'undefined' && !!window.matc
 // ---------------------------------------------------------------- headline texts
 
 /** "16th" in English; the other languages write the number in their own phrase. */
+/** A Golden Glove entry in a few words: goals conceded a game as the award counts them (an older night: clean sheets). */
+export function gloveStat(t: TFn, e: Pick<AwardPlayer, 'cs' | 'gaRate'>) {
+  return e.gaRate != null ? t('sg.nGa', { n: e.gaRate.toFixed(2) }) : t('sg.nCs', { n: e.cs })
+}
+
 export function ordinal(lang: Lang, n: number) {
   if (lang !== 'en') return String(n)
   const s = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'

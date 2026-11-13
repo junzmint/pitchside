@@ -10,14 +10,14 @@ import (
 // ---------------------------------------------------------------- celebrations
 //
 // When the user's club wins something (a cup final, the continental final, the league, promotion,
-// a double/treble/invincible season or a platinum achievement) a congratulations pop-up waits in
+// a double/treble/invincible/perfect season or a platinum achievement) a congratulations pop-up waits in
 // ExploreState.Celebrate until the user acknowledges it. Titles also go into ExploreState.Trophies,
 // with the story of the day, for the trophy room.
 
 type Celebration struct {
 	ID        int      `json:"id"`
 	Kind      string   `json:"kind"` // cup | cl | league | promotion | feat | ach
-	Key       string   `json:"key"`  // feat: double | treble | invincible · ach: achievement key
+	Key       string   `json:"key"`  // feat: double | treble | invincible | perfect · ach: achievement key
 	Season    int      `json:"season"`
 	Day       int      `json:"day"`
 	Club      string   `json:"club"`
@@ -34,13 +34,15 @@ type Celebration struct {
 	Scorers   []string `json:"scorers,omitempty"`
 	Points    int      `json:"points,omitempty"`
 	Promoted  bool     `json:"promoted,omitempty"`
+	Wins      int      `json:"wins,omitempty"`    // perfect: the league games won (all of them)
+	AllWins   int      `json:"allWins,omitempty"` // perfect: every competitive game was won too, this many
 }
 
 // MaxPendingCelebrations keeps a long absence from piling up pop-ups.
 const MaxPendingCelebrations = 6
 
 // platinum achievements that already come with their own celebration
-var celebratedElsewhere = map[string]bool{"top_title": true, "euro_win": true, "double": true, "treble": true, "invincible": true}
+var celebratedElsewhere = map[string]bool{"top_title": true, "euro_win": true, "double": true, "treble": true, "invincible": true, "perfect": true}
 
 func isTrophyKind(k string) bool { return k == "cup" || k == "cl" || k == "league" || k == "promotion" }
 
@@ -129,20 +131,37 @@ func (w *world) celebrateFinals(rep *DayReport) {
 	}
 }
 
-// leagueRecord: the user's league games this season, and how many were lost.
-func (w *world) leagueRecord() (played, lost int) {
+// seasonRec: the user's season: league games played, won and lost, and every competitive game (league,
+// cup, continental) played and won. A shoot-out is no win: the game itself was drawn.
+type seasonRec struct{ played, won, lost, allPlayed, allWon int }
+
+// unbeaten: a whole league season (30 games or more) without a defeat.
+func (r seasonRec) unbeaten() bool { return r.played >= 30 && r.lost == 0 }
+
+// perfect: a whole league season (30 games or more) won game by game.
+func (r seasonRec) perfect() bool { return r.played >= 30 && r.won == r.played }
+
+func (w *world) seasonRecord() (r seasonRec) {
 	uid := w.career.UserClubID
 	for _, f := range w.fixtures {
-		if f.Comp != "league" || !f.Played || (f.HomeID != uid && f.AwayID != uid) || f.HomeGoals == nil || f.AwayGoals == nil {
+		if f.Comp == "friendly" || !f.Played || (f.HomeID != uid && f.AwayID != uid) || f.HomeGoals == nil || f.AwayGoals == nil {
 			continue
 		}
-		played++
 		gf, ga := *f.HomeGoals, *f.AwayGoals
 		if f.AwayID == uid {
 			gf, ga = ga, gf
 		}
-		if gf < ga {
-			lost++
+		r.allPlayed++
+		if gf > ga {
+			r.allWon++
+		}
+		if f.Comp == "league" {
+			r.played++
+			if gf > ga {
+				r.won++
+			} else if gf < ga {
+				r.lost++
+			}
 		}
 	}
 	return
@@ -171,7 +190,15 @@ func (w *world) celebrateSeason(se *SeasonEnd) {
 			w.celebrate(Celebration{Kind: "feat", Key: "double"})
 		}
 	}
-	if played, lost := w.leagueRecord(); played >= 30 && lost == 0 {
+	// a perfect season (every league game won) has its own pop-up instead of the unbeaten one
+	switch rec := w.seasonRecord(); {
+	case rec.perfect():
+		cb := Celebration{Kind: "feat", Key: "perfect", Points: pts, Wins: rec.won}
+		if rec.allWon == rec.allPlayed && rec.allPlayed > rec.played {
+			cb.AllWins = rec.allWon // and every cup and continental game too
+		}
+		w.celebrate(cb)
+	case rec.unbeaten():
 		w.celebrate(Celebration{Kind: "feat", Key: "invincible", Points: pts})
 	}
 }

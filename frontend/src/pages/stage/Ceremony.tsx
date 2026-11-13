@@ -3,7 +3,7 @@ import { money } from '../../api'
 import type { AwardManager, AwardNight, AwardPlayer } from '../../api_stage'
 import { Badge, Icon, PlayerCard, Portal, visibleColor } from '../../ui'
 import { useI18n } from '../../i18n'
-import { AwardArt, Confetti, Flag, ordinal, playDrumRoll, playFanfare, playReveal, reduceMotion, useStageKeys, type AwardKey } from './common'
+import { AwardArt, Confetti, Flag, gloveStat, ordinal, playDrumRoll, playFanfare, playReveal, reduceMotion, useStageKeys, type AwardKey } from './common'
 
 // Golden Ball night: a dark stage with spotlights. The smaller awards first (Golden Boot, Golden
 // Glove, Golden Boy, Manager of the Year), then the Golden Ball's top ten from 10 to 1, the winner's
@@ -138,11 +138,14 @@ export function Ceremony({ night, onClose, onHistory, replay }: { night: AwardNi
   )
 }
 
-function StatLine({ e, show }: { e: AwardPlayer; show?: ('apps' | 'goals' | 'assists' | 'cs' | 'rating')[] }) {
+type StatKey = 'apps' | 'goals' | 'assists' | 'ga' | 'cs' | 'rating'
+
+function StatLine({ e, show }: { e: AwardPlayer; show?: StatKey[] }) {
   const { t } = useI18n()
-  const keys = show ?? (e.player.position === 'GK' ? ['apps', 'cs', 'rating'] : e.player.position === 'DF' ? ['apps', 'goals', 'cs', 'rating'] : ['apps', 'goals', 'assists', 'rating'])
-  const icon = { apps: 'apps', goals: 'goal', assists: 'assist', cs: 'cleanSheet', rating: 'rating' } as const
-  const val = { apps: e.apps, goals: e.goals, assists: e.assists, cs: e.cs, rating: e.rating.toFixed(2) }
+  const keys: StatKey[] = show ?? (e.player.position === 'GK' ? (e.gaRate != null ? ['apps', 'ga', 'cs', 'rating'] : ['apps', 'cs', 'rating'])
+    : e.player.position === 'DF' ? ['apps', 'goals', 'cs', 'rating'] : ['apps', 'goals', 'assists', 'rating'])
+  const icon = { apps: 'apps', goals: 'goal', assists: 'assist', ga: 'defense', cs: 'cleanSheet', rating: 'rating' } as const
+  const val = { apps: e.apps, goals: e.goals, assists: e.assists, ga: e.gaRate?.toFixed(2) ?? '', cs: e.cs, rating: e.rating.toFixed(2) }
   return (
     <span className="sg-stats">
       {keys.map(k => <span key={k} data-tip={t('sg.stat.' + k)}><Icon name={icon[k]} size={14} /><b className="num">{val[k]}</b><small>{t('sg.statS.' + k)}</small></span>)}
@@ -192,11 +195,14 @@ function AwardReveal({ kind, list, night }: { kind: 'boot' | 'glove' | 'boy'; li
       <Card e={w} />
       <div className="sg-effects">
         {kind === 'boot' && <span className="chip special"><Icon name="goal" size={14} /> {t('sg.bootGoals', { n: w.goals })}</span>}
-        {kind === 'glove' && <span className="chip special"><Icon name="cleanSheet" size={14} /> {t('sg.gloveCs', { n: w.cs })}</span>}
+        {kind === 'glove' && w.gaRate != null && (
+          <span className="chip special" tabIndex={0} data-tip={t('sg.gaTip', { n: w.conceded ?? 0, apps: w.apps })}><Icon name="defense" size={14} /> {t('sg.gloveGa', { n: w.gaRate.toFixed(2) })}</span>
+        )}
+        {kind === 'glove' && <span className={'chip' + (w.gaRate == null ? ' special' : '')}><Icon name="cleanSheet" size={14} /> {t('sg.gloveCs', { n: w.cs })}</span>}
         {kind === 'boy' && <span className="chip special"><Icon name="up" size={14} /> {t('sg.boyAge', { n: w.player.age })}</span>}
         {eff?.morale && <span className="chip"><Icon name="flame" size={14} /> {t('sg.morale')}</span>}
       </div>
-      {rest.length > 0 && <p className="muted sg-runners">{t('sg.runnersUp', { list: rest.map(r => `${r.player.name} (${kind === 'boot' ? t('sg.nGoals', { n: r.goals }) : kind === 'glove' ? t('sg.nCs', { n: r.cs }) : r.club})`).join(', ') })}</p>}
+      {rest.length > 0 && <p className="muted sg-runners">{t('sg.runnersUp', { list: rest.map(r => `${r.player.name} (${kind === 'boot' ? t('sg.nGoals', { n: r.goals }) : kind === 'glove' ? gloveStat(t, r) : r.club})`).join(', ') })}</p>}
     </div>
   )
 }
@@ -308,7 +314,7 @@ function Summary({ night }: { night: AwardNight }) {
       <div className="sg-tiles">
         {w && tile('ball', w.player.name, `${w.club} · ${t('sg.nGoals', { n: w.goals })} · ${w.rating.toFixed(2)}`, w)}
         {night.boy[0] && tile('boy', night.boy[0].player.name, `${night.boy[0].club} · ${t('sg.boyAge', { n: night.boy[0].player.age })}`, night.boy[0])}
-        {night.glove[0] && tile('glove', night.glove[0].player.name, `${night.glove[0].club} · ${t('sg.nCs', { n: night.glove[0].cs })}`, night.glove[0])}
+        {night.glove[0] && tile('glove', night.glove[0].player.name, `${night.glove[0].club} · ${gloveStat(t, night.glove[0])}`, night.glove[0])}
         {night.boot[0] && tile('boot', night.boot[0].player.name, `${night.boot[0].club} · ${t('sg.nGoals', { n: night.boot[0].goals })}`, night.boot[0])}
         {m && tile('manager', m.mine ? t('sg.youAre', { name: m.name }) : m.name, `${m.club} · ${t('sg.mgrLine', { pos: ordinal(lang, m.pos), exp: ordinal(lang, m.expected), d: m.division })}`, m)}
       </div>

@@ -62,6 +62,7 @@ var AchDefs = []AchDef{
 	{Key: "double", Group: "glory", Tier: "platinum", Hidden: true, Stat: "double", Target: 1, TP: 6, Money: 5 * M},
 	{Key: "treble", Group: "glory", Tier: "platinum", Hidden: true, Stat: "treble", Target: 1, TP: 10, Money: 20 * M, Title: true},
 	{Key: "invincible", Group: "glory", Tier: "platinum", Hidden: true, Stat: "invincible", Target: 1, TP: 8, Money: 10 * M, Title: true},
+	{Key: "perfect", Group: "glory", Tier: "platinum", Hidden: true, Stat: "perfect", Target: 1, TP: 10, Money: 15 * M, Title: true},
 	{Key: "seasons_5", Group: "glory", Tier: "silver", Stat: "seasons", Target: 5, TP: 3},
 	{Key: "seasons_10", Group: "glory", Tier: "gold", Stat: "seasons", Target: 10, TP: 5, Title: true},
 	// squad
@@ -296,9 +297,12 @@ func (w *world) trackSeason(se *SeasonEnd) {
 			x.Stats["treble"]++
 		}
 	}
-	played, lost := w.leagueRecord()
-	if played >= 30 && lost == 0 {
+	rec := w.seasonRecord()
+	if rec.unbeaten() {
 		x.Stats["invincible"]++
+	}
+	if rec.perfect() {
+		x.Stats["perfect"]++
 	}
 }
 

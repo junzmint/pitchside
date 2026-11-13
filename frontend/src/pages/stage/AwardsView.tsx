@@ -3,7 +3,7 @@ import type { Ctx } from '../../App'
 import { stageApi, type AwardNight, type AwardPlayer, type AwardsView as View } from '../../api_stage'
 import { Badge, Empty, Icon, Loading, PlayerCard } from '../../ui'
 import { errText, useI18n } from '../../i18n'
-import { AwardArt, ordinal, type AwardKey } from './common'
+import { AwardArt, gloveStat, ordinal, type AwardKey } from './common'
 import { Ceremony } from './Ceremony'
 
 /** Award history: every Golden Ball night of this career, newest first, with a replay of each ceremony. */
@@ -49,7 +49,7 @@ export default function AwardsView({ ctx }: { ctx: Ctx }) {
           <div className="sg-awgrid">
             <Row kind="ball" e={n.ball[0]} sub={n.ball[0] ? `${n.ball[0].club} · ${t('sg.nGoals', { n: n.ball[0].goals })}` : ''} />
             <Row kind="boy" e={n.boy[0]} sub={n.boy[0] ? `${n.boy[0].club} · ${t('sg.boyAge', { n: n.boy[0].player.age })}` : ''} />
-            <Row kind="glove" e={n.glove[0]} sub={n.glove[0] ? `${n.glove[0].club} · ${t('sg.nCs', { n: n.glove[0].cs })}` : ''} />
+            <Row kind="glove" e={n.glove[0]} sub={n.glove[0] ? `${n.glove[0].club} · ${gloveStat(t, n.glove[0])}` : ''} />
             <Row kind="boot" e={n.boot[0]} sub={n.boot[0] ? `${n.boot[0].club} · ${t('sg.nGoals', { n: n.boot[0].goals })}` : ''} />
             {n.managers[0] && (
               <div className={'sg-awrow' + (n.managers[0].mine ? ' mine' : '')}>

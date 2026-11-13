@@ -14,7 +14,7 @@ import (
 //   Golden Ball   the season's top ten: match ratings against others in the same position, goals and
 //                 assists, clean sheets for defenders and keepers, games played and the team's success
 //   Golden Boy    the best player aged 21 or under
-//   Golden Glove  the best keeper: clean sheets and ratings
+//   Golden Glove  the keeper who lets in the fewest goals a game (gloveLess)
 //   Golden Boot   most goals in all competitions
 //   Manager of the Year  the AI head coaches and the user: results against expectation and trophies
 // The winner's value rises (about +1 overall, ~14%) and his morale goes to full; a Golden Ball for
@@ -37,8 +37,12 @@ type AwardPlayer struct {
 	Assists  int      `json:"assists"`
 	CS       int      `json:"cs"`
 	Rating   float64  `json:"rating"`
-	Score    float64  `json:"score"`
+	Score    float64  `json:"score"`          // Golden Glove: his gloveRate (lower is better); the rest: higher is better
 	Mine     bool     `json:"mine,omitempty"` // plays for the user's club
+	// keepers: the goals he let in, and a game as the Golden Glove counts them (live matches at the quick sim's
+	// expected goals); older award nights have neither
+	Conceded int      `json:"conceded,omitempty"`
+	GaRate   *float64 `json:"gaRate,omitempty"`
 }
 
 type AwardManager struct {
@@ -86,11 +90,46 @@ type AwardNight struct {
 }
 
 type awardStat struct {
-	id, club, apps, goals, assists, cs int
-	rsum                               float64
+	id, club, apps, goals, assists, cs, conceded int
+	rsum, gaSim                                  float64 // gaSim: player_stats.conceded_sim
 }
 
 func (a awardStat) avg() float64 { return a.rsum / math.Max(1, float64(a.apps)) }
+
+// Golden Glove: the keeper who lets in the fewest goals a game, from GloveMinApps games. Watched and played
+// matches run on the live engine, whose longer matches bring more goals at both ends, so for those the goals
+// the quick simulation expected count instead (player_stats.conceded_sim): watching never costs a keeper the
+// award, and the other side's keeper is not punished for your eight-goal afternoon. A few games prove little:
+// GlovePrior games at GlovePriorRate join every record, so in a close race the keeper with more games wins.
+const (
+	GloveMinApps   = 20
+	GlovePrior     = 5.0
+	GlovePriorRate = 1.2
+)
+
+// gaRate: goals against a game as the Golden Glove counts them.
+func (a awardStat) gaRate() float64 { return a.gaSim / math.Max(1, float64(a.apps)) }
+
+// gloveRate: gaRate with GlovePrior games of GlovePriorRate added (what the Golden Glove ranks by).
+func (a awardStat) gloveRate() float64 {
+	return (a.gaSim + GlovePrior*GlovePriorRate) / (float64(a.apps) + GlovePrior)
+}
+
+// gloveLess: the Golden Glove order: the lower gloveRate, then more clean sheets a game, more games, the
+// better rating.
+func gloveLess(a, b awardStat) bool {
+	if ra, rb := math.Round(a.gloveRate()*1000), math.Round(b.gloveRate()*1000); ra != rb {
+		return ra < rb
+	}
+	ca, cb := float64(a.cs)/math.Max(1, float64(a.apps)), float64(b.cs)/math.Max(1, float64(b.apps))
+	if ca != cb {
+		return ca > cb
+	}
+	if a.apps != b.apps {
+		return a.apps > b.apps
+	}
+	return a.avg() > b.avg()
+}
 
 // teamSeason: how a club's season went (league position, division, trophies) and what it adds to
 // its players' Golden Ball scores.
@@ -215,7 +254,7 @@ func (w *world) goldenBall(ctx context.Context, q DBTX, r *rand.Rand, st *StageS
 func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*AwardNight, error) {
 	c := w.career
 	rows, err := q.Query(ctx, `SELECT player_id, (array_agg(club_id ORDER BY apps DESC))[1], sum(apps)::int, sum(goals)::int,
-		sum(assists)::int, sum(rating_sum)::float8, sum(cs)::int
+		sum(assists)::int, sum(rating_sum)::float8, sum(cs)::int, sum(conceded)::int, sum(conceded_sim)::float8
 		FROM player_stats WHERE career_id=$1 AND season=$2 AND comp <> 'friendly' GROUP BY player_id HAVING sum(apps) >= 6`, c.ID, c.Season)
 	if err != nil {
 		return nil, err
@@ -223,7 +262,7 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 	var stats []awardStat
 	for rows.Next() {
 		var a awardStat
-		if err := rows.Scan(&a.id, &a.club, &a.apps, &a.goals, &a.assists, &a.rsum, &a.cs); err != nil {
+		if err := rows.Scan(&a.id, &a.club, &a.apps, &a.goals, &a.assists, &a.rsum, &a.cs, &a.conceded, &a.gaSim); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -307,6 +346,10 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 		if p.ClubID != nil && *p.ClubID == userClub {
 			ap.Mine = true
 		}
+		if p.Position == "GK" {
+			r := math.Round(a.gaRate()*100) / 100
+			ap.Conceded, ap.GaRate = a.conceded, &r
+		}
 		if cl := w.byID[a.club]; cl != nil {
 			ap.Club, ap.Short, ap.Color, ap.Color2, ap.League, ap.Division = cl.Name, cl.Short, cl.Color, cl.Color2, cl.League, cl.Division
 		}
@@ -336,12 +379,8 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 		if a.apps >= 15 && p.Age <= 21 {
 			boy = append(boy, scored{a, p, ballScore(a, p, ts)})
 		}
-		if a.apps >= 20 && p.Position == "GK" {
-			s := float64(a.cs) + 5*(a.avg()-6.4)
-			if ts != nil {
-				s += 0.3 * ts.playerBonus()
-			}
-			glove = append(glove, scored{a, p, math.Round(s*10) / 10})
+		if a.apps >= GloveMinApps && p.Position == "GK" {
+			glove = append(glove, scored{a, p, math.Round(a.gloveRate()*100) / 100})
 		}
 		if a.goals > 0 {
 			boot = append(boot, scored{a, p, float64(a.goals)})
@@ -357,7 +396,7 @@ func (w *world) computeAwards(ctx context.Context, q DBTX, st *StageState) (*Awa
 	}
 	byScore(ball)
 	byScore(boy)
-	byScore(glove)
+	sort.SliceStable(glove, func(i, j int) bool { return gloveLess(glove[i].a, glove[j].a) })
 	sort.SliceStable(boot, func(i, j int) bool {
 		if boot[i].a.goals != boot[j].a.goals {
 			return boot[i].a.goals > boot[j].a.goals

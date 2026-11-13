@@ -48,6 +48,9 @@ type SimResult struct {
 	// Ratings: a live match's own player ratings (match.go fills them from the client)
 	Ratings map[int]float64 `json:"-"`
 	Forfeit bool            `json:"-"` // abandoned: nobody learns anything from it
+	// XG: a live match: the goals (home, away) the quick simulation expected for it. The live engine's longer
+	// matches bring more goals, so the Golden Glove counts these instead (player_stats.conceded_sim).
+	XG *[2]float64 `json:"-"`
 }
 
 func poisson(r *rand.Rand, lambda float64) int {

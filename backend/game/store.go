@@ -132,6 +132,31 @@ func (s *Store) Migrate(ctx context.Context) error {
 		q := func(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
 		migrations = append(migrations, `UPDATE clubs SET short=`+q(f[2])+` WHERE league=`+q(f[0])+` AND name=`+q(f[1])+` AND short=`+q(shortOf(f[1])))
 	}
+	// Golden Glove (stage_awards.go): the goals a keeper let in, as they happened (conceded) and as the award
+	// counts them (conceded_sim: in a live match, the quick sim's expected goals). The current season's games
+	// before these columns existed are filled once from the fixtures: the club's goals against in that
+	// competition, by the keeper's share of its games (at least one for each game without a clean sheet).
+	migrations = append(migrations,
+		`ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS conceded INT NOT NULL DEFAULT 0`,
+		`ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS conceded_sim REAL NOT NULL DEFAULT 0`,
+		`WITH t AS (
+			SELECT f.career_id, f.season, f.comp, x.club_id, sum(x.ga)::float8 AS ga, count(*)::float8 AS games
+			FROM fixtures f CROSS JOIN LATERAL (VALUES (f.home_id, f.away_goals), (f.away_id, f.home_goals)) AS x(club_id, ga)
+			WHERE f.played AND f.home_goals IS NOT NULL AND f.away_goals IS NOT NULL
+			GROUP BY 1, 2, 3, 4
+		), v AS (
+			SELECT s.player_id, s.season, s.comp, GREATEST(s.apps - s.cs, ROUND(t.ga * LEAST(1.0, s.apps / t.games))::int) AS n
+			FROM player_stats s
+			JOIN careers c ON c.id = s.career_id AND c.season = s.season
+			JOIN players p ON p.id = s.player_id AND p.position = 'GK'
+			JOIN t ON t.career_id = s.career_id AND t.season = s.season AND t.comp = s.comp AND t.club_id = s.club_id
+			WHERE s.conceded = 0 AND s.cs < s.apps
+		)
+		UPDATE player_stats s SET conceded = v.n, conceded_sim = v.n FROM v
+		WHERE s.player_id = v.player_id AND s.season = v.season AND s.comp = v.comp
+			AND NOT EXISTS (SELECT 1 FROM meta WHERE k = 'conceded_filled')`,
+		`INSERT INTO meta (k, v) VALUES ('conceded_filled', '1') ON CONFLICT (k) DO NOTHING`,
+	)
 	// Every statement is idempotent, but ALTER TABLE takes an exclusive lock even when there is
 	// nothing to do, which stalls (or deadlocks) a running API. Skip the lot when this exact
 	// schema and list were applied before.

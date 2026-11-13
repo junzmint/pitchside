@@ -249,11 +249,11 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
 - **Extra time and penalty shoot-outs** in knockout ties, simulated kick by kick (shoot-out scores are shown with the result).
 - **Explore**:
   - scouting missions to 14 regions that uncover hidden gems (revealing their development class). A trip watches a few of the region's clubs (more for a better scout), and every report draws its grade first: Diamond about 2–6%, Epic about 11–20%, Rare 45%, the rest Common, a little higher for a better scout or one with a scout's eye. Scouting a region again and again does not make the top grades common;
-  - 49 achievements with rewards and wearable titles;
+  - 50 achievements with rewards and wearable titles;
   - a trophy room with the story of every final, records and a hall of fame;
   - your manager reputation ladder;
   - an album of all legend cards;
-  - a congratulations screen when you win a trophy or get promoted.
+  - a congratulations screen when you win a trophy or get promoted, and for a great season: the double, the treble, an unbeaten league season, or a perfect one (every league game won, with a line when every cup and continental game was won too).
 - **The living world**: the computer's clubs buy and sell among themselves in the summer window and on matchdays 24–29, sack managers who fail, and earn money each season. Explore → News lists every move, with the headlines highlighted.
 - **Fans**: a supporters' mood from 0 to 100, shown on the hub as a face with a fan chant, banner or post that changes after every matchday.
   - It moves with results against what the fans expected (derbies count double), streaks, cup runs, promotion or relegation, star signings, selling the fan favourite, and the ticket price.
@@ -274,6 +274,7 @@ The lineup screen marks low-chemistry positions and explains why. Chemistry affe
   - Saves from before this got their numbers put in order once.
 - **Golden Ball night**: after the last matchday, a ceremony reveals the Golden Boot, Golden Glove, Golden Boy, Manager of the Year and the Golden Ball (10 → 1).
   - A first Golden Ball lifts the winner by about one overall point; every winner gets full morale.
+  - The Golden Glove goes to the keeper who lets in the fewest goals a game (20 games or more); in a close race the one with more games wins, then more clean sheets. Watched and played matches are longer and have more goals at both ends, so for those the goals the simulation expected count instead: watching your matches never costs your keeper the award.
   - It lifts your club's reputation if the winner is yours.
   - Replay the nights in Explore → News.
 - **International tournaments**: a World Cup after seasons 1, 5, 9… and a European Championship after seasons 3, 7….

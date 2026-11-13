@@ -29,7 +29,9 @@ function details(t: TFn, c: Cel): string[] {
   } else if (c.kind === 'promotion') {
     out.push(t('ex.cel.toDiv', { name: c.compName }))
   } else if (c.kind === 'feat') {
-    out.push(t('ex.cel.featD.' + c.key))
+    out.push(t('ex.cel.featD.' + c.key, { n: c.wins ?? 0 }))
+    if (c.allWins) out.push(t('ex.cel.allWins', { n: c.allWins }))
+    if (c.points) out.push(t('ex.cel.points', { n: c.points }))
   } else {
     out.push(t('ex.a.' + c.key))
     out.push(t('ex.cel.achHint'))
@@ -75,7 +77,7 @@ export function Celebration({ ctx }: { ctx: Ctx }) {
     ctx.reload()
   }
 
-  const stars = cur.kind === 'feat' ? (cur.key === 'treble' ? 3 : cur.key === 'double' ? 2 : 1) : 0
+  const stars = cur.kind === 'feat' ? (cur.key === 'treble' || cur.key === 'perfect' ? 3 : cur.key === 'double' ? 2 : 1) : 0
   const color = cur.color || ctx.st.club.color
   const color2 = cur.color2 || ctx.st.club.color2
   return (
