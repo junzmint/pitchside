@@ -51,8 +51,14 @@ export interface Player {
   /** recent signing: the most other clubs pay for him, and for how many more matchdays */
   resaleCap?: number
   resaleLeft?: number
-  /** he broke his limit with TP this season (once a season) */
+  /** he used this season's free limit break */
   brokeLimit?: boolean
+  /** extra limit breaks bought with TP and money this season (backend ExtraBreakFee) */
+  extraBreaks?: number
+  /** locked into his slot of the starting XI: no assistant moves him (backend lineup_lock.go) */
+  locked?: boolean
+  /** a locked starter you rested: he sits your next match out */
+  resting?: boolean
   /** appearances for your club this season (all competitions) */
   apps?: number
 }
@@ -213,7 +219,12 @@ export interface LoanOption { amount: number; weeks: number; rate: number; weekl
 export interface AgeNote { name: string; age: number; before: number; after: number }
 export interface Care { load: Record<string, string> | null; rush: Record<string, boolean> | null; rotate: number; autoXi?: boolean
   /** development rotation: 0 off, 1 light, 2 medium, 3 heavy */
-  develop?: number }
+  develop?: number
+  /** locked starters: player id → slot (backend lineup_lock.go) */
+  locked?: Record<string, number> | null
+  /** locked starters resting next match, and the ones you keep on despite the assistant's advice */
+  rest?: Record<string, boolean> | null
+  keep?: Record<string, boolean> | null }
 
 export interface MatchSetup { fixture: FixtureView; home: SideSetup; away: SideSetup; userIsHome: boolean; knockout: boolean
   /** events stream: clear | rain | snow | heat, stable per fixture */
@@ -357,6 +368,6 @@ export interface Alert {
   n?: number
   amount?: number
   names?: string[]
-  action: 'bonus' | 'renew' | 'talks' | 'staff' | 'medical' | 'squad' | 'finance'
+  action: 'bonus' | 'renew' | 'talks' | 'staff' | 'medical' | 'squad' | 'finance' | 'rest' | 'unrest'
   ready?: boolean
 }

@@ -1,5 +1,5 @@
 import type { Chemistry, CoachFit, Player, Pos, SlotChem, Tactic } from './types'
-import { onePerPerson } from './legendVersions'
+import { onePerPerson, personKeys } from './legendVersions'
 
 // Slot coordinates for a team attacking to the right; mirrors backend game/rating.go.
 // x: 0 = own goal line, 1 = opponent goal line. y: 0 = left touchline (top on screen), 1 = right.
@@ -45,14 +45,16 @@ export function effective(p: Player, role: string): number {
 
 /** Keep the same eleven but move each to the slot that suits him best: start from the current
  *  order and swap any two players while that raises the team's total effective rating. */
-export function arrangeLineup(players: Player[], lineup: number[], roles: string[]): number[] {
+export function arrangeLineup(players: Player[], lineup: number[], roles: string[], fixed?: Set<number>): number[] {
   const byId = new Map(players.map(p => [p.id, p]))
   const out = [...lineup]
   const val = (id: number, slot: number) => { const p = byId.get(id); return p ? effective(p, roles[slot]) : 0 }
   for (let pass = 0; pass < 20; pass++) {
     let improved = false
     for (let i = 0; i < out.length; i++) {
+      if (fixed?.has(i)) continue // a locked slot stays as it is
       for (let j = i + 1; j < out.length; j++) {
+        if (fixed?.has(j)) continue
         const now = val(out[i], i) + val(out[j], j)
         const swapped = val(out[j], i) + val(out[i], j)
         if (swapped > now + 0.01) { [out[i], out[j]] = [out[j], out[i]]; improved = true }
@@ -68,15 +70,29 @@ export const isIcon = (p: Player) => p.tag === 'legend' || p.tag === 'custom'
 /** Players who count towards the 50-player cap: icons don't (backend regulars). */
 export const regularCount = (squad: Player[]) => squad.filter(p => !isIcon(p)).length
 
-/** Greedy best XI. With preferIcons, legends and custom players win a slot unless someone is clearly (15%+) better. */
-export function bestLineup(squad: Player[], roles: string[], preferIcons = false, clubName?: string): number[] {
+/** Greedy best XI. With preferIcons, legends and custom players win a slot unless someone is clearly (15%+) better.
+ *  held: locked starters (slot → player id, backend lineup_lock.go) who keep their slots when they can play; their
+ *  other legend versions sit out. */
+export function bestLineup(squad: Player[], roles: string[], preferIcons = false, clubName?: string, held?: Map<number, number>): number[] {
+  const keyOf = personKeys(squad)
+  const fixed = new Map<number, number>() // slot → id of a held player who can play
+  const heldPeople = new Set<string>()
+  for (const [slot, id] of held ?? []) {
+    const p = squad.find(x => x.id === id)
+    if (!p || slot >= roles.length || (p.injury > 0 && !p.rushed) || p.resting) continue
+    fixed.set(slot, id)
+    const k = keyOf(p)
+    if (k) heldPeople.add(k)
+  }
+  const fixedIds = new Set(fixed.values())
   // one version of a legend per match (legendVersions.ts): his club version when fit, otherwise the best-rated one
-  const fitOnes = squad.filter(p => p.injury === 0)
+  const fitOnes = squad.filter(p => p.injury === 0 && !p.resting && !fixedIds.has(p.id) && !(keyOf(p) && heldPeople.has(keyOf(p))))
   const players = onePerPerson(fitOnes, undefined, clubName)
   const used = new Set<number>()
   const out: number[] = new Array(roles.length).fill(-1)
+  for (const [slot, id] of fixed) out[slot] = id
   const pri: Record<Pos, number> = { GK: 0, FW: 1, DF: 2, MF: 3 }
-  const order = roles.map((_, i) => i).sort((a, b) => pri[ROLE_CAT[roles[a]]] - pri[ROLE_CAT[roles[b]]])
+  const order = roles.map((_, i) => i).filter(i => !fixed.has(i)).sort((a, b) => pri[ROLE_CAT[roles[a]]] - pri[ROLE_CAT[roles[b]]])
   for (const slot of order) {
     let best = -1, bestR = -1
     for (const p of players) {
@@ -90,10 +106,12 @@ export function bestLineup(squad: Player[], roles: string[], preferIcons = false
   // slot by slot the greedy pass leaves stars out of position (a centre-back at left-back, the left-back in the
   // middle): move the eleven to their best slots, then bring in a bench player wherever he is now the stronger one
   const val = (p: Player, slot: number) => effective(p, roles[slot]) * (preferIcons && isIcon(p) ? 1.15 : 1)
-  let xi = out.includes(-1) ? out : arrangeLineup(players, out, roles)
+  const locked = new Set(fixed.keys())
+  let xi = out.includes(-1) ? out : arrangeLineup(players, out, roles, locked)
   for (let pass = 0; pass < 3 && !xi.includes(-1); pass++) {
     let changed = false
     xi.forEach((id, slot) => {
+      if (locked.has(slot)) return
       const cur = players.find(p => p.id === id)
       let bestId = id, bestR = cur ? val(cur, slot) : -1
       for (const p of players) {
@@ -104,7 +122,7 @@ export function bestLineup(squad: Player[], roles: string[], preferIcons = false
       if (bestId !== id) { xi[slot] = bestId; changed = true }
     })
     if (!changed) break
-    xi = arrangeLineup(players, xi, roles)
+    xi = arrangeLineup(players, xi, roles, locked)
   }
   return xi
 }

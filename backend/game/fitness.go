@@ -21,6 +21,10 @@ type Care struct {
 	AutoXI  bool           `json:"autoXi"`            // the assistant picks the strongest available eleven before every match
 	Bring   map[int]bool   `json:"bring,omitempty"`   // bench players to bring on first, so they get minutes and improve (autoSubs)
 	Breaks  map[int]int    `json:"breaks,omitempty"`  // player id → season he last broke his limit (club.go)
+	BreakN  map[int]int    `json:"breakN,omitempty"`  // player id → extra limit breaks bought this season (TP and money, club.go)
+	Locked  map[int]int    `json:"locked,omitempty"`  // starters you locked in: player id → slot. No assistant moves them (lineup_lock.go)
+	Rest    map[int]bool   `json:"rest,omitempty"`    // locked starters you rested: they sit your next match out (lineup_lock.go)
+	Keep    map[int]bool   `json:"keep,omitempty"`    // locked starters you keep playing next match despite the assistant's advice
 }
 
 var PlayerLoads = map[string]bool{"rest": true, "recovery": true, "intense": true}
@@ -45,6 +49,12 @@ func applyCare(c *Career, squad []*Player) {
 		p.Load = c.Care.Load[p.ID]
 		p.Rushed = p.Injury == 1 && c.Care.Rush[p.ID]
 		p.BrokeLimit = c.Care.Breaks[p.ID] == c.Season
+		p.ExtraBreaks = 0
+		if p.BrokeLimit {
+			p.ExtraBreaks = c.Care.BreakN[p.ID]
+		}
+		_, p.Locked = c.Care.Locked[p.ID]
+		p.Resting = c.Care.Rest[p.ID]
 		p.Bring = 0
 		if c.Care.Bring[p.ID] {
 			bring = append(bring, p)
@@ -98,12 +108,34 @@ func pruneCare(c *Career, squad []*Player) {
 			delete(c.Care.Breaks, id)
 		}
 	}
+	for id := range c.Care.BreakN {
+		if _, ok := c.Care.Breaks[id]; !ok {
+			delete(c.Care.BreakN, id)
+		}
+	}
+	for id := range c.Care.Locked {
+		if have[id] == nil {
+			delete(c.Care.Locked, id)
+		}
+	}
+	for id := range c.Care.Rest {
+		if _, ok := c.Care.Locked[id]; !ok {
+			delete(c.Care.Rest, id)
+		}
+	}
+	for id := range c.Care.Keep {
+		if _, ok := c.Care.Locked[id]; !ok {
+			delete(c.Care.Keep, id)
+		}
+	}
 }
 
 type CareReq struct {
 	Load  *string `json:"load"`  // "" (follow the team plan) | rest | recovery | intense; nil: unchanged
 	Rush  *bool   `json:"rush"`  // nil: unchanged
 	Bring *bool   `json:"bring"` // bring him on first from the bench; nil: unchanged
+	Rest  *bool   `json:"rest"`  // a locked starter sits the next match out (lineup_lock.go); nil: unchanged
+	Keep  *bool   `json:"keep"`  // a locked starter plays the next match despite the assistant's advice; nil: unchanged
 }
 
 // SetCare changes one player's training load, clears him to play while carrying a knock, or marks him to be
@@ -151,6 +183,24 @@ func (s *Store) SetCare(ctx context.Context, careerID, playerID int, req CareReq
 				delete(c.Care.Rush, playerID)
 			}
 		}
+		if req.Rest != nil || req.Keep != nil {
+			if _, ok := c.Care.Locked[playerID]; !ok && (req.Rest != nil && *req.Rest || req.Keep != nil && *req.Keep) {
+				return userErr("rest_locked_only", "Only a locked starter can be rested this way")
+			}
+			if c.Care.Rest == nil {
+				c.Care.Rest = map[int]bool{}
+			}
+			if c.Care.Keep == nil {
+				c.Care.Keep = map[int]bool{}
+			}
+			delete(c.Care.Rest, playerID)
+			delete(c.Care.Keep, playerID)
+			if req.Rest != nil && *req.Rest {
+				c.Care.Rest[playerID] = true // he sits the next match out
+			} else if req.Keep != nil && *req.Keep {
+				c.Care.Keep[playerID] = true // the advice is put away until after the next match
+			}
+		}
 		if req.Bring != nil {
 			if c.Care.Bring == nil {
 				c.Care.Bring = map[int]bool{}
@@ -189,7 +239,8 @@ func (s *Store) SetAutoXI(ctx context.Context, careerID int, on bool) error {
 			if err != nil {
 				return err
 			}
-			club.Lineup = BestLineup(squad, club.Formation)
+			applyCare(c, squad) // who is cleared to play, rested, locked
+			club.Lineup = BestLineupHeld(squad, club.Formation, heldSlots(c, len(Formations[club.Formation])))
 			if err := saveClub(ctx, q, club); err != nil {
 				return err
 			}
@@ -255,8 +306,8 @@ func rotate(threshold int, starters []*Player, roles []string, bench []*Player) 
 		}
 	}
 	for i, p := range starters {
-		if p == nil || p.Fitness >= float64(threshold) {
-			continue
+		if p == nil || p.Locked || p.Fitness >= float64(threshold) {
+			continue // a starter you locked in plays however tired he is (lineup_lock.go)
 		}
 		var best *Player
 		bestR := 0.0
@@ -331,7 +382,7 @@ func devRotate(level int, starters []*Player, roles []string, bench []*Player, w
 		slot := -1
 		for i, role := range roles {
 			out := starters[i]
-			if out == nil || changed[i] || (role == "GK") != gk || (!gk && RoleCat(role) != in.Position) {
+			if out == nil || out.Locked || changed[i] || (role == "GK") != gk || (!gk && RoleCat(role) != in.Position) {
 				continue
 			}
 			if Effective(in, role) < Effective(out, role)*cfg.Floor {
@@ -391,7 +442,8 @@ func projectedEnd(p *Player, drain float64) float64 {
 // autoSubs: the bench comes on for tired or rushed players, and for fresh legs late on. On your team the bench
 // players you marked (Player.Bring, in that order) come on first: around the hour, each for the most tired man in
 // his line (a keeper for the keeper), unless he is far below him (BringFloor). They use the SubsPlanned changes
-// before anyone else does; the last two stay for the exhausted and the hurt.
+// before anyone else does; the last two stay for the exhausted and the hurt. A starter you locked in
+// (Player.Locked) is never taken off.
 func autoSubs(r *rand.Rand, sh *TeamSheet, drain float64) {
 	type cand struct {
 		slot int
@@ -400,8 +452,8 @@ func autoSubs(r *rand.Rand, sh *TeamSheet, drain float64) {
 	}
 	var cs []cand
 	for i, p := range sh.Starters {
-		if p == nil || sh.Roles[i] == "GK" {
-			continue
+		if p == nil || p.Locked || sh.Roles[i] == "GK" {
+			continue // a starter you locked in plays the whole match (lineup_lock.go)
 		}
 		end := projectedEnd(p, drain)
 		cs = append(cs, cand{i, end, end < 50 || p.Rushed})
@@ -471,7 +523,7 @@ func autoSubs(r *rand.Rand, sh *TeamSheet, drain float64) {
 		slot := -1
 		if b.Position == "GK" {
 			for i, role := range sh.Roles {
-				if role == "GK" && sh.Starters[i] != nil && !changed[i] && fits(b, i) {
+				if role == "GK" && sh.Starters[i] != nil && !sh.Starters[i].Locked && !changed[i] && fits(b, i) {
 					slot = i
 				}
 			}

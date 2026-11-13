@@ -12,6 +12,7 @@ import { clubWaiting } from '../api_club'
 import { staffCount } from '../api_staff'
 import { AlertsPanel, inboxAlerts } from './Alerts'
 import { StaffInbox } from './staff/Decisions'
+import { lockAsks } from './LockXI'
 
 /** How many things in the inbox are waiting for an answer. */
 export function inboxCount(st: CareerState) {
@@ -20,6 +21,7 @@ export function inboxCount(st: CareerState) {
   const icon = ip && ip.season === c.season && !ip.done && (ip.options?.length ?? 0) > 0 && c.day >= ip.day && c.day <= ip.until ? 1 : 0
   return (c.contracts?.demands?.length ?? 0) + (c.commercial?.offers?.length ?? 0) + (c.commercial?.pending ? 1 : 0)
     + (c.commercial?.takeover?.status === 'offer' ? 1 : 0) + icon + eventsCount(st) + clubWaiting(st) + staffCount(st)
+    + lockAsks(st.alerts) // the assistant's advice to rest a locked starter (pages/LockXI.tsx)
 }
 
 /** A board-game style card: orange "Chance", blue "Community chest". */

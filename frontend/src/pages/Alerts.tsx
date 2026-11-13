@@ -6,6 +6,7 @@ import type { Alert } from '../types'
 import { Icon, type IconName } from '../ui'
 import { errText, useI18n, type TFn } from '../i18n'
 import { WhoTag, whoIn, type MailWho } from './MailTags'
+import { LockAnswer, isLockAlert } from './LockXI'
 
 // "Needs your attention" (backend alerts.go): unhappy coaches and players, contracts running out,
 // talks waiting for an answer, money trouble, empty staff roles, decisions waiting. Each line has a
@@ -15,6 +16,7 @@ const ICON: Record<string, IconName> = {
   debt: 'budget', coach_unhappy: 'staff', coach_angry: 'staff', coach_retiring: 'staff', coach_contract: 'contract', role_vacant: 'warn',
   staff_cards: 'staff', medical_cards: 'injury', talks_raise: 'chat', talks_renewal: 'contract', player_unrest: 'warn',
   player_contract: 'contract', contracts_many: 'contract', player_unhappy: 'user', players_unhappy: 'users',
+  lock_tired: 'fitness', lock_knock: 'injury', lock_morale: 'user', lock_resting: 'lock',
 }
 
 export function alertText(t: TFn, a: Alert) {
@@ -51,7 +53,7 @@ export function AlertsPanel({ ctx, alerts, max = 6 }: { ctx: Ctx; alerts: Alert[
         ctx.toast(t('ct.talks', { name: a.name ?? '' }))
         await ctx.reload()
       } else {
-        const tab = ({ bonus: 'staff', talks: 'inbox', staff: 'staff', medical: 'medical', finance: 'finance', squad: 'squad', renew: 'squad' } as const)[a.action] ?? 'squad'
+        const tab = ({ bonus: 'staff', talks: 'inbox', staff: 'staff', medical: 'medical', finance: 'finance', squad: 'squad', renew: 'squad', rest: 'tactics', unrest: 'tactics' } as const)[a.action] ?? 'squad'
         ctx.go(tab)
       }
     } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy('') }
@@ -68,7 +70,8 @@ export function AlertsPanel({ ctx, alerts, max = 6 }: { ctx: Ctx; alerts: Alert[
             <li key={k} className={'al-' + a.level}>
               <span className="al-ico"><Icon name={ICON[a.key] ?? 'info'} size={16} /></span>
               <span className="al-text">{who && <><WhoTag who={who} role={a.role} />{' '}</>}{alertText(t, a)}</span>
-              <button className={'small' + (a.level === 'bad' ? ' primary' : '')} disabled={busy === k} onClick={() => run(a, k)}>{label(a)}</button>
+              {isLockAlert(a) ? <LockAnswer ctx={ctx} a={a} />
+                : <button className={'small' + (a.level === 'bad' ? ' primary' : '')} disabled={busy === k} onClick={() => run(a, k)}>{label(a)}</button>}
             </li>
           )
         })}

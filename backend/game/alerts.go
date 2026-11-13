@@ -23,7 +23,7 @@ type Alert struct {
 	N      int      `json:"n,omitempty"`      // morale, days or seasons left, a count…
 	Amount int64    `json:"amount,omitempty"` // a bonus's cost, a debt, a wage asked…
 	Names  []string `json:"names,omitempty"`  // grouped alerts: who
-	Action string   `json:"action"`           // bonus | renew | talks | staff | medical | squad | finance
+	Action string   `json:"action"`           // bonus | renew | talks | staff | medical | squad | finance | rest | unrest
 	Ready  bool     `json:"ready,omitempty"`  // the action can be taken right now (a bonus is allowed)
 }
 
@@ -110,6 +110,10 @@ func (w *world) alerts() []Alert {
 		add(Alert{Key: key, Level: lvl, Kind: d.Kind, ID: d.ID, Name: d.Name, Role: d.Role, N: left, Amount: d.Ask, Action: "talks"})
 	}
 
+	// locked starters the assistant would rest (lineup_lock.go)
+	locks, tipped := w.lockAlerts()
+	out = append(out, locks...)
+
 	// players: walking out over unpaid wages, contracts running out, low morale
 	var expiring, unhappy []*Player
 	for _, p := range w.players[user.ID] {
@@ -120,7 +124,7 @@ func (w *world) alerts() []Alert {
 		if p.Contract == 1 && !isLegend(p) && c.demandFor("player", p.ID) < 0 && !w.isLoanee(p.ID) {
 			expiring = append(expiring, p)
 		}
-		if p.Morale < AlertPlayerMorale && p.Injury == 0 {
+		if p.Morale < AlertPlayerMorale && p.Injury == 0 && !tipped[p.ID] {
 			unhappy = append(unhappy, p)
 		}
 	}

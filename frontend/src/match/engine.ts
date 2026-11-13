@@ -732,7 +732,8 @@ export class Engine {
   }
 
   /** The computer brings on fresh legs for tired (or injured) players. On your side the bench players you marked
-   *  to bring on (Player.bring) come on first (bringOn). */
+   *  to bring on (Player.bring) come on first (bringOn), and a starter you locked in (Player.locked) only comes off
+   *  hurt. */
   cpuSubs(t: Side) {
     if (this.subsLeft(t) <= 0) return
     const min = this.minute()
@@ -740,7 +741,7 @@ export class Engine {
     if (!inj && (min < 55 || min === this.cpuSubCheck[t] || min % 4 !== 0)) return
     if (!inj) this.cpuSubCheck[t] = min
     if (!inj && this.bringOn(t, min)) return
-    const tired = inj ?? this.teams[t].filter(p => !p.isGK && p.stamina < (min > 75 ? 0.68 : 0.6) && p !== this.ball.owner).sort((a, b) => a.stamina - b.stamina)[0]
+    const tired = inj ?? this.teams[t].filter(p => !p.isGK && !p.data.locked && p.stamina < (min > 75 ? 0.68 : 0.6) && p !== this.ball.owner).sort((a, b) => a.stamina - b.stamina)[0]
     if (!tired) return
     const want = tired.isGK ? 'GK' : tired.cat
     const cand = this.bench[t].filter(p => p.position === want && p.fitness >= 55).sort((a, b) => b.overall - a.overall)[0]
@@ -763,7 +764,7 @@ export class Engine {
   /** Who a marked bench player would replace: the most tired man in his line he is not far below (null: nobody). */
   bringFor(t: Side, pl: Player): MP | null {
     const gk = pl.position === 'GK'
-    return this.teams[t].filter(m => m !== this.ball.owner && !m.injured && (gk ? m.isGK : !m.isGK && m.cat === pl.position))
+    return this.teams[t].filter(m => m !== this.ball.owner && !m.injured && !m.data.locked && (gk ? m.isGK : !m.isGK && m.cat === pl.position))
       .sort((a, b) => a.stamina - b.stamina).find(m => pl.overall >= m.data.overall * BRING_FLOOR) ?? null
   }
 

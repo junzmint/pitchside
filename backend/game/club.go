@@ -313,10 +313,26 @@ const BreakGap = 2
 // PotentialUpgradeCost: lifting the ceiling gets dearer near the top.
 func PotentialUpgradeCost(pot int) int { return 5 + int(math.Max(0, float64(pot-80)/3)) }
 
+// Extra limit breaks: after the season's own break a player can break his limit again, for the same TP plus money
+// that grows with each extra break this season: ExtraBreakShare of his value (ExtraBreakMin–ExtraBreakMax) times
+// the number of the break (the first extra pays it once, the second twice…).
+const (
+	ExtraBreakShare = 0.04
+	ExtraBreakMin   = 500_000
+	ExtraBreakMax   = 15_000_000
+)
+
+// ExtraBreakFee: the money for his next extra break, after done extra breaks this season (rounded to €10k).
+func ExtraBreakFee(value int64, done int) int64 {
+	base := math.Max(ExtraBreakMin, math.Min(ExtraBreakMax, float64(value)*ExtraBreakShare))
+	return int64(math.Round(base*float64(done+1)/10_000)) * 10_000
+}
+
 type UpgradeResult struct {
 	Player *Player `json:"player"`
 	TP     int     `json:"tp"`
 	Failed bool    `json:"failed,omitempty"` // past his potential, the upgrade did not take
+	Fee    int64   `json:"fee,omitempty"`    // the money an extra limit break cost
 }
 
 // UpgradeChance: below his potential an attribute upgrade always takes; past it, the further past, the
@@ -347,22 +363,48 @@ func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what 
 			return userErr("not_yours", "This player is not at your club")
 		}
 		var cost int
+		var fee int64
 		failed := false
-		if what == "potential" {
-			// legend_versions.go breakCheck: a legend card breaks his limit at any level (still once a season)
-			switch breakCheck(c, p) {
+		if what == "potential" || what == "potential_extra" {
+			// legend_versions.go breakWhy: a legend card breaks his limit at any level; the season's own break is
+			// free of money, every extra one this season costs money as well (ExtraBreakFee)
+			extra := what == "potential_extra"
+			switch breakWhy(c, p, extra) {
 			case "too_old":
 				return userErr("too_old", "Only players aged 30 or under can break their limit")
 			case "max_potential":
 				return userErr("max_potential", "Potential is already at the maximum")
 			case "break_done":
 				return userErr("break_done", "He already broke his limit this season")
+			case "break_first":
+				return userErr("break_first", "Use this season's limit break first")
 			case "not_at_limit":
 				return userErr("not_at_limit", "Only a player at his limit can break it")
 			}
 			cost = PotentialUpgradeCost(p.Potential) * legendCost(p)
 			if c.TP < cost {
 				return userErr("no_tp", "Not enough upgrade points")
+			}
+			if extra {
+				club, err := getClub(ctx, q, c.UserClubID)
+				if err != nil {
+					return err
+				}
+				fee = ExtraBreakFee(p.Value, c.Care.BreakN[p.ID])
+				if club.Budget < fee {
+					return userErr("no_budget", "Not enough budget")
+				}
+				club.Budget -= fee
+				if err := saveClub(ctx, q, club); err != nil {
+					return err
+				}
+				if err := addFinance(ctx, q, c, "limit_break", -fee, p.Name); err != nil {
+					return err
+				}
+				if c.Care.BreakN == nil {
+					c.Care.BreakN = map[int]int{}
+				}
+				c.Care.BreakN[p.ID]++
 			}
 			p.Potential++
 			if c.Care.Breaks == nil {
@@ -394,7 +436,9 @@ func (s *Store) UpgradePlayer(ctx context.Context, careerID, playerID int, what 
 		if err := savePlayer(ctx, q, p); err != nil {
 			return err
 		}
-		out = &UpgradeResult{Player: p, TP: c.TP, Failed: failed}
+		p.BrokeLimit = c.Care.Breaks[p.ID] == c.Season
+		p.ExtraBreaks = c.Care.BreakN[p.ID]
+		out = &UpgradeResult{Player: p, TP: c.TP, Failed: failed, Fee: fee}
 		return saveCareer(ctx, q, c)
 	})
 	return out, err

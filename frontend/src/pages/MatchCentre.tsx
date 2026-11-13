@@ -12,6 +12,7 @@ import { sfx } from '../sfx'
 import { TourPicker } from './club/Tour'
 import { PlayCard } from './play/PlayCard'
 import { OppSheetButton } from './OppSheet'
+import { LockTips, lockAlerts } from './LockXI'
 
 export const WX_ICON: Record<Weather, IconName> = { clear: 'sun', rain: 'rain', snow: 'snow', heat: 'heat' }
 const COMP_ICON: Record<string, IconName> = { league: 'league', cup: 'cup', cl: 'continental', friendly: 'sponsor' }
@@ -137,7 +138,7 @@ export default function MatchCentre({ ctx }: { ctx: Ctx }) {
           <VsScreen ctx={ctx} fx={fx} setup={setup} comp={comp} ev={ev} snap={snap} busy={busy} onSim={() => playDay('sim')} />
           {ev && <PressPanel ctx={ctx} ev={ev} />}
           {ev && <PressAutoPanel ctx={ctx} ev={ev} />}
-          {setup && <PreMatchNotes setup={setup} />}
+          {setup && <PreMatchNotes setup={setup} ctx={ctx} />}
         </>
       )}
 
@@ -381,13 +382,15 @@ function StrengthBars({ H, A }: { H: SideSetup; A: SideSetup }) {
 }
 
 /** What to look out for before kick-off: our weak spots and how the opponent plays. */
-function PreMatchNotes({ setup }: { setup: MatchSetup }) {
+function PreMatchNotes({ setup, ctx }: { setup: MatchSetup; ctx: Ctx }) {
   const { t } = useI18n()
   const me = setup.userIsHome ? setup.home : setup.away
   const them = setup.userIsHome ? setup.away : setup.home
   const weak = me.starters.map((p, i) => ({ p, role: me.roles[i], c: me.chemistry.slots[i] })).filter(x => x.p && x.c && x.c.chem < 5)
-  const tiredMine = me.starters.filter(p => p && p.fitness < 70)
-  const rushedMine = me.starters.filter(p => p?.rushed)
+  // a locked starter the assistant has advice on gets that line (with its answers) instead of the plain warning
+  const advised = new Set(lockAlerts(ctx.st.alerts).map(a => a.id))
+  const tiredMine = me.starters.filter(p => p && p.fitness < 70 && !advised.has(p.id))
+  const rushedMine = me.starters.filter(p => p?.rushed && !advised.has(p.id))
   const benchFresh = me.bench.filter(p => p.fitness >= 70).length
   const verdict = me.rating.overall - them.rating.overall
   return (
@@ -402,8 +405,9 @@ function PreMatchNotes({ setup }: { setup: MatchSetup }) {
             {tiredMine.map(p => <li key={'t' + p.id} className={p.fitness < 55 ? 'bad' : 'warn'}>{t(p.fitness < 55 ? 'mc.tiredRisk' : 'mc.tired', { name: p.name, f: Math.round(p.fitness) })}</li>)}
             {rushedMine.map(p => <li key={'r' + p.id} className="bad">{t('mc.rushed', { name: p.name })}</li>)}
             {(me.rotated ?? []).map(x => <li key={'o' + x.out} className="good">{t(x.why === 'dev' ? 'mc.devLine' : 'mc.rotatedLine', { out: x.out, of: x.outFit, in: x.in, if: x.inFit })}</li>)}
-            {weak.length === 0 && tiredMine.length === 0 && rushedMine.length === 0 && !me.congested && <li className="good">{t('mc.noIssues')}</li>}
+            {weak.length === 0 && tiredMine.length === 0 && rushedMine.length === 0 && advised.size === 0 && !me.congested && <li className="good">{t('mc.noIssues')}</li>}
           </ul>
+          <LockTips ctx={ctx} />
           {(tiredMine.length > 0 || me.congested) && <span className="muted" style={{ fontSize: 13 }}>{t('mc.fitTip', { n: benchFresh })}</span>}
         </div>
         <div className="stack" style={{ gap: 8 }}>

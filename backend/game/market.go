@@ -581,6 +581,7 @@ type LineupReq struct {
 	Formation string `json:"formation"`
 	Lineup    []int  `json:"lineup"`
 	Tactic    Tactic `json:"tactic"`
+	Locked    *[]int `json:"locked"` // starters locked into their slots (lineup_lock.go); missing: the locks stay on whoever still starts
 }
 
 func (s *Store) SetLineup(ctx context.Context, careerID int, req LineupReq) error {
@@ -592,6 +593,10 @@ func (s *Store) SetLineup(ctx context.Context, careerID int, req LineupReq) erro
 		return userErr("need_11", "Pick exactly 11 players")
 	}
 	return s.tx(ctx, func(q pgx.Tx) error {
+		// queue behind a matchday being played: saving a career read before it would undo the day
+		if _, err := q.Exec(ctx, `SELECT 1 FROM careers WHERE id=$1 FOR UPDATE`, careerID); err != nil {
+			return err
+		}
 		c, err := getCareer(ctx, q, careerID)
 		if err != nil {
 			return err
@@ -608,6 +613,11 @@ func (s *Store) SetLineup(ctx context.Context, careerID int, req LineupReq) erro
 		for _, p := range squad {
 			own[p.ID] = p
 		}
+		// a rested player you put back in the side plays after all (lineup_lock.go)
+		for _, id := range req.Lineup {
+			delete(c.Care.Rest, id)
+		}
+		applyCare(c, squad) // who is cleared to play, rested, locked
 		seen := map[int]bool{}
 		for _, id := range req.Lineup {
 			p := own[id]
@@ -629,21 +639,38 @@ func (s *Store) SetLineup(ctx context.Context, careerID int, req LineupReq) erro
 		if req.Formation != club.Formation {
 			club.FormWeeks = 0
 		}
+		// the locks (lineup_lock.go): the ones sent (none sent: the ones there were), at their new slots
+		ids := lockedIDs(c)
+		if req.Locked != nil {
+			ids = *req.Locked
+		}
+		locks := lockSlots(ids, req.Lineup, c.Care.Locked, Formations[club.Formation], roles, own)
 		if c.Care.AutoXI {
-			// the manager picked his own eleven: the assistant stops choosing (a new shape alone keeps him on)
-			best := BestLineup(squad, req.Formation)
+			// the assistant picks around the locked starters. A hand-picked eleven with nothing locked switches
+			// him off (a new shape alone keeps him on)
+			held := map[int]int{}
+			for id, s := range locks {
+				held[s] = id
+			}
+			best := BestLineupHeld(squad, req.Formation, held)
 			same := len(best) == len(req.Lineup)
 			for i := range best {
 				same = same && best[i] == req.Lineup[i]
 			}
-			if !same && req.Formation == club.Formation {
+			if len(locks) == 0 && !same && req.Formation == club.Formation {
 				c.Care.AutoXI = false
-				if err := saveCareer(ctx, q, c); err != nil {
-					return err
-				}
 			} else {
 				req.Lineup = best
 			}
+		}
+		c.Care.Locked = locks
+		for id := range c.Care.Rest {
+			if _, ok := locks[id]; !ok {
+				delete(c.Care.Rest, id) // unlocked: the assistant (or you) decides again
+			}
+		}
+		if err := saveCareer(ctx, q, c); err != nil {
+			return err
 		}
 		club.Formation, club.Lineup, club.Tactic = req.Formation, req.Lineup, req.Tactic
 		return saveClub(ctx, q, club)

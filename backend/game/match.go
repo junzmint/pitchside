@@ -87,11 +87,18 @@ func loadWorld(ctx context.Context, q DBTX, r *rand.Rand, careerID int) (*world,
 	w.forgetDeparted()
 	sortDemands(c.Contracts.Demands)
 	for _, cl := range w.clubs {
-		if cl.IsUser && c.Care.AutoXI {
-			// the assistant picks the strongest available eleven before every match
-			cl.Lineup = BestLineup(w.players[cl.ID], cl.Formation)
-		} else if cl.IsUser {
-			cl.Lineup = resolveLineup(cl, w.players[cl.ID])
+		if cl.IsUser {
+			// the starters you locked in keep their slots (lineup_lock.go); around them the assistant picks the
+			// strongest available eleven before every match, or your saved eleven stands
+			held := heldSlots(c, len(Formations[cl.Formation]))
+			if c.Care.AutoXI {
+				cl.Lineup = BestLineupHeld(w.players[cl.ID], cl.Formation, held)
+			} else {
+				if len(held) > 0 {
+					cl.Lineup = placeHeld(cl.Lineup, len(Formations[cl.Formation]), held, w.players[cl.ID])
+				}
+				cl.Lineup = resolveLineup(cl, w.players[cl.ID])
+			}
 		} else if cl.Division > 0 {
 			cl.Lineup = BestLineup(w.players[cl.ID], cl.Formation)
 		}
@@ -584,6 +591,7 @@ func (s *Store) PlayDay(ctx context.Context, careerID int, req MatchResultReq) (
 					Bring: s.In.Bring > 0})
 			}
 			uo = w.record(ctx, q, r, uf, res, home, away, injuredToday)
+			c.Care.Rest, c.Care.Keep = nil, nil // rested or kept on: that was for this match (lineup_lock.go)
 			if err := w.eventsAfterUserMatch(ctx, q, r, uf, uo, rep); err != nil {
 				return err
 			}

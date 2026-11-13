@@ -386,6 +386,13 @@ func tidyAfterMerge(c *Career, club *Club, legend, modern *Player) {
 	delete(c.Care.Rush, modern.ID)
 	delete(c.Care.Bring, modern.ID)
 	delete(c.Care.Breaks, modern.ID)
+	delete(c.Care.BreakN, modern.ID)
+	if slot, ok := c.Care.Locked[modern.ID]; ok {
+		delete(c.Care.Locked, modern.ID)
+		if _, mine := c.Care.Locked[legend.ID]; !mine {
+			c.Care.Locked[legend.ID] = slot // the legend takes his place, lock and all
+		}
+	}
 	if c.Events.Captain == modern.ID {
 		c.Events.Captain = legend.ID
 	}
@@ -591,14 +598,19 @@ type IconSigned struct {
 func breaksFreely(p *Player) bool { return p.Tag == "legend" }
 
 // breakCheck: why a player cannot break his limit now ("" = he can).
-func breakCheck(c *Career, p *Player) string {
+func breakCheck(c *Career, p *Player) string { return breakWhy(c, p, false) }
+
+// breakWhy: breakCheck, or for an extra break bought with TP and money (club.go) once the season's own is used.
+func breakWhy(c *Career, p *Player, extra bool) string {
 	switch {
 	case p.Age > 30 && !isLegend(p):
 		return "too_old"
 	case p.Potential >= potentialCap(p):
 		return "max_potential"
-	case c.Care.Breaks[p.ID] == c.Season:
+	case !extra && c.Care.Breaks[p.ID] == c.Season:
 		return "break_done"
+	case extra && c.Care.Breaks[p.ID] != c.Season:
+		return "break_first"
 	case !breaksFreely(p) && OverallAs(p, p.Position) < float64(p.Potential-BreakGap)-0.5:
 		return "not_at_limit"
 	}

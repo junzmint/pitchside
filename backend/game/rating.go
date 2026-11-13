@@ -177,15 +177,23 @@ func WageOf(value int64) int64 {
 	return w / 500 * 500
 }
 
-func available(p *Player) bool { return p.Injury == 0 || p.Rushed }
+// available: he can play today: fit (or cleared to play through a knock) and not rested by you (lineup_lock.go).
+func available(p *Player) bool { return (p.Injury == 0 || p.Rushed) && !p.Resting }
 
 // BestLineup greedily picks the strongest fit XI for a formation, skipping injured players.
 func BestLineup(players []*Player, formation string) []int {
+	return BestLineupHeld(players, formation, nil)
+}
+
+// BestLineupHeld: BestLineup around the starters you locked in (held: slot → player id, lineup_lock.go): each one
+// who can play keeps his slot, the other versions of a locked legend sit out, and the rest is picked as usual.
+func BestLineupHeld(players []*Player, formation string, held map[int]int) []int {
 	roles := Formations[formation]
 	m := len(roles)
+	fixed, out := heldPlayers(players, m, held)
 	var avail []*Player
 	for _, p := range players {
-		if available(p) {
+		if available(p) && !out[p.ID] {
 			avail = append(avail, p)
 		}
 	}
@@ -214,6 +222,10 @@ func BestLineup(players []*Player, formation string) []int {
 	pick := make([]int, m) // index into avail, -1 when nobody is left
 	used := make([]bool, len(avail))
 	for _, slot := range order {
+		if fixed[slot] != nil {
+			pick[slot] = -1
+			continue
+		}
 		best, bestV := -1, -1.0
 		for i := range avail {
 			if !used[i] && score[i][slot] > bestV {
@@ -231,6 +243,9 @@ func BestLineup(players []*Player, formation string) []int {
 		for a := 0; a < m; a++ {
 			for b := a + 1; b < m; b++ {
 				i, j := pick[a], pick[b]
+				if fixed[a] != nil || fixed[b] != nil {
+					continue
+				}
 				if i >= 0 && j >= 0 && score[i][b]+score[j][a] > score[i][a]+score[j][b]+0.01 {
 					pick[a], pick[b] = j, i
 					better = true
@@ -238,6 +253,9 @@ func BestLineup(players []*Player, formation string) []int {
 			}
 		}
 		for s := 0; s < m; s++ {
+			if fixed[s] != nil {
+				continue
+			}
 			for i := range avail {
 				if used[i] {
 					continue
@@ -262,7 +280,9 @@ func BestLineup(players []*Player, formation string) []int {
 	ids := make([]int, m)
 	for s := range ids {
 		ids[s] = -1
-		if pick[s] >= 0 {
+		if fixed[s] != nil {
+			ids[s] = fixed[s].ID
+		} else if pick[s] >= 0 {
 			ids[s] = avail[pick[s]].ID
 		}
 	}

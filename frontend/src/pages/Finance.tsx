@@ -9,7 +9,7 @@ import { FanFinance } from './club/FanFinance'
 
 const QUEST_ICON: Record<string, IconName> = { beat_stronger: 'attack', clean_sheets: 'cleanSheet', goals_match: 'goal', goals_total: 'goal', hattrick: 'match', high_rating: 'rating', live_wins: 'playNow', sign_young: 'hire', win_away: 'flame', win_cup_match: 'prize', win_streak: 'flame' }
 const INCOME = ['shares_sold', 'tickets', 'tv', 'ads', 'merch', 'sponsor', 'sponsor_bonus', 'hot_bonus', 'sponsor_target', 'board_reward', 'takeover', 'card', 'signing_bonus', 'friendly_fee', 'prize', 'quest', 'transfer_out', 'forced_sale', 'loan', 'derby_gate', 'loan_fee_out', 'achievement', 'golden', 'tour']
-const COSTS = ['wages', 'staff', 'dividend', 'shares_bought', 'upkeep', 'board_fine', 'sponsor_exit', 'takeover_exit', 'loan_payment', 'loan_repay', 'facility', 'tp_buy', 'transfer_in', 'staff_hire', 'agent_fee', 'swap_cash', 'loan_fee_in', 'loan_breach', 'scouting', 'tour_cost']
+const COSTS = ['wages', 'staff', 'dividend', 'shares_bought', 'upkeep', 'board_fine', 'sponsor_exit', 'takeover_exit', 'loan_payment', 'loan_repay', 'facility', 'tp_buy', 'transfer_in', 'staff_hire', 'agent_fee', 'swap_cash', 'loan_fee_in', 'loan_breach', 'scouting', 'tour_cost', 'medical', 'limit_break', 'staff_course', 'staff_bonus']
 
 export default function Finance({ ctx }: { ctx: Ctx }) {
   const { t } = useI18n()

@@ -52,19 +52,22 @@ type Player struct {
 	History      []int    `json:"history"`      // club ids, current and former
 	Shirt        int      `json:"shirt"`
 	Retired      bool     `json:"retired"`
-	Tag          string   `json:"tag"`                  // legend | custom | ""
-	Version      string   `json:"version"`              // legend card label, e.g. "Real Madrix '14"
-	Load         string   `json:"load"`                 // user's per-player training load (from Career.Care, not stored on the player)
-	Rushed       bool     `json:"rushed"`               // cleared to play in his last week out (from Career.Care)
-	Bring        int      `json:"bring,omitempty"`      // you want him brought on from the bench: 1 comes on first, 2 next… (from Career.Care)
-	Rust         float64  `json:"rust,omitempty"`       // 0..0.3: lost match sharpness after an injury (medical.go, not stored on the player)
-	InjKind      string   `json:"injKind,omitempty"`    // the kind of his injury (medical.go, not stored on the player)
-	GrowBoost    float64  `json:"-"`                    // extra growth share, e.g. from a mentor (staff_life.go, not stored on the player)
-	Mentor       *Mentor  `json:"mentor,omitempty"`     // the coach mentoring him (staff_life.go, not stored on the player)
-	ResaleCap    int64    `json:"resaleCap,omitempty"`  // recent signing: the most other clubs pay for him (resale.go)
-	ResaleLeft   int      `json:"resaleLeft,omitempty"` // matchdays until they pay his full value again
-	BrokeLimit   bool     `json:"brokeLimit,omitempty"` // he broke his limit with TP this season (from Career.Care)
-	Apps         int      `json:"apps"`                 // appearances for the user's club this season (career view only)
+	Tag          string   `json:"tag"`                   // legend | custom | ""
+	Version      string   `json:"version"`               // legend card label, e.g. "Real Madrix '14"
+	Load         string   `json:"load"`                  // user's per-player training load (from Career.Care, not stored on the player)
+	Rushed       bool     `json:"rushed"`                // cleared to play in his last week out (from Career.Care)
+	Bring        int      `json:"bring,omitempty"`       // you want him brought on from the bench: 1 comes on first, 2 next… (from Career.Care)
+	Rust         float64  `json:"rust,omitempty"`        // 0..0.3: lost match sharpness after an injury (medical.go, not stored on the player)
+	InjKind      string   `json:"injKind,omitempty"`     // the kind of his injury (medical.go, not stored on the player)
+	GrowBoost    float64  `json:"-"`                     // extra growth share, e.g. from a mentor (staff_life.go, not stored on the player)
+	Mentor       *Mentor  `json:"mentor,omitempty"`      // the coach mentoring him (staff_life.go, not stored on the player)
+	ResaleCap    int64    `json:"resaleCap,omitempty"`   // recent signing: the most other clubs pay for him (resale.go)
+	ResaleLeft   int      `json:"resaleLeft,omitempty"`  // matchdays until they pay his full value again
+	BrokeLimit   bool     `json:"brokeLimit,omitempty"`  // he broke his limit with TP this season (from Career.Care)
+	ExtraBreaks  int      `json:"extraBreaks,omitempty"` // extra limit breaks bought this season with TP and money (from Career.Care)
+	Locked       bool     `json:"locked,omitempty"`      // you locked him into his slot: no assistant moves him (from Career.Care)
+	Resting      bool     `json:"resting,omitempty"`     // you rested him (a locked starter): he sits your next match out (from Career.Care)
+	Apps         int      `json:"apps"`                  // appearances for the user's club this season (career view only)
 
 	Role     string `json:"role"` // natural position: GK, CB, LB, RB, DM, CM, AM, LM, RM, LW, RW, ST
 	Overall  int    `json:"overall"`

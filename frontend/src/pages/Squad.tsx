@@ -13,6 +13,7 @@ import { DemandCard } from './Demands'
 import { HomeMark } from '../LegendBits'
 import { clubApi, refreshClubLife, useClubLife } from '../api_club'
 import { BringFlag, BringToggle, bringTooWeak, isMarked } from './BringOn'
+import { LockFlag } from './LockXI'
 
 type Sort = 'shirt' | 'overall' | 'potential' | 'age' | 'fitness' | 'value'
 
@@ -128,7 +129,7 @@ export default function Squad({ ctx }: { ctx: Ctx }) {
                   <tr className="click" onClick={() => setOpen(open === p.id ? null : p.id)} style={{ opacity: p.injury > 0 ? 0.6 : 1 }}>
                     <td className="num">{p.shirt}</td>
                     <td className="namecell"><div className="pname">
-                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} /> <BringFlag p={p} starter={xi.has(p.id)} />
+                      <b>{p.name}</b> <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small /> <MentorFlag p={p} /> <BringFlag p={p} starter={xi.has(p.id)} /> <LockFlag p={p} />
                       {p.injury > 0 && <span className="inj"><Icon name="injury" size={13} /> {p.injury}{t('wk')}</span>}
                       {p.injury === 1 && (
                         <button className={'small rush' + (p.rushed ? ' on' : '')} title={t('rush.help')}
@@ -294,6 +295,7 @@ function PlayerFlags({ p, slot, loanee, listed, clubName }: { p: Player; slot: s
       {p.contract === 1 && <span className="flag warn"><Icon name="contract" size={12} /> {t('ct.left', { n: 1 })}</span>}
       {p.load && <span className="flag">{t('load.' + p.load)}</span>}
       <BringFlag p={p} starter={slot != null} />
+      <LockFlag p={p} />
       <MentorFlag p={p} />
       <TagChip p={p} />
       <HomeMark p={p} clubName={clubName} />
@@ -305,6 +307,8 @@ function PlayerFlags({ p, slot, loanee, listed, clubName }: { p: Player; slot: s
 // legends cost double (they don't age, but improve slowly)
 const attrCost = (v: number, legend = false) => (1 + Math.max(0, Math.floor((v - 50) / 10))) * (legend ? 2 : 1)
 const potCost = (pot: number, legend = false) => (5 + Math.max(0, Math.floor((pot - 80) / 3))) * (legend ? 2 : 1)
+// an extra limit break after the season's free one: the same TP plus money, more each time (club.go ExtraBreakFee)
+export const extraBreakFee = (value: number, done = 0) => Math.round(Math.max(500_000, Math.min(15_000_000, value * 0.04)) * (done + 1) / 10_000) * 10_000
 // potential is a guide, not a wall: past it an upgrade may not take (club.go UpgradeChance, same numbers)
 export const upgradeChance = (p: Player, legend = false) => {
   const over = p.overall - p.potential
@@ -326,10 +330,15 @@ export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
       else {
         const r = await api.upgradePlayer(ctx.id, p.id, what)
         if (r?.failed) ctx.toast(t('up.failed'), true)
+        else if (what === 'potential_extra') ctx.toast(t('up.extraDone', { pot: r.player.potential, v: money(r.fee ?? 0) }))
       }
       await ctx.reload()
     } catch (e) { ctx.toast(errText(t, e), true) }
   }
+  const potCap = legend ? 110 : 99
+  const canBreak = !(p.age > 30 && !legend) && p.potential < potCap && !farFromLimit
+  const fee = extraBreakFee(p.value, p.extraBreaks ?? 0)
+  const budget = ctx?.st.club.budget ?? 0
   return (
     <div className="grid g3" style={{ padding: '6px 0' }}>
       <div className="stack" style={{ gap: 4 }}>
@@ -360,6 +369,14 @@ export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
             {p.age > 30 && !legend && <span className="muted" style={{ fontSize: 12 }}>{t('up.tooOld')}</span>}
             {p.brokeLimit ? <span className="muted" style={{ fontSize: 12 }}>{t('up.brokeThisSeason')}</span>
               : farFromLimit && !(p.age > 30 && !legend) && <span className="muted" style={{ fontSize: 12 }}>{t('up.notAtLimit')}</span>}
+            {p.brokeLimit && canBreak && (
+              <>
+                <ConfirmButton className="small" disabled={tp < potCost(p.potential, legend) || budget < fee}
+                  label={<><Icon name="up" size={14} /> {t('up.extra', { c: potCost(p.potential, legend), v: money(fee) })}</>}
+                  confirm={t('up.extraConfirm', { c: potCost(p.potential, legend), v: money(fee) })} onConfirm={() => up('potential_extra')} />
+                <span className="muted" style={{ fontSize: 12 }}>{t('up.extraHelp', { n: p.extraBreaks ?? 0 })}</span>
+              </>
+            )}
             {freeBreak && !p.brokeLimit && p.potential < 110 && <span className="muted" style={{ fontSize: 12 }}>{t('lgv.breakFree')}</span>}
             {legend && <span className="muted" style={{ fontSize: 12 }}>{t('up.legend')}</span>}
           </div>

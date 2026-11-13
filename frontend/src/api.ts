@@ -43,7 +43,8 @@ export const api = {
   deleteCareer: (id: number) => req('DELETE', c(id)),
 
   state: (id: number) => req<CareerState>('GET', c(id)),
-  lineup: (id: number, formation: string, lineup: number[], tactic: Tactic) => req('PUT', c(id) + '/lineup', { formation, lineup, tactic }),
+  /** locked: the starters locked into their slots (backend lineup_lock.go); left out, the locks stay as they are */
+  lineup: (id: number, formation: string, lineup: number[], tactic: Tactic, locked?: number[]) => req('PUT', c(id) + '/lineup', { formation, lineup, tactic, locked }),
   training: (id: number, intensity: string, focus: Record<string, string>) => req('PUT', c(id) + '/training', { intensity, focus }),
 
   market: (id: number) => req<MarketView>('GET', c(id) + '/market'),
@@ -67,7 +68,7 @@ export const api = {
   quests: (id: number) => req<Quest[]>('GET', c(id) + '/quests'),
   claim: (id: number, qid: number) => req<{ reward: number }>('POST', `${c(id)}/quests/${qid}/claim`),
 
-  setCare: (id: number, pid: number, body: { load?: string; rush?: boolean; bring?: boolean }) => req('PUT', `${c(id)}/players/${pid}/care`, body),
+  setCare: (id: number, pid: number, body: { load?: string; rush?: boolean; bring?: boolean; rest?: boolean; keep?: boolean }) => req('PUT', `${c(id)}/players/${pid}/care`, body),
   setRotation: (id: number, threshold: number) => req('PUT', c(id) + '/rotation', { threshold }),
   setDevelop: (id: number, level: number) => req('PUT', c(id) + '/develop', { level }),
   setAutoXi: (id: number, on: boolean) => req('PUT', c(id) + '/autoxi', { on }),
@@ -78,7 +79,7 @@ export const api = {
   repayLoan: (id: number) => req('POST', c(id) + '/loan/repay'),
   buyTP: (id: number, n: number) => req('POST', c(id) + '/tp', { n }),
   revealTraits: (id: number, pid: number) => req<Player>('POST', `${c(id)}/players/${pid}/reveal`),
-  upgradePlayer: (id: number, pid: number, what: string) => req<{ player: Player; tp: number; failed?: boolean }>('POST', `${c(id)}/players/${pid}/upgrade`, { what }),
+  upgradePlayer: (id: number, pid: number, what: string) => req<{ player: Player; tp: number; failed?: boolean; fee?: number }>('POST', `${c(id)}/players/${pid}/upgrade`, { what }),
   match: (id: number) => req<MatchSetup>('GET', c(id) + '/match'),
   play: (id: number, body: object) => req<DayReport>('POST', c(id) + '/play', body),
   friendly: (id: number, opponentId: number) => req('POST', c(id) + '/friendly', { opponentId }),

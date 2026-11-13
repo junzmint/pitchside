@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { Ctx } from '../App'
 import { api } from '../api'
 import type { Player, Tactic } from '../types'
@@ -10,6 +10,7 @@ import { personKeys, twoVersions } from '../legendVersions'
 import { HomeMark } from '../LegendBits'
 import { BRING_MAX, BringList, BringToggle, bringCount, bringTooWeak, isMarked } from './BringOn'
 import { DevRotation } from './DevRotation'
+import { LockAway, LockFlag, LockTips, LockToggle, lockedIds } from './LockXI'
 
 function chemColor(c: number) {
   return c >= 7 ? '#3fcf7a' : c >= 5 ? '#e8c547' : '#ef6a55'
@@ -18,19 +19,32 @@ function chemColor(c: number) {
 export default function Tactics({ ctx }: { ctx: Ctx }) {
   const { t } = useI18n()
   const { st } = ctx
+  const autoXi = !!st.career.care?.autoXi
   const [formation, setFormation] = useState(st.club.formation)
   const [lineup, setLineup] = useState<number[]>(st.club.lineup)
   const [tactic, setTactic] = useState<Tactic>(st.club.tactic)
   const [sel, setSel] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  // locked starters (pages/LockXI.tsx): kept in their slots by the assistant, the rotations and the substitutions
+  const savedLocks = lockedIds(st.career.care?.locked)
+  const [locks, setLocks] = useState<number[]>(savedLocks)
   // the saved line-up changed on the server (the assistant switch picks a new XI): show it instead of the stale
   // local copy, which would otherwise look like unsaved changes and put the old XI back when saved
-  const saved = `${st.club.formation}|${st.club.lineup.join(',')}|${JSON.stringify(st.club.tactic)}`
-  useEffect(() => { setFormation(st.club.formation); setLineup(st.club.lineup); setTactic(st.club.tactic); setSel(null) }, [saved])
+  const saved = `${st.club.formation}|${st.club.lineup.join(',')}|${JSON.stringify(st.club.tactic)}|${savedLocks.join(',')}`
+  useEffect(() => { setFormation(st.club.formation); setLineup(st.club.lineup); setTactic(st.club.tactic); setLocks(savedLocks); setSel(null) }, [saved])
   const roles = st.formations[formation]
   const byId = useMemo(() => new Map(st.squad.map(p => [p.id, p])), [st.squad])
   const keyOf = useMemo(() => personKeys(st.squad), [st.squad]) // legend versions: one per match
   const dirty = formation !== st.club.formation || JSON.stringify(lineup) !== JSON.stringify(st.club.lineup) || JSON.stringify(tactic) !== JSON.stringify(st.club.tactic)
+    || locks.join() !== savedLocks.join()
+  const lockSet = new Set(locks)
+  const held = new Map(lineup.map((id, slot) => [slot, id] as [number, number]).filter(([, id]) => lockSet.has(id))) // slot → locked starter
+  const heldSlots = new Set(held.keys())
+  const lock = (ids: number[], on: boolean) => setLocks(prev => {
+    const next = new Set(prev)
+    for (const id of ids) if (id > 0) { if (on) next.add(id); else next.delete(id) }
+    return [...next].sort((a, b) => a - b)
+  })
   const starters = lineup.map(id => byId.get(id))
   const formWeeks = formation === st.club.formation ? st.club.formWeeks : 0
   const head = st.coaches?.find(c => c.role === 'head')
@@ -50,12 +64,16 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
     const p = byId.get(pid)
     if (p && p.injury > 0 && !p.rushed) return ctx.toast(t('err.injured'), true)
     const next = [...lineup]
+    const before = next[sel]
     const other = next.indexOf(pid)
     if (other >= 0) next[other] = next[sel]
     next[sel] = pid
     if (twoVersions(next, byId, keyOf)) return ctx.toast(t('err.legend_twice'), true) // another version of him already starts
     setLineup(next)
     setSel(null)
+    if (other < 0) lock([before], false) // the man he replaced left the side: no lock for a substitute
+    // the assistant picks the team: a player you place yourself is locked in, or he would move him again
+    if (autoXi) lock(other >= 0 ? [pid, before] : [pid], true)
   }
 
   function clickSlot(i: number) {
@@ -65,9 +83,9 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
     ;[next[sel], next[i]] = [next[i], next[sel]]
     setLineup(next)
     setSel(null)
+    if (autoXi) lock([next[sel], next[i]], true)
   }
 
-  const autoXi = !!st.career.care?.autoXi
   async function toggleAuto() {
     try {
       await api.setAutoXi(ctx.id, !autoXi)
@@ -81,11 +99,12 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
   async function save() {
     setSaving(true)
     try {
-      // a hand-picked eleven (same formation) switches the assistant off on the server: say so
-      const autoOff = autoXi && formation === st.club.formation && lineup.join() !== st.club.lineup.join()
-      await api.lineup(ctx.id, formation, lineup, tactic)
+      // a hand-picked eleven (same formation, nothing locked) switches the assistant off on the server: say so;
+      // with locks he stays on and fills the other slots around them
+      const autoOff = autoXi && locks.length === 0 && formation === st.club.formation && lineup.join() !== st.club.lineup.join()
+      await api.lineup(ctx.id, formation, lineup, tactic, locks)
       await ctx.reload()
-      ctx.toast(autoOff ? `${t('saved')} · ${t('tac.autoXiOff')}` : t('saved'))
+      ctx.toast(autoOff ? `${t('saved')} · ${t('tac.autoXiOff')}` : autoXi && locks.length > 0 ? t('lock.saved', { n: locks.length }) : t('saved'))
     } catch (e) {
       ctx.toast(errText(t, e), true)
     } finally {
@@ -107,10 +126,10 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
       <div className="head">
         <div><span className="eyebrow">{t('tac.eyebrow')}</span><h2>{t('tab.tactics')}</h2></div>
         <div className="row">
-          <button onClick={() => { setLineup(bestLineup(st.squad, roles, false, st.club.name)); setSel(null) }}>{t('tac.auto')}</button>
-          <button data-tip={t('tac.arrangeHint')} onClick={() => { setLineup(arrangeLineup(st.squad, lineup, roles)); setSel(null) }}>⇅ {t('tac.arrange')}</button>
+          <button onClick={() => { setLineup(bestLineup(st.squad, roles, false, st.club.name, held)); setSel(null) }}>{t('tac.auto')}</button>
+          <button data-tip={t('tac.arrangeHint')} onClick={() => { setLineup(arrangeLineup(st.squad, lineup, roles, heldSlots)); setSel(null) }}>⇅ {t('tac.arrange')}</button>
           {st.squad.some(isIcon) && (
-            <button title={t('tac.iconsHint')} onClick={() => { setLineup(bestLineup(st.squad, roles, true, st.club.name)); setSel(null) }}>★ {t('tac.icons')}</button>
+            <button title={t('tac.iconsHint')} onClick={() => { setLineup(bestLineup(st.squad, roles, true, st.club.name, held)); setSel(null) }}>★ {t('tac.icons')}</button>
           )}
           <button className="primary" disabled={!dirty || saving} onClick={save}>{saving ? t('wait') : dirty ? t('saveChanges') : t('saved')}</button>
         </div>
@@ -138,9 +157,12 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
               const p = byId.get(lineup[i])
               const fit = p ? fitFactor(p, role) : 1
               const c = chem.slots[i]
+              const at = { left: `${6 + sy * 88}%`, top: `${88 - ((sx - 0.04) / 0.78) * 78}%` }
+              const locked = !!p && lockSet.has(p.id)
               return (
-                <button key={i} className={'slot' + (sel === i ? ' sel' : '') + (p && isIcon(p) ? ' icon' : '')} onClick={() => clickSlot(i)}
-                  style={{ left: `${6 + sy * 88}%`, top: `${88 - ((sx - 0.04) / 0.78) * 78}%` }}>
+                <Fragment key={i}>
+                <button className={'slot' + (sel === i ? ' sel' : '') + (p && isIcon(p) ? ' icon' : '') + (locked ? ' locked' : '')} onClick={() => clickSlot(i)}
+                  style={at}>
                   <span className="dot" style={p && isIcon(p) ? undefined : { background: st.club.color, color: st.club.color2, borderColor: st.club.color2 }}>
                     {p ? Math.round(effective(p, role)) : '?'}
                     {p && <i className="chemdot" style={{ background: chemColor(c.chem) }} title={`${t('chemistry')} ${c.chem.toFixed(1)}/10`} />}
@@ -148,10 +170,18 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
                   <span className="nm">{p && isIcon(p) ? '★ ' : ''}{p ? p.name : t('empty')}{p && <HomeMark p={p} clubName={st.club.name} size={10} focusable={false} />}</span>
                   <span className={'rl' + (fit < 1 ? ' warn' : '')}>{role}{p && fit < 1 ? ` · ${t('tac.natural')} ${p.role}` : ''}</span>
                 </button>
+                {p && <LockToggle on={locked} name={p.name} role={role} style={at} onClick={() => lock([p.id], !locked)} />}
+                </Fragment>
               )
             })}
           </div>
           <Hint text={t('tac.help')} />
+          <div className="row spread lockbar">
+            <span className={'chip lockcount' + (locks.length ? ' on' : '')}><Icon name="lock" size={13} /> {t('lock.count', { n: locks.length })}</span>
+          </div>
+          <Hint text={autoXi ? t('lock.autoHint') : t('lock.help')} />
+          <LockAway squad={st.squad} locked={st.career.care?.locked} locks={locks} lineup={lineup} roles={st.formations[st.club.formation] ?? roles} onUnlock={id => lock([id], false)} />
+          <LockTips ctx={ctx} />
         </section>
 
         <div className="stack" style={{ gap: 16 }}>
@@ -225,7 +255,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
                 <tbody>
                   {list.map(p => (
                     <tr key={p.id} className={selRole && (p.injury === 0 || p.rushed) ? 'click' : ''} onClick={() => selRole && assign(p.id)} style={{ opacity: p.injury > 0 && !p.rushed ? 0.5 : 1 }}>
-                      <td className="namecell"><div className="pname">{p.shirt}. {p.name} <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small />{otherStarts(p) && <span className="flag warn" data-tip={t('lgv.otherStartsTip')}><Icon name="legend" size={12} /> {t('lgv.otherStarts')}</span>}{p.injury > 0 && <span className="inj"> ✚ {p.injury}{t('wk')}{p.rushed ? ' · ' + t('rush.on') : ''}</span>}{xi.has(p.id) ? <span className="slotchip">{t('starter')} · {roles[lineup.indexOf(p.id)]}</span> : null}
+                      <td className="namecell"><div className="pname">{p.shirt}. {p.name} <TagChip p={p} /> <HomeMark p={p} clubName={st.club.name} /> <TraitChips p={p} small />{otherStarts(p) && <span className="flag warn" data-tip={t('lgv.otherStartsTip')}><Icon name="legend" size={12} /> {t('lgv.otherStarts')}</span>}{p.injury > 0 && <span className="inj"> ✚ {p.injury}{t('wk')}{p.rushed ? ' · ' + t('rush.on') : ''}</span>}{xi.has(p.id) ? <span className="slotchip">{t('starter')} · {roles[lineup.indexOf(p.id)]}</span> : null}<LockFlag p={p} />{p.resting && <span className="flag rest" data-tip={t('lock.restingTip')}><Icon name="fitness" size={12} /> {t('lock.resting')}</span>}
                         {!selRole && !xi.has(p.id) && <span className="bringcell"><BringToggle ctx={ctx} p={p} compact />
                           {isMarked(p) && bringTooWeak(p, starters) && <span className="flag warn" data-tip={t('bring.weak')}><Icon name="warn" size={12} /> {t('bring.weakShort')}</span>}</span>}</div></td>
                       <td><PosTag p={p.position} role={p.role} /></td>

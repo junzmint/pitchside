@@ -1426,3 +1426,20 @@ button.pressopt:hover:not(:disabled) { transform: translateY(-2px); border-color
 
 /* an upgrade past potential shows its chance */
 .upbtn .upchance { font-size: 11px; font-weight: 700; color: var(--warn, #ffc23d); margin-left: 2px; }
+
+/* locked starters (pages/LockXI.tsx): the padlock on a slot of the tactics board, flags, the assistant's rest advice */
+.slotlock { position: absolute; z-index: 2; transform: translate(calc(-50% - 27px), calc(-50% - 31px)); width: 22px; height: 22px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(8, 14, 26, 0.72); border: 1px solid rgba(255, 255, 255, 0.35); color: #fff; opacity: 0.6; cursor: pointer; }
+.slotlock:hover:not(:disabled), .slotlock:focus-visible { opacity: 1; background: rgba(8, 14, 26, 0.9); }
+.slotlock.on { opacity: 1; background: linear-gradient(135deg, #ffe680, #ffc23d); color: #2a1a00; border-color: #fff; box-shadow: 0 0 0 2px rgba(255, 194, 61, 0.45), 0 2px 6px rgba(0, 0, 0, 0.4); }
+.slotlock.on:hover:not(:disabled) { background: linear-gradient(135deg, #fff0a8, #ffd25c); }
+.slot.locked .dot { box-shadow: 0 0 0 3px rgba(255, 194, 61, 0.85), 0 2px 6px rgba(0, 0, 0, 0.3); }
+.flag.lockf { color: #ffc23d; border-color: rgba(255, 194, 61, 0.5); background: rgba(255, 194, 61, 0.1); }
+.flag.rest { color: var(--cyan, #38e1ff); border-color: rgba(56, 225, 255, 0.45); background: rgba(56, 225, 255, 0.08); }
+.chip.lockcount.on { color: #ffc23d; border-color: rgba(255, 194, 61, 0.5); }
+.lockbar { margin-top: -2px; }
+.locktips, .lockaway { margin: 0; }
+.locktips li, .lockaway li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.locktips li > span:first-child, .lockaway li > span:first-child { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.lockans { gap: 6px; flex-wrap: wrap; }
+@media (max-width: 640px) { .panel.alerts li .lockans { grid-column: 1 / -1; justify-self: start; } }
