@@ -16,6 +16,7 @@ import { COMBO_ROWS, ROWS, glyph, glyphParams, type CtlGroup } from '../match/co
 import { PostMatch } from '../match/PostMatch'
 import { manOfTheMatch, rateMatch } from '../match/ratings'
 import { CelebPicker, FitBars, Intro, Scoreboard, SubTip, TIP_S, TIRED, benchOrder, staminaTone, suggestSub, type SubTipData } from '../match/Presentation'
+import { subTipDue } from '../match/tips'
 import { Tutorial, markTutorialSeen, tutorialSeen } from '../match/Tutorial'
 import { styleFor, styleLine } from '../match/style'
 import { setSettings, useSettings, type Camera } from '../settings'
@@ -665,9 +666,8 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     const rested = e.clock - tipGone.current > 20
     for (const s of [0, 1] as Side[]) {
       if (!hud.human[s] || hud.subsLeft[s] <= 0) continue
-      // a starter you locked in (Player.locked) gets no "tired" tip: he plays on unless he is hurt
-      const due = e.teams[s].filter(p => (p.injured ? !seen.hurt.has(p.data.id) : rested && !p.isGK && !p.data.locked && p.stamina < TIRED && !seen.tired.has(p.data.id)))
-        .sort((a, b) => Number(b.injured) - Number(a.injured) || a.stamina - b.stamina)
+      // a starter you locked in (Player.locked) gets no "tired" tip: he plays on unless he is hurt (match/tips.ts)
+      const due = subTipDue(e, s, seen, rested, TIRED)
       for (const p of due) {
         const y = suggestSub(e, s, p)
         if (!y) continue
