@@ -16,6 +16,23 @@ export const ROLE_CAT: Record<string, Pos> = {
   DM: 'MF', CM: 'MF', LM: 'MF', RM: 'MF', AM: 'MF', LW: 'FW', RW: 'FW', ST: 'FW',
 }
 
+/** How attacking a role is, 0 the most: the tie-break when the key players are picked. */
+const ATTACK_RANK: Record<string, number> = { ST: 0, LW: 1, RW: 1, AM: 2, LM: 3, RM: 3, CM: 4, DM: 5, LWB: 6, RWB: 6, LB: 7, RB: 7, CB: 8, GK: 9 }
+const LINE_RANK: Record<Pos, number> = { FW: 0, MF: 4, DF: 7, GK: 9 }
+
+/** A side's key players (the pre-match "Stars" and the stars on the opponent's sheet): the best of the XI by
+ *  overall. On an equal overall (a squad of maxed icons is nearly all 110) the more attacking role he plays
+ *  today goes first, then the team-sheet order. starters[i] plays roles[i]. */
+export function keyPlayers(starters: readonly (Player | null | undefined)[], roles: readonly string[] = [], n = 3): Player[] {
+  const rank = (p: Player, i: number) => ATTACK_RANK[roles[i]] ?? LINE_RANK[p.position] ?? 5
+  return starters
+    .map((p, i) => ({ p, i }))
+    .filter((x): x is { p: Player; i: number } => !!x.p)
+    .sort((a, b) => Math.round(b.p.overall) - Math.round(a.p.overall) || rank(a.p, a.i) - rank(b.p, b.i) || a.i - b.i)
+    .slice(0, n)
+    .map(x => x.p)
+}
+
 export const ATTRS = ['pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical', 'goalkeeping'] as const
 
 export function overallAs(p: Pick<Player, typeof ATTRS[number]>, cat: Pos): number {

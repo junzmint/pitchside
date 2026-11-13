@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { MatchSetup, Player, Pos, SideSetup } from '../types'
-import { ROLE_CAT, SLOTS, roleFits } from '../formations'
+import { ROLE_CAT, SLOTS, keyPlayers, roleFits } from '../formations'
 import { Badge, Hint, Icon, Modal, Ovr, PosTag, tierOf } from '../ui'
 import { useI18n } from '../i18n'
 import { chooseKits, kitSetOf, type KitChoice, type KitDef } from '../match/engine'
@@ -151,7 +151,7 @@ export function OppSheet({ setup, kitPick = 'auto', onClose }: { setup: MatchSet
   const roles = them.roles ?? []
   const starters = roles.map((_, i) => (them.starters?.[i] as Player | null | undefined) ?? null)
   const xi = starters.filter((p): p is Player => !!p)
-  const stars = new Set([...xi].sort((a, b) => b.overall - a.overall || a.id - b.id).slice(0, 3).map(p => p.id))
+  const stars = new Set(keyPlayers(starters, roles).map(p => p.id)) // the same three as the pre-match "Stars"
   const names = shirtNames(xi)
   const bench = [...(them.bench ?? [])].sort(byLine)
   const out = them.unavailable ?? []

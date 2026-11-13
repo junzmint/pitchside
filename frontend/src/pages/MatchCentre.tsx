@@ -13,6 +13,7 @@ import { TourPicker } from './club/Tour'
 import { PlayCard } from './play/PlayCard'
 import { OppSheetButton } from './OppSheet'
 import { LockTips, lockAlerts } from './LockXI'
+import { keyPlayers } from '../formations'
 
 export const WX_ICON: Record<Weather, IconName> = { clear: 'sun', rain: 'rain', snow: 'snow', heat: 'heat' }
 const COMP_ICON: Record<string, IconName> = { league: 'league', cup: 'cup', cl: 'continental', friendly: 'sponsor' }
@@ -311,9 +312,9 @@ function VsScreen({ ctx, fx, setup, comp, ev, snap, busy, onSim }: {
       {setup && H && A && (
         <div className="vsx-body">
           {/* under the opponent's key players: their whole team sheet (formation, XI on a pitch, bench, injuries) */}
-          <KeyPlayers players={H.starters} side="home">{!setup.userIsHome && <OppSheetButton setup={setup} />}</KeyPlayers>
+          <KeyPlayers players={H.starters} roles={H.roles} side="home">{!setup.userIsHome && <OppSheetButton setup={setup} />}</KeyPlayers>
           <StrengthBars H={H} A={A} />
-          <KeyPlayers players={A.starters} side="away">{setup.userIsHome && <OppSheetButton setup={setup} />}</KeyPlayers>
+          <KeyPlayers players={A.starters} roles={A.roles} side="away">{setup.userIsHome && <OppSheetButton setup={setup} />}</KeyPlayers>
         </div>
       )}
 
@@ -339,9 +340,9 @@ function VsScreen({ ctx, fx, setup, comp, ev, snap, busy, onSim }: {
   )
 }
 
-function KeyPlayers({ players, side, children }: { players: Player[]; side: 'home' | 'away'; children?: ReactNode }) {
+function KeyPlayers({ players, roles, side, children }: { players: Player[]; roles: string[]; side: 'home' | 'away'; children?: ReactNode }) {
   const { t } = useI18n()
-  const top = [...players].filter(Boolean).sort((a, b) => b.overall - a.overall).slice(0, 3)
+  const top = keyPlayers(players, roles)
   return (
     <div className={'vsx-keys ' + side}>
       <span className="eyebrow"><Icon name="star" size={13} /> {t('vs.key')}</span>
