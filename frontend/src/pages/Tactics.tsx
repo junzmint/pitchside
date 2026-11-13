@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Ctx } from '../App'
 import { api } from '../api'
 import type { Player, Tactic } from '../types'
-import { COACH_STYLES, ROLE_CAT, SLOTS, arrangeLineup, bestLineup, isIcon, coachFit, effective, fitFactor, teamChemistry } from '../formations'
+import { COACH_STYLES, SLOTS, arrangeLineup, bestLineup, isIcon, coachFit, fitFactor, roleFits, slotRating, teamChemistry } from '../formations'
 import { Bar, Ovr, PosTag, Seg, TagChip, TraitChips, Hint, Abbr, Icon } from '../ui'
 import { errText, useI18n } from '../i18n'
 import { eventsApi, eventsOf } from '../api_events'
@@ -143,7 +143,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
   const startingPeople = new Set(lineup.map(id => keyOf(byId.get(id))).filter(Boolean))
   const otherStarts = (p: typeof st.squad[number]) => !xi.has(p.id) && startingPeople.has(keyOf(p))
   const selRole = sel !== null ? roles[sel] : null
-  const list = selRole ? [...st.squad].sort((a, b) => (a.injury > 0 && !a.rushed ? 1 : 0) - (b.injury > 0 && !b.rushed ? 1 : 0) || effective(b, selRole) - effective(a, selRole)) : bench
+  const list = selRole ? [...st.squad].sort((a, b) => (a.injury > 0 && !a.rushed ? 1 : 0) - (b.injury > 0 && !b.rushed ? 1 : 0) || slotRating(b, selRole) - slotRating(a, selRole)) : bench
   const weak = roles.map((r, i) => ({ r, i, c: chem.slots[i], p: starters[i] })).filter(x => x.p && x.c.chem < 5)
 
   return (
@@ -189,13 +189,14 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
               return (
                 <Fragment key={i}>
                 <button className={'slot' + (sel === i ? ' sel' : '') + (p && isIcon(p) ? ' icon' : '') + (locked ? ' locked' : '')} onClick={() => clickSlot(i)}
-                  style={at}>
+                  style={at} data-tip={p ? t('tac.slotTip', { name: p.name, role, n: Math.round(slotRating(p, role)), f: Math.round(p.fitness), m: Math.round(p.morale) }) : undefined}>
                   <span className="dot" style={p && isIcon(p) ? undefined : { background: st.club.color, color: st.club.color2, borderColor: st.club.color2 }}>
-                    {p ? Math.round(effective(p, role)) : '?'}
+                    {p ? Math.round(slotRating(p, role)) : '?'}
                     {p && <i className="chemdot" style={{ background: chemColor(c.chem) }} title={`${t('chemistry')} ${c.chem.toFixed(1)}/10`} />}
                   </span>
+                  {p && <i className="fitbar" data-v={p.fitness < 55 ? 'bad' : p.fitness < 75 ? 'mid' : 'good'} aria-hidden="true"><b style={{ width: `${Math.max(4, Math.min(100, p.fitness))}%` }} /></i>}
                   <span className="nm">{p && isIcon(p) ? '★ ' : ''}{p ? p.name : t('empty')}{p && <HomeMark p={p} clubName={st.club.name} size={10} focusable={false} />}</span>
-                  <span className={'rl' + (fit < 1 ? ' warn' : '')}>{role}{p && fit < 1 ? ` · ${t('tac.natural')} ${p.role}` : ''}</span>
+                  <span className={'rl' + (fit < 1 ? ' warn' : '')}>{role}{p && fit < 1 ? ` · ${t('tac.natural')} ${p.role}` : ''}{p && p.learning && fit < 1 && roleFits(p.learning, role) ? ` · ${t('rt.learningShort', { pct: Math.floor(p.learnPct ?? 0) })}` : ''}</span>
                 </button>
                 {p && <LockToggle on={locked} name={p.name} role={role} style={at} onClick={() => apply({ locks: withLocks(locks, [p.id], !locked) })} />}
                 </Fragment>
@@ -287,7 +288,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
                           {isMarked(p) && bringTooWeak(p, starters) && <span className="flag warn" data-tip={t('bring.weak')}><Icon name="warn" size={12} /> {t('bring.weakShort')}</span>}</span>}</div></td>
                       <td><PosTag p={p.position} role={p.role} /></td>
                       <td className="r"><Ovr v={p.overall} /></td>
-                      {selRole && <td className="r num"><b style={{ color: ROLE_CAT[selRole] === p.position ? undefined : 'var(--warn)' }}>{Math.round(effective(p, selRole))}</b></td>}
+                      {selRole && <td className="r num"><b style={{ color: fitFactor(p, selRole) < 1 ? 'var(--warn)' : undefined }}>{Math.round(slotRating(p, selRole))}</b></td>}
                       <td style={{ width: 90 }}><Bar v={p.fitness} /></td>
                     </tr>
                   ))}

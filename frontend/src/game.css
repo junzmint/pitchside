@@ -1448,3 +1448,11 @@ button.pressopt:hover:not(:disabled) { transform: translateY(-2px); border-color
 .chip.savestate.busy { color: var(--muted, #9aa4b2); border-color: var(--line); animation: savepulse 1s ease-in-out infinite; }
 @keyframes savepulse { 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .chip.savestate.busy { animation: none; } }
+/* the Tactics board: a fitness bar under each player's number (the number is his rating in that slot) */
+.slot .fitbar { display: block; width: 34px; height: 4px; margin-top: 1px; border-radius: 2px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
+.slot .fitbar b { display: block; height: 100%; border-radius: 2px; background: #3ee08a; }
+.slot .fitbar[data-v='mid'] b { background: #ffc23d; }
+.slot .fitbar[data-v='bad'] b { background: #ff5a5f; }
+/* position training on the player card */
+.roletrain select { flex: 1; }
+.roletrain .rt-known { color: #3ee08a; }

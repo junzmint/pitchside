@@ -14,17 +14,20 @@ import (
 
 // Care holds the user's per-player fitness choices.
 type Care struct {
-	Load    map[int]string `json:"load"`              // player id → rest | recovery | intense (missing: follow the team plan)
-	Rush    map[int]bool   `json:"rush"`              // players one week from fitness cleared to play anyway
-	Rotate  int            `json:"rotate"`            // 0: off; otherwise starters below this fitness are rested before a match
-	Develop int            `json:"develop,omitempty"` // development rotation: 0 off, 1 light, 2 medium, 3 heavy (devRotate)
-	AutoXI  bool           `json:"autoXi"`            // the assistant picks the strongest available eleven before every match
-	Bring   map[int]bool   `json:"bring,omitempty"`   // bench players to bring on first, so they get minutes and improve (autoSubs)
-	Breaks  map[int]int    `json:"breaks,omitempty"`  // player id → season he last broke his limit (club.go)
-	BreakN  map[int]int    `json:"breakN,omitempty"`  // player id → extra limit breaks bought this season (TP and money, club.go)
-	Locked  map[int]int    `json:"locked,omitempty"`  // starters you locked in: player id → slot. No assistant moves them (lineup_lock.go)
-	Rest    map[int]bool   `json:"rest,omitempty"`    // locked starters you rested: they sit your next match out (lineup_lock.go)
-	Keep    map[int]bool   `json:"keep,omitempty"`    // locked starters you keep playing next match despite the assistant's advice
+	Load    map[int]string    `json:"load"`              // player id → rest | recovery | intense (missing: follow the team plan)
+	Rush    map[int]bool      `json:"rush"`              // players one week from fitness cleared to play anyway
+	Rotate  int               `json:"rotate"`            // 0: off; otherwise starters below this fitness are rested before a match
+	Develop int               `json:"develop,omitempty"` // development rotation: 0 off, 1 light, 2 medium, 3 heavy (devRotate)
+	AutoXI  bool              `json:"autoXi"`            // the assistant picks the strongest available eleven before every match
+	Bring   map[int]bool      `json:"bring,omitempty"`   // bench players to bring on first, so they get minutes and improve (autoSubs)
+	Breaks  map[int]int       `json:"breaks,omitempty"`  // player id → season he last broke his limit (club.go)
+	BreakN  map[int]int       `json:"breakN,omitempty"`  // player id → extra limit breaks bought this season (TP and money, club.go)
+	Locked  map[int]int       `json:"locked,omitempty"`  // starters you locked in: player id → slot. No assistant moves them (lineup_lock.go)
+	Rest    map[int]bool      `json:"rest,omitempty"`    // locked starters you rested: they sit your next match out (lineup_lock.go)
+	Keep    map[int]bool      `json:"keep,omitempty"`    // locked starters you keep playing next match despite the assistant's advice
+	Roles   map[int]string    `json:"roles,omitempty"`   // players you designed: their natural role (player id → ST, LW…), fixed so growth never moves it
+	Learn   map[int]RoleLearn `json:"learn,omitempty"`   // position training: the role a player is learning and how far he has come (role_training.go)
+	Known   map[int][]string  `json:"known,omitempty"`   // roles a player has learned: he plays them like his own
 }
 
 var PlayerLoads = map[string]bool{"rest": true, "recovery": true, "intense": true}
@@ -55,6 +58,24 @@ func applyCare(c *Career, squad []*Player) {
 		}
 		_, p.Locked = c.Care.Locked[p.ID]
 		p.Resting = c.Care.Rest[p.ID]
+		// a player you designed keeps his natural role: the one you chose, else the one he has the first time he
+		// is seen here (otherwise a balanced forward flips between ST and a wing as his attributes grow)
+		p.Known, p.Learning, p.LearnPct = c.Care.Known[p.ID], "", 0
+		if lr, ok := c.Care.Learn[p.ID]; ok {
+			p.Learning, p.LearnPct = lr.Role, lr.Pct
+		}
+		p.PrefRole = ""
+		if p.Tag == "custom" {
+			r := c.Care.Roles[p.ID]
+			if !roleInPosition(r, p.Position) {
+				r = attrRole(p)
+				if c.Care.Roles == nil {
+					c.Care.Roles = map[int]string{}
+				}
+				c.Care.Roles[p.ID] = r
+			}
+			p.PrefRole, p.Role = r, r
+		}
 		p.Bring = 0
 		if c.Care.Bring[p.ID] {
 			bring = append(bring, p)
@@ -128,14 +149,32 @@ func pruneCare(c *Career, squad []*Player) {
 			delete(c.Care.Keep, id)
 		}
 	}
+	for id := range c.Care.Roles {
+		if have[id] == nil {
+			delete(c.Care.Roles, id)
+		}
+	}
+	for id := range c.Care.Learn {
+		if have[id] == nil {
+			delete(c.Care.Learn, id)
+		}
+	}
+	for id := range c.Care.Known {
+		if have[id] == nil {
+			delete(c.Care.Known, id)
+		}
+	}
 }
 
 type CareReq struct {
-	Load  *string `json:"load"`  // "" (follow the team plan) | rest | recovery | intense; nil: unchanged
-	Rush  *bool   `json:"rush"`  // nil: unchanged
-	Bring *bool   `json:"bring"` // bring him on first from the bench; nil: unchanged
-	Rest  *bool   `json:"rest"`  // a locked starter sits the next match out (lineup_lock.go); nil: unchanged
-	Keep  *bool   `json:"keep"`  // a locked starter plays the next match despite the assistant's advice; nil: unchanged
+	Load   *string `json:"load"`   // "" (follow the team plan) | rest | recovery | intense; nil: unchanged
+	Rush   *bool   `json:"rush"`   // nil: unchanged
+	Bring  *bool   `json:"bring"`  // bring him on first from the bench; nil: unchanged
+	Rest   *bool   `json:"rest"`   // a locked starter sits the next match out (lineup_lock.go); nil: unchanged
+	Keep   *bool   `json:"keep"`   // a locked starter plays the next match despite the assistant's advice; nil: unchanged
+	Role   *string `json:"role"`   // a player you designed: his natural role (ST, LW…, within his position); nil: unchanged
+	Learn  *string `json:"learn"`  // position training: the role to learn ("" stops, and the progress is lost); nil: unchanged
+	Forget *string `json:"forget"` // a learned role he no longer needs (frees a place for another); nil: unchanged
 }
 
 // SetCare changes one player's training load, clears him to play while carrying a knock, or marks him to be
@@ -199,6 +238,47 @@ func (s *Store) SetCare(ctx context.Context, careerID, playerID int, req CareReq
 				c.Care.Rest[playerID] = true // he sits the next match out
 			} else if req.Keep != nil && *req.Keep {
 				c.Care.Keep[playerID] = true // the advice is put away until after the next match
+			}
+		}
+		if req.Role != nil {
+			if p.Tag != "custom" {
+				return userErr("role_custom_only", "Only a player you designed can have his role set")
+			}
+			if !roleInPosition(*req.Role, p.Position) {
+				return userErr("bad_role", "That role is not in his position")
+			}
+			if c.Care.Roles == nil {
+				c.Care.Roles = map[int]string{}
+			}
+			c.Care.Roles[playerID] = *req.Role
+		}
+		if req.Forget != nil {
+			kept := c.Care.Known[playerID][:0]
+			for _, k := range c.Care.Known[playerID] {
+				if k != *req.Forget {
+					kept = append(kept, k)
+				}
+			}
+			if len(kept) == 0 {
+				delete(c.Care.Known, playerID)
+			} else {
+				c.Care.Known[playerID] = kept
+			}
+		}
+		if req.Learn != nil {
+			if *req.Learn == "" {
+				delete(c.Care.Learn, playerID)
+			} else {
+				applyCare(c, []*Player{p}) // his natural role (a designed player's fixed one) decides what he can learn
+				if why := canLearn(c, p, *req.Learn); why != "" {
+					return userErr(why, "He cannot learn that role")
+				}
+				if c.Care.Learn == nil {
+					c.Care.Learn = map[int]RoleLearn{}
+				}
+				if cur, ok := c.Care.Learn[playerID]; !ok || cur.Role != *req.Learn {
+					c.Care.Learn[playerID] = RoleLearn{Role: *req.Learn}
+				}
 			}
 		}
 		if req.Bring != nil {

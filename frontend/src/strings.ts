@@ -157,7 +157,7 @@ const vi: Record<string, string> = {
   'rep.offseasonNext': 'Tiếp theo: kỳ nghỉ hè với các trận giao hữu kiếm tiền.',
 
   'tac.eyebrow': 'Sơ đồ, vị trí, độ ăn ý', 'tac.auto': 'Tự xếp đội mạnh nhất', 'tac.formation': 'Sơ đồ', 'tac.familiar': 'Quen sơ đồ {p}%', 'tac.offPos': 'trái sở trường',
-  'tac.help': 'Bấm một vị trí rồi chọn cầu thủ, hoặc bấm hai vị trí để đổi chỗ. Số trên áo là chỉ số thực ở vị trí đó; chấm màu là độ ăn ý (xanh tốt, vàng vừa, đỏ thấp).',
+  'tac.help': 'Bấm một vị trí rồi chọn cầu thủ, hoặc bấm hai vị trí để đổi chỗ. Số trên áo là chỉ số của cầu thủ ở vị trí đó: đá đúng sở trường thì bằng chỉ số ở trang Cầu thủ, lệch vị trí thì thấp hơn. Vạch nhỏ bên dưới là thể lực; chấm màu là độ ăn ý (xanh tốt, vàng vừa, đỏ thấp).',
   'tac.chemTitle': 'Độ ăn ý', 'tac.chemHelp': 'Mỗi vị trí 0–10 điểm: đúng sở trường (4), liên kết với người đá cạnh (cùng quốc tịch hoặc từng chung CLB, tối đa 3), số trận đã đá cho đội (tối đa 3). Cộng thêm độ quen sơ đồ. Độ ăn ý cao làm cả đội đá hay hơn.',
   'tac.chemGood': 'Không vị trí nào ăn ý thấp.', 'tac.why.fit': 'sai sở trường', 'tac.why.links': 'không liên kết với đồng đội cạnh', 'tac.why.new': 'mới về, chưa đá nhiều',
   'tac.style': 'Lối chơi', 'tac.mentality': 'Tinh thần', 'tac.pressing': 'Pressing', 'tac.passing': 'Chuyền bóng', 'tac.width': 'Độ rộng',
@@ -598,7 +598,7 @@ const en: Record<string, string> = {
   'rep.offseasonNext': 'Next: the off-season, with friendlies for extra cash.',
 
   'tac.eyebrow': 'Formation, roles, chemistry', 'tac.auto': 'Pick strongest XI', 'tac.formation': 'Formation', 'tac.familiar': 'Formation familiarity {p}%', 'tac.offPos': 'out of position',
-  'tac.help': 'Click a slot then a player, or click two slots to swap. The shirt number is the player’s real rating in that slot; the dot shows chemistry (green good, yellow fair, red low).',
+  'tac.help': 'Click a slot then a player, or click two slots to swap. The shirt number is the player’s rating in that slot: in his own role it is the overall the Squad page shows, out of position it is lower. The small bar below is his fitness; the dot shows chemistry (green good, yellow fair, red low).',
   'tac.chemTitle': 'Chemistry', 'tac.chemHelp': 'Each slot scores 0–10: natural position (4), links to neighbouring players (same nation or a shared former club, up to 3), and matches played for the club (up to 3). Formation familiarity adds on top. High chemistry lifts the whole team.',
   'tac.chemGood': 'No slots with low chemistry.', 'tac.why.fit': 'out of position', 'tac.why.links': 'no links with neighbours', 'tac.why.new': 'new arrival, few games',
   'tac.style': 'Playing style', 'tac.mentality': 'Mentality', 'tac.pressing': 'Pressing', 'tac.passing': 'Passing', 'tac.width': 'Width',

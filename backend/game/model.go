@@ -67,6 +67,10 @@ type Player struct {
 	ExtraBreaks  int      `json:"extraBreaks,omitempty"` // extra limit breaks bought this season with TP and money (from Career.Care)
 	Locked       bool     `json:"locked,omitempty"`      // you locked him into his slot: no assistant moves him (from Career.Care)
 	Resting      bool     `json:"resting,omitempty"`     // you rested him (a locked starter): he sits your next match out (from Career.Care)
+	PrefRole     string   `json:"-"`                     // a player you designed: the natural role you fixed (from Career.Care, NaturalRole)
+	Known        []string `json:"known,omitempty"`       // roles he has learned besides his own (from Career.Care, role_training.go)
+	Learning     string   `json:"learning,omitempty"`    // the role he is training for (from Career.Care)
+	LearnPct     float64  `json:"learnPct,omitempty"`    // how far he has come, 0–100
 	Apps         int      `json:"apps"`                  // appearances for the user's club this season (career view only)
 
 	Role     string `json:"role"` // natural position: GK, CB, LB, RB, DM, CM, AM, LM, RM, LW, RW, ST

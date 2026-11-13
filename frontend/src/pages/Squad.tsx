@@ -3,7 +3,7 @@ import type { Ctx } from '../App'
 import { api, money } from '../api'
 import type { Player } from '../types'
 import { ATTRS, regularCount } from '../formations'
-import { tierOf, Bar, ConfirmButton, Ovr, PosTag, Seg, TagChip, TraitChips, Abbr, Icon, PageHead, PlayerCard, Title, ViewSwitch, useViewMode, Empty, Portal, Modal } from '../ui'
+import { tierOf, Bar, ConfirmButton, Ovr, PosTag, Seg, TagChip, TraitChips, Abbr, Icon, PageHead, PlayerCard, Title, ViewSwitch, useViewMode, Empty, Portal, Modal, Hint } from '../ui'
 import type { Pos } from '../types'
 import { errText, useI18n } from '../i18n'
 import { SellDialog } from './Market'
@@ -14,6 +14,7 @@ import { HomeMark } from '../LegendBits'
 import { clubApi, refreshClubLife, useClubLife } from '../api_club'
 import { BringFlag, BringToggle, bringTooWeak, isMarked } from './BringOn'
 import { LockFlag } from './LockXI'
+import { RoleTraining } from './RoleTraining'
 
 type Sort = 'shirt' | 'overall' | 'potential' | 'age' | 'fitness' | 'value'
 
@@ -316,6 +317,32 @@ export const upgradeChance = (p: Player, legend = false) => {
   return legend ? Math.max(0.3, 0.85 - 0.06 * over) : Math.max(0.15, 0.75 - 0.1 * over)
 }
 
+// the natural roles a player you designed can be given, by position (backend Care.Roles, roleInPosition)
+const ROLE_PICKS: Record<string, string[]> = { DF: ['LB', 'CB', 'RB'], MF: ['DM', 'CM', 'AM', 'LM', 'RM'], FW: ['LW', 'ST', 'RW'] }
+
+/** A player you designed keeps the natural role you choose here: growth never moves it. */
+function RolePick({ ctx, p }: { ctx: Ctx; p: Player }) {
+  const { t } = useI18n()
+  const [busy, setBusy] = useState(false)
+  const opts = ROLE_PICKS[p.position] ?? []
+  if (!opts.length) return null
+  async function pick(role: string) {
+    if (busy || role === p.role) return
+    setBusy(true)
+    try {
+      await api.setCare(ctx.id, p.id, { role })
+      await ctx.reload()
+      ctx.toast(t('role.set', { name: p.name, role }))
+    } catch (e) { ctx.toast(errText(t, e), true) } finally { setBusy(false) }
+  }
+  return (
+    <div className="stack rolepick" style={{ gap: 4 }}>
+      <span className="row" style={{ gap: 6 }}><b>{t('role.pick')}</b><Hint text={t('role.pickTip')} /></span>
+      <Seg value={p.role} label={t('role.pick')} options={opts.map(r => [r, r] as [string, string])} onChange={pick} />
+    </div>
+  )
+}
+
 export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
   const legend = p.tag === 'legend' || p.tag === 'custom'
   const freeBreak = p.tag === 'legend' // legend cards break their limit at any level (still once a season)
@@ -346,6 +373,8 @@ export function PlayerDetail({ p, ctx }: { p: Player; ctx?: Ctx }) {
         <span className="muted">{t('nation.' + p.nation)} · {legend ? t('up.ageless') : `${p.age} ${t('yrs')}`} · {t('lbl.pot')} {p.potential}</span>
         {!legend && <span className={'devchip d-' + (p.dev || 'hidden')} title={t('dev.help')}>{t('devc.' + (p.dev || 'hidden'))}</span>}
         {ctx && <span className="muted num">{t('sq.appsSeason', { n: p.apps ?? 0 })}</span>}
+        {ctx && p.tag === 'custom' && <RolePick ctx={ctx} p={p} />}
+        {ctx && <RoleTraining ctx={ctx} p={p} />}
         {!legend && p.age <= 23 && p.overall < p.potential && <span className="muted growhint"><Icon name="match" size={13} /> {t('sq.growHint')}</span>}
         <span className="muted">{t('wage')} {money(p.wage)}/{t('wk').trim()} · {t('morale')} {Math.round(p.morale)}</span>
         <span className="muted">{t('sq.tenure', { n: p.tenure })}</span>

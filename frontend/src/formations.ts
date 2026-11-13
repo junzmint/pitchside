@@ -32,15 +32,30 @@ const COMPAT: Record<string, string[]> = { LB: ['LWB'], RB: ['RWB'], LM: ['LW'],
 export function roleFits(natural: string | undefined, slot: string) {
   return !natural || natural === slot || (COMPAT[natural] ?? []).includes(slot)
 }
-export function fitFactor(p: Player, role: string): number {
+/** How well a player suits a slot by his own role alone (backend baseFit). */
+export function baseFit(p: Player, role: string): number {
   const cat = ROLE_CAT[role]
   if (cat === p.position) return roleFits(p.role, role) ? 1 : 0.96
   if (cat === 'GK' || p.position === 'GK') return 0.55
   if (p.role && roleFits(p.role, role)) return 1 // a winger on the flank of a midfield four (LW in an LM slot), or the other way round
   return Math.abs(ORDER[cat] - ORDER[p.position]) === 1 ? 0.92 : 0.84
 }
+/** How well a player suits a slot (backend fitFactor): back towards 1 for a role he has learned or is learning. */
+export function fitFactor(p: Player, role: string): number {
+  const f = baseFit(p, role)
+  if (f >= 1 || p.position === 'GK' || ROLE_CAT[role] === 'GK') return f
+  if ((p.known ?? []).some(k => roleFits(k, role))) return 1
+  if (p.learning && roleFits(p.learning, role)) return f + (1 - f) * Math.min(100, p.learnPct ?? 0) / 100
+  return f
+}
+/** A player's rating in a slot: position fit, not fitness or morale. In his own role it is the overall the Squad
+ *  page shows; the Tactics board shows this number. */
+export function slotRating(p: Player, role: string): number {
+  return overallAs(p, ROLE_CAT[role]) * fitFactor(p, role)
+}
+/** His strength in a slot today: the slot rating with fitness and morale (backend Effective), for picking a side. */
 export function effective(p: Player, role: string): number {
-  return overallAs(p, ROLE_CAT[role]) * fitFactor(p, role) * (0.75 + 0.25 * p.fitness / 100) * (0.97 + 0.06 * p.morale / 100)
+  return slotRating(p, role) * (0.75 + 0.25 * p.fitness / 100) * (0.97 + 0.06 * p.morale / 100)
 }
 
 /** Keep the same eleven but move each to the slot that suits him best: start from the current

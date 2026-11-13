@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"math/rand"
 	"testing"
 )
@@ -310,5 +311,108 @@ func TestLockAlerts(t *testing.T) {
 	}
 	if available(sad) {
 		t.Error("a rested player is still available")
+	}
+}
+
+// A player you designed keeps his natural role as his attributes grow: the one he had when first seen, or the one
+// you chose; other players still read theirs from their attributes.
+func TestCustomRoleFixed(t *testing.T) {
+	c := &Career{UserClubID: 1, Season: 3}
+	junz := &Player{ID: 6, Tag: "custom", Position: "FW", Pace: 94, Shooting: 97, Dribbling: 95, Passing: 90, Physical: 90}
+	reg := &Player{ID: 8, Position: "FW", Pace: 94, Shooting: 97, Dribbling: 95, Passing: 90, Physical: 90}
+	junz.Fill()
+	reg.Fill()
+	applyCare(c, []*Player{junz, reg})
+	if junz.Role != "ST" || c.Care.Roles[6] != "ST" {
+		t.Fatalf("first seen as %s (stored %q), want ST", junz.Role, c.Care.Roles[6])
+	}
+	// a summer of growth: now faster than he shoots, which reads as a winger
+	for _, p := range []*Player{junz, reg} {
+		p.Pace = 105
+		p.Fill()
+	}
+	applyCare(c, []*Player{junz, reg})
+	if junz.Role != "ST" || NaturalRole(junz) != "ST" || fitFactor(junz, "ST") != 1 {
+		t.Errorf("the designed striker moved to %s", junz.Role)
+	}
+	if reg.Role != "LW" {
+		t.Errorf("a regular reads %s from his attributes, want LW", reg.Role)
+	}
+	// you choose a wing for him; a role outside his position is ignored
+	c.Care.Roles[6] = "RW"
+	applyCare(c, []*Player{junz})
+	if junz.Role != "RW" {
+		t.Errorf("chosen RW, got %s", junz.Role)
+	}
+	c.Care.Roles[6] = "CB"
+	applyCare(c, []*Player{junz})
+	if junz.Role == "CB" {
+		t.Error("a forward was made a centre-back")
+	}
+}
+
+// Position training: a winger learning to play up front loses less there as he progresses, plays it like his own
+// once learned (and the club log says so), learns faster for minutes there, and some roles can't be learned.
+func TestRoleTraining(t *testing.T) {
+	uid := 1
+	lw := &Player{ID: 10, Position: "FW", Pace: 90, Shooting: 80, Dribbling: 88, Passing: 70, Physical: 70, Fitness: 100, Morale: 60}
+	gk := &Player{ID: 12, Position: "GK", Goalkeeping: 80}
+	lw.ClubID, gk.ClubID = &uid, &uid
+	lw.Fill()
+	gk.Fill()
+	if lw.Role != "LW" || fitFactor(lw, "ST") != 0.96 {
+		t.Fatalf("setup: %s, fit at ST %.2f", lw.Role, fitFactor(lw, "ST"))
+	}
+	c := &Career{UserClubID: uid, Season: 1, Day: 3}
+	w := &world{career: c, byID: map[int]*Club{uid: {ID: uid, IsUser: true}}, players: map[int][]*Player{uid: {lw, gk}}}
+	for _, bad := range []struct {
+		p    *Player
+		role string
+		why  string
+	}{{lw, "LM", "role_fits"}, {lw, "GK", "learn_bad_role"}, {gk, "ST", "learn_bad_role"}, {lw, "XX", "learn_bad_role"}} {
+		if got := canLearn(c, bad.p, bad.role); got != bad.why {
+			t.Errorf("learn %s for %s: %q, want %q", bad.role, bad.p.Position, got, bad.why)
+		}
+	}
+	if canLearn(c, lw, "ST") != "" || canLearn(c, lw, "CB") != "" {
+		t.Fatal("a winger cannot learn ST or CB")
+	}
+	c.Care.Learn = map[int]RoleLearn{lw.ID: {Role: "ST"}}
+	applyCare(c, []*Player{lw})
+	w.learnDay(lw, nil)
+	if lw.LearnPct != LearnDaily {
+		t.Errorf("a day of training: %.1f%%", lw.LearnPct)
+	}
+	half := fitFactor(lw, "ST")
+	if half <= 0.96 || half >= 1 {
+		t.Errorf("partly learned fit %.3f", half)
+	}
+	// a full match up front counts far more than a day of training
+	uo := &matchOutcome{roles: map[int]rolePlay{lw.ID: {role: "ST", share: 1}}}
+	before := lw.LearnPct
+	w.learnDay(lw, uo)
+	if got := lw.LearnPct - before; math.Abs(got-(LearnDaily+LearnMatch)) > 1e-9 {
+		t.Errorf("a day with a full match up front: +%.1f", got)
+	}
+	for i := 0; i < 20 && c.Care.Learn[lw.ID].Role != ""; i++ {
+		w.learnDay(lw, uo)
+	}
+	if _, still := c.Care.Learn[lw.ID]; still || len(c.Care.Known[lw.ID]) != 1 || c.Care.Known[lw.ID][0] != "ST" {
+		t.Fatalf("not learned: learn %v known %v", c.Care.Learn, c.Care.Known)
+	}
+	applyCare(c, []*Player{lw})
+	if fitFactor(lw, "ST") != 1 || canLearn(c, lw, "ST") != "role_known" {
+		t.Errorf("learned ST: fit %.2f", fitFactor(lw, "ST"))
+	}
+	if len(c.Events.Log) == 0 || c.Events.Log[0].Key != "role_learned" {
+		t.Error("the club log does not say he learned it")
+	}
+	// another line learns more slowly
+	if learnSpeed(lw, "CB") >= learnSpeed(lw, "CM") || learnSpeed(lw, "CM") >= learnSpeed(lw, "ST") {
+		t.Error("learning speed does not fall with the distance between lines")
+	}
+	c.Care.Known[lw.ID] = []string{"ST", "CM", "CB"}
+	if canLearn(c, lw, "RW") != "learn_max" {
+		t.Error("a fourth role could be learned")
 	}
 }

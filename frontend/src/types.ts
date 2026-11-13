@@ -59,6 +59,10 @@ export interface Player {
   locked?: boolean
   /** a locked starter you rested: he sits your next match out */
   resting?: boolean
+  /** position training (backend role_training.go): roles he has learned, the one he is learning and how far (0–100) */
+  known?: string[]
+  learning?: string
+  learnPct?: number
   /** appearances for your club this season (all competitions) */
   apps?: number
 }

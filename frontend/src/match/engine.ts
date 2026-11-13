@@ -263,8 +263,13 @@ export class MP {
     }
     this.ageTire = icon ? 1 : 1 + 0.03 * Math.max(0, data.age - 30)
     if (this.cat !== data.position && !(roleFits(data.role, role) && data.role && !this.isGK && data.position !== 'GK')) {
-      const f = this.isGK || data.position === 'GK' ? 0.6 : 0.92
-      for (const k of Object.keys(this.s) as AttrKey[]) this.s[k] *= f
+      let f = this.isGK || data.position === 'GK' ? 0.6 : 0.92
+      // position training (Player.known, learning): a learned role costs nothing, one being learned less
+      if (!this.isGK && data.position !== 'GK') {
+        if ((data.known ?? []).some(k => roleFits(k, role))) f = 1
+        else if (data.learning && roleFits(data.learning, role)) f += (1 - f) * Math.min(100, data.learnPct ?? 0) / 100
+      }
+      if (f < 1) for (const k of Object.keys(this.s) as AttrKey[]) this.s[k] *= f
     }
     this.stamina = clamp(data.fitness / 100, 0.35, 1)
     this.face = team === 0 ? 0 : Math.PI

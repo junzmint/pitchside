@@ -387,6 +387,8 @@ func tidyAfterMerge(c *Career, club *Club, legend, modern *Player) {
 	delete(c.Care.Bring, modern.ID)
 	delete(c.Care.Breaks, modern.ID)
 	delete(c.Care.BreakN, modern.ID)
+	delete(c.Care.Learn, modern.ID)
+	delete(c.Care.Known, modern.ID)
 	if slot, ok := c.Care.Locked[modern.ID]; ok {
 		delete(c.Care.Locked, modern.ID)
 		if _, mine := c.Care.Locked[legend.ID]; !mine {

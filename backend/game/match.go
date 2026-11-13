@@ -481,7 +481,8 @@ type matchOutcome struct {
 	f        *Fixture
 	res      SimResult
 	ratings  map[int]float64
-	starters map[int]bool // the user's eleven at kick-off: the saved lineup after fitness and development rotation
+	starters map[int]bool     // the user's eleven at kick-off: the saved lineup after fitness and development rotation
+	roles    map[int]rolePlay // the user's players: the role each had and his share of the minutes (position training)
 	goals    map[int]int
 	injured  map[int]bool
 	userSide int // 0 home, 1 away, -1 none
@@ -669,10 +670,24 @@ func (w *world) record(ctx context.Context, q DBTX, r *rand.Rand, f *Fixture, re
 	o := &matchOutcome{f: f, res: res, ratings: map[int]float64{}, goals: map[int]int{}, injured: map[int]bool{}, userSide: -1}
 	for _, sh := range []TeamSheet{home, away} {
 		if sh.Club.ID == w.career.UserClubID {
-			o.starters = map[int]bool{}
-			for _, p := range sh.Starters {
+			o.starters, o.roles = map[int]bool{}, map[int]rolePlay{}
+			from := map[int]int{} // when each man came on (0: from the start)
+			for i, p := range sh.Starters {
 				if p != nil {
 					o.starters[p.ID] = true
+					o.roles[p.ID] = rolePlay{role: sh.Roles[i], share: 1}
+				}
+			}
+			for _, s := range sh.Subs {
+				if s.Out != nil {
+					if rp, ok := o.roles[s.Out.ID]; ok {
+						rp.share = math.Max(0, float64(s.Minute-from[s.Out.ID])/90)
+						o.roles[s.Out.ID] = rp
+					}
+				}
+				if s.In != nil && s.Slot < len(sh.Roles) {
+					from[s.In.ID] = s.Minute
+					o.roles[s.In.ID] = rolePlay{role: sh.Roles[s.Slot], share: float64(90-s.Minute) / 90}
 				}
 			}
 		}
@@ -830,6 +845,7 @@ func (w *world) advance(ctx context.Context, q DBTX, r *rand.Rand, rep *DayRepor
 			train(r, p, w.coaches[cid], load, isUser, w.byID[cid].TrainLvl)
 			if isUser { // training knocks: hard sessions on tired legs
 				w.trainingKnock(r, p, cid, load, clubPerks[cid], injuredToday, rep)
+				w.learnDay(p, uo) // position training (role_training.go)
 			}
 			p.Fill()
 			if isUser && p.Overall != before {

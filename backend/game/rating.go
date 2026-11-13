@@ -55,6 +55,9 @@ var catOrder = map[string]int{"GK": 0, "DF": 1, "MF": 2, "FW": 3}
 // from the legend data), a modern star where his real-life self plays (starRole, from the club data); everyone
 // else's is read from his attributes (attrRole).
 func NaturalRole(p *Player) string {
+	if p.PrefRole != "" && roleInPosition(p.PrefRole, p.Position) {
+		return p.PrefRole // a player you designed: the role fixed for him (applyCare)
+	}
 	if r := legendRole(p); r != "" {
 		return r
 	}
@@ -114,25 +117,9 @@ func roleFits(natural, slot string) bool {
 	return false
 }
 
-func fitFactor(p *Player, role string) float64 {
-	cat := RoleCat(role)
-	if cat == p.Position {
-		if roleFits(NaturalRole(p), role) {
-			return 1
-		}
-		return 0.96
-	}
-	if cat == "GK" || p.Position == "GK" {
-		return 0.55
-	}
-	if roleFits(NaturalRole(p), role) {
-		return 1 // a winger on the flank of a midfield four (LW in an LM slot), or the other way round
-	}
-	if d := catOrder[cat] - catOrder[p.Position]; d == 1 || d == -1 {
-		return 0.92
-	}
-	return 0.84
-}
+// fitFactor: how well a player suits a slot: 1 in his own role, less elsewhere (baseFit), and back towards 1 for a role
+// he has learned or is learning (role_training.go).
+func fitFactor(p *Player, role string) float64 { return learnFit(p, role, baseFit(p, role)) }
 
 // Effective rating of a player in a slot: position fit, fitness and morale.
 func Effective(p *Player, role string) float64 {

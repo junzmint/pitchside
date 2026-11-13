@@ -665,7 +665,8 @@ function LiveMatch({ setup, halfSeconds, difficulty, assists, snapshot, careerId
     const rested = e.clock - tipGone.current > 20
     for (const s of [0, 1] as Side[]) {
       if (!hud.human[s] || hud.subsLeft[s] <= 0) continue
-      const due = e.teams[s].filter(p => (p.injured ? !seen.hurt.has(p.data.id) : rested && !p.isGK && p.stamina < TIRED && !seen.tired.has(p.data.id)))
+      // a starter you locked in (Player.locked) gets no "tired" tip: he plays on unless he is hurt
+      const due = e.teams[s].filter(p => (p.injured ? !seen.hurt.has(p.data.id) : rested && !p.isGK && !p.data.locked && p.stamina < TIRED && !seen.tired.has(p.data.id)))
         .sort((a, b) => Number(b.injured) - Number(a.injured) || a.stamina - b.stamina)
       for (const p of due) {
         const y = suggestSub(e, s, p)
