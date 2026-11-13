@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Ctx } from '../App'
 import { api } from '../api'
 import type { Player, Tactic } from '../types'
@@ -11,6 +11,16 @@ import { HomeMark } from '../LegendBits'
 import { BRING_MAX, BringList, BringToggle, bringCount, bringTooWeak, isMarked } from './BringOn'
 import { DevRotation } from './DevRotation'
 import { LockAway, LockFlag, LockTips, LockToggle, lockedIds } from './LockXI'
+
+/** What the page saves: every change is saved at once (persist), so nothing waits for a button. */
+type Draft = { formation: string; lineup: number[]; tactic: Tactic; locks: number[] }
+
+/** A sorted copy of the locked ids with ids added (on) or removed. */
+function withLocks(cur: number[], ids: number[], on: boolean) {
+  const next = new Set(cur)
+  for (const id of ids) if (id > 0) { if (on) next.add(id); else next.delete(id) }
+  return [...next].sort((a, b) => a - b)
+}
 
 function chemColor(c: number) {
   return c >= 7 ? '#3fcf7a' : c >= 5 ? '#e8c547' : '#ef6a55'
@@ -28,23 +38,23 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
   // locked starters (pages/LockXI.tsx): kept in their slots by the assistant, the rotations and the substitutions
   const savedLocks = lockedIds(st.career.care?.locked)
   const [locks, setLocks] = useState<number[]>(savedLocks)
-  // the saved line-up changed on the server (the assistant switch picks a new XI): show it instead of the stale
-  // local copy, which would otherwise look like unsaved changes and put the old XI back when saved
+  // every change is saved at once (persist): a change made while one is being saved waits in `pending` and goes
+  // next; `tick` brings the server's answer back in after each round (the assistant may have re-picked the XI)
+  const pending = useRef<Draft | null>(null)
+  const busy = useRef(false)
+  const [tick, setTick] = useState(0)
+  // what the server has changed (a save, a match, the assistant switch): show it, unless a change is on its way
   const saved = `${st.club.formation}|${st.club.lineup.join(',')}|${JSON.stringify(st.club.tactic)}|${savedLocks.join(',')}`
-  useEffect(() => { setFormation(st.club.formation); setLineup(st.club.lineup); setTactic(st.club.tactic); setLocks(savedLocks); setSel(null) }, [saved])
+  useEffect(() => {
+    if (busy.current || pending.current) return
+    setFormation(st.club.formation); setLineup(st.club.lineup); setTactic(st.club.tactic); setLocks(savedLocks); setSel(null)
+  }, [saved, tick])
   const roles = st.formations[formation]
   const byId = useMemo(() => new Map(st.squad.map(p => [p.id, p])), [st.squad])
   const keyOf = useMemo(() => personKeys(st.squad), [st.squad]) // legend versions: one per match
-  const dirty = formation !== st.club.formation || JSON.stringify(lineup) !== JSON.stringify(st.club.lineup) || JSON.stringify(tactic) !== JSON.stringify(st.club.tactic)
-    || locks.join() !== savedLocks.join()
   const lockSet = new Set(locks)
   const held = new Map(lineup.map((id, slot) => [slot, id] as [number, number]).filter(([, id]) => lockSet.has(id))) // slot → locked starter
   const heldSlots = new Set(held.keys())
-  const lock = (ids: number[], on: boolean) => setLocks(prev => {
-    const next = new Set(prev)
-    for (const id of ids) if (id > 0) { if (on) next.add(id); else next.delete(id) }
-    return [...next].sort((a, b) => a - b)
-  })
   const starters = lineup.map(id => byId.get(id))
   const formWeeks = formation === st.club.formation ? st.club.formWeeks : 0
   const head = st.coaches?.find(c => c.role === 'head')
@@ -52,11 +62,44 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
   const chem = teamChemistry(starters, formation, formWeeks, st.club.id, roles, COACH_STYLES[style]?.traits ?? [])
   const fit = coachFit(style, head?.name ?? '', formation, tactic, starters)
 
+  /** Save the page as it now is (formation, eleven, playing style, locks). Changes made meanwhile go next. */
+  async function persist(d: Draft) {
+    pending.current = d
+    if (busy.current) return
+    busy.current = true
+    setSaving(true)
+    const was = { autoXi, formation: st.club.formation, lineup: st.club.lineup.join() }
+    let autoOff = false
+    try {
+      while (pending.current) {
+        const cur: Draft = pending.current
+        pending.current = null
+        // a hand-picked eleven (same formation, nothing locked) switches the assistant off on the server: say so
+        autoOff = autoOff || (was.autoXi && cur.locks.length === 0 && cur.formation === was.formation && cur.lineup.join() !== was.lineup)
+        await api.lineup(ctx.id, cur.formation, cur.lineup, cur.tactic, cur.locks)
+        if (!pending.current) await ctx.reload()
+      }
+      if (autoOff) ctx.toast(`${t('saved')} · ${t('tac.autoXiOff')}`)
+    } catch (e) {
+      pending.current = null
+      ctx.toast(errText(t, e), true)
+      await ctx.reload().catch(() => undefined)
+    } finally {
+      busy.current = false
+      setSaving(false)
+      setTick(n => n + 1)
+    }
+  }
+  /** Change the page and save it at once. */
+  function apply(over: Partial<Draft>) {
+    const d: Draft = { formation, lineup, tactic, locks, ...over }
+    setFormation(d.formation); setLineup(d.lineup); setTactic(d.tactic); setLocks(d.locks); setSel(null)
+    void persist(d)
+  }
+
   function changeFormation(f: string) {
     const keep = lineup.map(id => byId.get(id)).filter(Boolean) as Player[]
-    setFormation(f)
-    setLineup(bestLineup(keep.length === 11 ? keep : st.squad, st.formations[f], false, st.club.name))
-    setSel(null)
+    apply({ formation: f, lineup: bestLineup(keep.length === 11 ? keep : st.squad, st.formations[f], false, st.club.name) })
   }
 
   function assign(pid: number) {
@@ -69,11 +112,11 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
     if (other >= 0) next[other] = next[sel]
     next[sel] = pid
     if (twoVersions(next, byId, keyOf)) return ctx.toast(t('err.legend_twice'), true) // another version of him already starts
-    setLineup(next)
-    setSel(null)
-    if (other < 0) lock([before], false) // the man he replaced left the side: no lock for a substitute
+    let ls = locks
+    if (other < 0) ls = withLocks(ls, [before], false) // the man he replaced left the side: no lock for a substitute
     // the assistant picks the team: a player you place yourself is locked in, or he would move him again
-    if (autoXi) lock(other >= 0 ? [pid, before] : [pid], true)
+    if (autoXi) ls = withLocks(ls, other >= 0 ? [pid, before] : [pid], true)
+    apply({ lineup: next, locks: ls })
   }
 
   function clickSlot(i: number) {
@@ -81,9 +124,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
     if (sel === i) return setSel(null)
     const next = [...lineup]
     ;[next[sel], next[i]] = [next[i], next[sel]]
-    setLineup(next)
-    setSel(null)
-    if (autoXi) lock([next[sel], next[i]], true)
+    apply({ lineup: next, locks: autoXi ? withLocks(locks, [next[sel], next[i]], true) : locks })
   }
 
   async function toggleAuto() {
@@ -93,22 +134,6 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
       ctx.toast(!autoXi ? t('tac.autoXiOn') : t('tac.autoXiOff'))
     } catch (e) {
       ctx.toast(errText(t, e), true)
-    }
-  }
-
-  async function save() {
-    setSaving(true)
-    try {
-      // a hand-picked eleven (same formation, nothing locked) switches the assistant off on the server: say so;
-      // with locks he stays on and fills the other slots around them
-      const autoOff = autoXi && locks.length === 0 && formation === st.club.formation && lineup.join() !== st.club.lineup.join()
-      await api.lineup(ctx.id, formation, lineup, tactic, locks)
-      await ctx.reload()
-      ctx.toast(autoOff ? `${t('saved')} · ${t('tac.autoXiOff')}` : autoXi && locks.length > 0 ? t('lock.saved', { n: locks.length }) : t('saved'))
-    } catch (e) {
-      ctx.toast(errText(t, e), true)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -126,12 +151,14 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
       <div className="head">
         <div><span className="eyebrow">{t('tac.eyebrow')}</span><h2>{t('tab.tactics')}</h2></div>
         <div className="row">
-          <button onClick={() => { setLineup(bestLineup(st.squad, roles, false, st.club.name, held)); setSel(null) }}>{t('tac.auto')}</button>
-          <button data-tip={t('tac.arrangeHint')} onClick={() => { setLineup(arrangeLineup(st.squad, lineup, roles, heldSlots)); setSel(null) }}>⇅ {t('tac.arrange')}</button>
+          <button onClick={() => apply({ lineup: bestLineup(st.squad, roles, false, st.club.name, held) })}>{t('tac.auto')}</button>
+          <button data-tip={t('tac.arrangeHint')} onClick={() => apply({ lineup: arrangeLineup(st.squad, lineup, roles, heldSlots) })}>⇅ {t('tac.arrange')}</button>
           {st.squad.some(isIcon) && (
-            <button title={t('tac.iconsHint')} onClick={() => { setLineup(bestLineup(st.squad, roles, true, st.club.name, held)); setSel(null) }}>★ {t('tac.icons')}</button>
+            <button title={t('tac.iconsHint')} onClick={() => apply({ lineup: bestLineup(st.squad, roles, true, st.club.name, held) })}>★ {t('tac.icons')}</button>
           )}
-          <button className="primary" disabled={!dirty || saving} onClick={save}>{saving ? t('wait') : dirty ? t('saveChanges') : t('saved')}</button>
+          <span className={'chip savestate' + (saving ? ' busy' : '')} role="status" data-tip={t('tac.autosaveTip')}>
+            {saving ? t('tac.saving') : <><Icon name="check" size={13} /> {t('tac.autosaved')}</>}
+          </span>
         </div>
       </div>
 
@@ -170,7 +197,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
                   <span className="nm">{p && isIcon(p) ? '★ ' : ''}{p ? p.name : t('empty')}{p && <HomeMark p={p} clubName={st.club.name} size={10} focusable={false} />}</span>
                   <span className={'rl' + (fit < 1 ? ' warn' : '')}>{role}{p && fit < 1 ? ` · ${t('tac.natural')} ${p.role}` : ''}</span>
                 </button>
-                {p && <LockToggle on={locked} name={p.name} role={role} style={at} onClick={() => lock([p.id], !locked)} />}
+                {p && <LockToggle on={locked} name={p.name} role={role} style={at} onClick={() => apply({ locks: withLocks(locks, [p.id], !locked) })} />}
                 </Fragment>
               )
             })}
@@ -180,7 +207,7 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
             <span className={'chip lockcount' + (locks.length ? ' on' : '')}><Icon name="lock" size={13} /> {t('lock.count', { n: locks.length })}</span>
           </div>
           <Hint text={autoXi ? t('lock.autoHint') : t('lock.help')} />
-          <LockAway squad={st.squad} locked={st.career.care?.locked} locks={locks} lineup={lineup} roles={st.formations[st.club.formation] ?? roles} onUnlock={id => lock([id], false)} />
+          <LockAway squad={st.squad} locked={st.career.care?.locked} locks={locks} lineup={lineup} roles={st.formations[st.club.formation] ?? roles} onUnlock={id => apply({ locks: withLocks(locks, [id], false) })} />
           <LockTips ctx={ctx} />
         </section>
 
@@ -233,13 +260,13 @@ export default function Tactics({ ctx }: { ctx: Ctx }) {
           <section className="panel stack">
             <h3>{t('tac.style')}</h3>
             <TacticRow label={t('tac.mentality')} hint={t('tac.mentality.hint')} value={tactic.mentality}
-              options={[['defensive', t('tac.mentality.defensive')], ['balanced', t('tac.mentality.balanced')], ['attacking', t('tac.mentality.attacking')]]} onChange={v => setTactic({ ...tactic, mentality: v })} />
+              options={[['defensive', t('tac.mentality.defensive')], ['balanced', t('tac.mentality.balanced')], ['attacking', t('tac.mentality.attacking')]]} onChange={v => apply({ tactic: { ...tactic, mentality: v } })} />
             <TacticRow label={t('tac.pressing')} hint={t('tac.pressing.hint')} value={tactic.pressing}
-              options={[['low', t('tac.pressing.low')], ['mid', t('tac.pressing.mid')], ['high', t('tac.pressing.high')]]} onChange={v => setTactic({ ...tactic, pressing: v })} />
+              options={[['low', t('tac.pressing.low')], ['mid', t('tac.pressing.mid')], ['high', t('tac.pressing.high')]]} onChange={v => apply({ tactic: { ...tactic, pressing: v } })} />
             <TacticRow label={t('tac.passing')} hint={t('tac.passing.hint')} value={tactic.passing}
-              options={[['short', t('tac.passing.short')], ['mixed', t('tac.passing.mixed')], ['direct', t('tac.passing.direct')]]} onChange={v => setTactic({ ...tactic, passing: v })} />
+              options={[['short', t('tac.passing.short')], ['mixed', t('tac.passing.mixed')], ['direct', t('tac.passing.direct')]]} onChange={v => apply({ tactic: { ...tactic, passing: v } })} />
             <TacticRow label={t('tac.width')} hint={t('tac.width.hint')} value={tactic.width}
-              options={[['narrow', t('tac.width.narrow')], ['normal', t('tac.width.normal')], ['wide', t('tac.width.wide')]]} onChange={v => setTactic({ ...tactic, width: v })} />
+              options={[['narrow', t('tac.width.narrow')], ['normal', t('tac.width.normal')], ['wide', t('tac.width.wide')]]} onChange={v => apply({ tactic: { ...tactic, width: v } })} />
           </section>
 
           <section className="panel">

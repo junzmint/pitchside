@@ -647,17 +647,15 @@ func (s *Store) SetLineup(ctx context.Context, careerID int, req LineupReq) erro
 		locks := lockSlots(ids, req.Lineup, c.Care.Locked, Formations[club.Formation], roles, own)
 		if c.Care.AutoXI {
 			// the assistant picks around the locked starters. A hand-picked eleven with nothing locked switches
-			// him off (a new shape alone keeps him on)
+			// him off; a new shape, or the saved eleven sent again (only the playing style or the locks changed,
+			// e.g. the last lock taken off), keeps him on
 			held := map[int]int{}
 			for id, s := range locks {
 				held[s] = id
 			}
 			best := BestLineupHeld(squad, req.Formation, held)
-			same := len(best) == len(req.Lineup)
-			for i := range best {
-				same = same && best[i] == req.Lineup[i]
-			}
-			if len(locks) == 0 && !same && req.Formation == club.Formation {
+			handPicked := req.Formation == club.Formation && !sameIDs(req.Lineup, best) && !sameIDs(req.Lineup, club.Lineup)
+			if len(locks) == 0 && handPicked {
 				c.Care.AutoXI = false
 			} else {
 				req.Lineup = best
@@ -833,4 +831,17 @@ func refreshStaff(ctx context.Context, q DBTX, r *rand.Rand, c *Career) error {
 		}
 	}
 	return nil
+}
+
+// sameIDs: two elevens with the same players in the same slots.
+func sameIDs(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

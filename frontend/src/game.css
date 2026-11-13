@@ -1443,3 +1443,8 @@ button.pressopt:hover:not(:disabled) { transform: translateY(-2px); border-color
 .locktips li > span:first-child, .lockaway li > span:first-child { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
 .lockans { gap: 6px; flex-wrap: wrap; }
 @media (max-width: 640px) { .panel.alerts li .lockans { grid-column: 1 / -1; justify-self: start; } }
+/* the Tactics page saves every change at once: this chip says so */
+.chip.savestate { color: var(--good); border-color: rgba(62, 224, 138, 0.4); }
+.chip.savestate.busy { color: var(--muted, #9aa4b2); border-color: var(--line); animation: savepulse 1s ease-in-out infinite; }
+@keyframes savepulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .chip.savestate.busy { animation: none; } }
